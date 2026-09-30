@@ -1,0 +1,107 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar cliente" %}{% else %}{% translate "Novo cliente" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar cliente" %}{% else %}{% translate "Novo cliente" %}{% endif %}</h4>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="row g-4">
+        <div class="col-md-4">
+          <label for="{{ form.tipo_pessoa.id_for_label }}" class="form-label">{% translate "Tipo de pessoa" %}</label>
+          {{ form.tipo_pessoa }}
+          {% if form.tipo_pessoa.errors %}<div class="text-danger small mt-1">{{ form.tipo_pessoa.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.cpf_cnpj.id_for_label }}" class="form-label">{% translate "CPF/CNPJ" %}</label>
+          {{ form.cpf_cnpj }}
+          {% if form.cpf_cnpj.errors %}<div class="text-danger small mt-1">{{ form.cpf_cnpj.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label d-block">{% translate "Status" %}</label>
+          <div class="form-check form-switch mt-2">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.nome_razao_social.id_for_label }}" class="form-label">{% translate "Nome / Razão social" %}</label>
+          {{ form.nome_razao_social }}
+          {% if form.nome_razao_social.errors %}<div class="text-danger small mt-1">{{ form.nome_razao_social.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.nome_fantasia.id_for_label }}" class="form-label">{% translate "Nome fantasia" %} ({% translate "opcional" %})</label>
+          {{ form.nome_fantasia }}
+        </div>
+      </div>
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+        <a href="{% url 'cliente-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if object %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">{% translate "Usuários vinculados" %}</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Usuário" %}</th>
+          <th>{% translate "E-mail" %}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for usuario in usuarios_vinculados %}
+        <tr>
+          <td>{{ usuario.user.username }}</td>
+          <td>{{ usuario.email }}</td>
+          <td class="text-end">
+            <form method="post" action="{% url 'cliente-desvincular-usuario' object.pk usuario.user.pk %}" onsubmit="return confirm('{% translate "Remover este usuário do cliente?" %}');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger">{% translate "Remover" %}</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center py-4">{% translate "Nenhum usuário vinculado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{% url 'cliente-vincular-usuario' object.pk %}" class="d-flex gap-2">
+      {% csrf_token %}
+      <select name="user_id" class="form-select" required>
+        <option value="">{% translate "Selecione um usuário sem cliente..." %}</option>
+        {% for usuario in usuarios_disponiveis %}
+        <option value="{{ usuario.pk }}">{{ usuario.username }} ({{ usuario.email }})</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-primary text-nowrap">{% translate "Vincular" %}</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

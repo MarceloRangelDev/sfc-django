@@ -55,6 +55,13 @@
       "permission": "precificacao.view_precificacao"
     },
     {
+      "url": "cliente-list",
+      "icon": "menu-icon icon-base ti tabler-building-store",
+      "name": "Clientes",
+      "slug": "cliente",
+      "permission": "cliente.view_cliente"
+    },
+    {
       "name": "Dashboards",
       "icon": "menu-icon icon-base ti tabler-smart-home",
       "slug": "dashboard",

@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.categoria",
     "apps.ficha",
     "apps.precificacao",
+    "apps.cliente",
 ]
 
 MIDDLEWARE = [
@@ -90,6 +91,7 @@ TEMPLATES = [
                 "config.context_processors.my_setting",
                 "config.context_processors.get_cookie",
                 "config.context_processors.environment",
+                "config.context_processors.cliente_atual",
             ],
             "libraries": {
                 "theme": "web_project.template_tags.theme",

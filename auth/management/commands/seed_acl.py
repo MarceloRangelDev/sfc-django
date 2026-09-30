@@ -23,6 +23,14 @@ SCREEN_APPS = [
     "precificacao",
 ]
 
+# Apps de administração do sistema (não são "telas de negócio" do dia a
+# dia): só o grupo Administrador recebe permissão por padrão. Cadastrar
+# Clientes (tenants) e vincular usuários a eles é uma ação sensível, então
+# fica de fora do acesso automático de Gestor/Operador/Visualizador.
+ADMIN_APPS = [
+    "cliente",
+]
+
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.
 GROUPS = {
@@ -36,21 +44,32 @@ GROUPS = {
 class Command(BaseCommand):
     help = "Cria/atualiza os grupos padrão de ACL (Administrador, Gestor, Operador, Visualizador)."
 
-    def handle(self, *args, **options):
+    def _permissions_by_action(self, app_labels):
         permissions_by_action = {"view": [], "add": [], "change": [], "delete": []}
-
-        for app_label in SCREEN_APPS:
+        for app_label in app_labels:
             for perm in Permission.objects.filter(content_type__app_label=app_label):
                 for action in permissions_by_action:
                     if perm.codename.startswith(f"{action}_"):
                         permissions_by_action[action].append(perm)
+        return permissions_by_action
+
+    def handle(self, *args, **options):
+        screen_perms = self._permissions_by_action(SCREEN_APPS)
+        admin_perms = self._permissions_by_action(ADMIN_APPS)
 
         for group_name, actions in GROUPS.items():
             group, created = Group.objects.get_or_create(name=group_name)
 
             perms_for_group = []
             for action in actions:
-                perms_for_group.extend(permissions_by_action[action])
+                perms_for_group.extend(screen_perms[action])
+
+            # Apps administrativos (ex: Cliente) só entram para o
+            # Administrador, mesmo que o grupo tenha outras ações liberadas
+            # nas telas de negócio comuns.
+            if group_name == "Administrador":
+                for action in actions:
+                    perms_for_group.extend(admin_perms[action])
 
             group.permissions.set(perms_for_group)
 

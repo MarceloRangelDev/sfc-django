@@ -1,0 +1,83 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Clientes" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Clientes" %}</h4>
+  {% if perms.cliente.add_cliente %}
+  <a href="{% url 'cliente-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo cliente" %}
+  </a>
+  {% endif %}
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Tipo" %}</th>
+          <th>{% translate "CPF/CNPJ" %}</th>
+          <th>{% translate "Nome / Razão social" %}</th>
+          <th>{% translate "Usuários" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cliente in clientes %}
+        <tr>
+          <td>{{ cliente.get_tipo_pessoa_display }}</td>
+          <td>{{ cliente.cpf_cnpj_formatado }}</td>
+          <td>{{ cliente.nome_razao_social }}</td>
+          <td>{{ cliente.usuarios.count }}</td>
+          <td>
+            {% if cliente.ativo %}
+            <span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}
+            <span class="badge bg-label-secondary">{% translate "Inativo" %}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if perms.cliente.change_cliente %}
+            <a href="{% url 'cliente-edit' cliente.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
+              <i class="icon-base ti tabler-edit"></i>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center py-6">{% translate "Nenhum cliente cadastrado até o momento." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% translate "Anterior" %}</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% translate "Próxima" %}</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

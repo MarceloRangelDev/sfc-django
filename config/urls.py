@@ -40,6 +40,8 @@ urlpatterns = [
     path("", include("apps.ficha.urls")),
     # precificacao urls
     path("", include("apps.precificacao.urls")),
+    # cliente urls (cadastro de clientes/tenants - CPF/CNPJ)
+    path("", include("apps.cliente.urls")),
 ]
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)

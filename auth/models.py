@@ -31,6 +31,19 @@ class Profile(models.Model):
         verbose_name="Segmento de trabalho",
         help_text="Define se as regras de precificação usadas são as de serviço, de produto ou ambas.",
     )
+    # Cliente (empresa/CPF-CNPJ) ao qual este usuário pertence. Nullable
+    # porque usuários criados antes da Fase 2 (multi-tenant) ainda não têm
+    # Cliente até a migration de dados vinculá-los a um Cliente padrão;
+    # PROTECT porque um Cliente com usuários vinculados não deve poder ser
+    # apagado sem antes desvincular (ou migrar) esses usuários.
+    cliente = models.ForeignKey(
+        "cliente.Cliente",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="usuarios",
+        verbose_name="Cliente",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
