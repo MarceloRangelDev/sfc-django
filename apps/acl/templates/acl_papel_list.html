@@ -1,0 +1,67 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Papéis" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Papéis" %}</h4>
+  {% if perms.auth.add_group %}
+  <a href="{% url 'acl-papel-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo papel" %}
+  </a>
+  {% endif %}
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Papel" %}</th>
+          <th>{% translate "Permissões" %}</th>
+          <th>{% translate "Usuários" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for papel in papeis %}
+        <tr>
+          <td>{{ papel.name }}</td>
+          <td>{{ papel.permissions.count }}</td>
+          <td>{{ papel.user_set.count }}</td>
+          <td>
+            {% if perms.auth.change_group %}
+            <a href="{% url 'acl-papel-edit' papel.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
+              <i class="icon-base ti tabler-edit"></i>
+            </a>
+            {% endif %}
+            {% if perms.auth.delete_group %}
+            <form method="post" action="{% url 'acl-papel-delete' papel.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Excluir este papel? Usuários com este papel perdem as permissões associadas a ele." %}');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}">
+                <i class="icon-base ti tabler-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center py-6">{% translate "Nenhum papel cadastrado até o momento." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

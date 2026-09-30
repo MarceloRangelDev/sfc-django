@@ -44,6 +44,8 @@ urlpatterns = [
     path("", include("apps.cliente.urls")),
     # modulo urls (habilitar/desabilitar módulos por cliente)
     path("", include("apps.modulo.urls")),
+    # acl urls (papéis e permissões)
+    path("", include("apps.acl.urls")),
 ]
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)

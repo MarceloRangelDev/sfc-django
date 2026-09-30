@@ -75,6 +75,20 @@
       "permission": "modulo.change_clientemodulo"
     },
     {
+      "url": "acl-papel-list",
+      "icon": "menu-icon icon-base ti tabler-shield-lock",
+      "name": "Papéis",
+      "slug": "acl-papel",
+      "permission": "auth.view_group"
+    },
+    {
+      "url": "acl-permissao-list",
+      "icon": "menu-icon icon-base ti tabler-key",
+      "name": "Permissões",
+      "slug": "acl-permissao",
+      "permission": "auth.view_permission"
+    },
+    {
       "name": "Dashboards",
       "icon": "menu-icon icon-base ti tabler-smart-home",
       "slug": "dashboard",

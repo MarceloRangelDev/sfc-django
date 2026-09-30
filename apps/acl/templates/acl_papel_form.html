@@ -1,0 +1,67 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if grupo %}{% translate "Editar papel" %}{% else %}{% translate "Novo papel" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if grupo %}{% translate "Editar papel" %}{% else %}{% translate "Novo papel" %}{% endif %}</h4>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-6 col-md-6">
+        <label for="nome" class="form-label">{% translate "Nome do papel" %}</label>
+        <input type="text" class="form-control" id="nome" name="nome" value="{{ grupo.name|default:'' }}" required maxlength="150">
+      </div>
+
+      <h6 class="mb-4">{% translate "Permissões por módulo" %}</h6>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{% translate "Módulo" %}</th>
+              <th class="text-center">{% translate "Visualizar" %}</th>
+              <th class="text-center">{% translate "Criar" %}</th>
+              <th class="text-center">{% translate "Editar" %}</th>
+              <th class="text-center">{% translate "Excluir" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for linha in matriz %}
+            <tr>
+              <td>{{ linha.nome }}</td>
+              {% for acao in linha.acoes %}
+              <td class="text-center">
+                {% if acao.permissao_id %}
+                <div class="form-check d-flex justify-content-center">
+                  <input class="form-check-input" type="checkbox" name="permissoes" value="{{ acao.permissao_id }}" {% if acao.marcada %}checked{% endif %} aria-label="{{ linha.nome }} - {{ acao.label }}">
+                </div>
+                {% else %}
+                <span class="text-muted">&mdash;</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+        <a href="{% url 'acl-papel-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

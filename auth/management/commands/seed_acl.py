@@ -32,6 +32,21 @@ ADMIN_APPS = [
     "modulo",
 ]
 
+# Permissões nativas do próprio Django (app_label "auth", de
+# django.contrib.auth.models.Group/Permission) usadas para proteger as
+# telas de Papéis/Permissões (Fase 4). Concedidas só ao Administrador —
+# de propósito FORA da matriz de permissões atribuível pela tela de
+# Papéis (ver apps/acl/permissions_matrix.py), para que um papel comum
+# nunca possa se autoconceder a capacidade de gerenciar outros papéis.
+AUTH_APP_LABEL = "auth"
+AUTH_CODENAMES_ADMINISTRADOR = [
+    "view_group",
+    "add_group",
+    "change_group",
+    "delete_group",
+    "view_permission",
+]
+
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.
 GROUPS = {
@@ -71,6 +86,13 @@ class Command(BaseCommand):
             if group_name == "Administrador":
                 for action in actions:
                     perms_for_group.extend(admin_perms[action])
+
+                perms_for_group.extend(
+                    Permission.objects.filter(
+                        content_type__app_label=AUTH_APP_LABEL,
+                        codename__in=AUTH_CODENAMES_ADMINISTRADOR,
+                    )
+                )
 
             group.permissions.set(perms_for_group)
 
