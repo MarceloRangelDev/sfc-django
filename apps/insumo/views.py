@@ -5,6 +5,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
+from apps.auditoria.utils import registrar as registrar_auditoria
 from web_project import TemplateLayout
 from web_project.mixins import ClienteScopedMixin
 
@@ -71,6 +72,10 @@ class InsumoListView(ClienteScopedMixin, ListView):
             # só a página exibida), mas sempre dentro do mesmo isolamento
             # por Cliente aplicado pelo ClienteScopedMixin.get_queryset().
             queryset = self.get_queryset()
+            registrar_auditoria(
+                request, acao="exportar", modulo="insumo",
+                descricao=f"Exportação de Insumos em {exportacao} ({queryset.count()} registro(s)).",
+            )
             if exportacao == "xlsx":
                 return exportar_insumos_excel(queryset)
             return exportar_insumos_pdf(queryset, request.user, request.GET.get("q", ""))
@@ -100,8 +105,13 @@ class InsumoCreateView(InsumoFormKwargsMixin, ClienteScopedMixin, CreateView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
     def form_valid(self, form):
+        response = super().form_valid(form)
+        registrar_auditoria(
+            self.request, acao="criar", modulo="insumo", registro_id=self.object.pk,
+            descricao=f'Insumo "{self.object.nome}" cadastrado.',
+        )
         messages.success(self.request, "Insumo cadastrado com sucesso.")
-        return super().form_valid(form)
+        return response
 
 
 class InsumoUpdateView(InsumoFormKwargsMixin, ClienteScopedMixin, UpdateView):
@@ -114,8 +124,13 @@ class InsumoUpdateView(InsumoFormKwargsMixin, ClienteScopedMixin, UpdateView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
     def form_valid(self, form):
+        response = super().form_valid(form)
+        registrar_auditoria(
+            self.request, acao="editar", modulo="insumo", registro_id=self.object.pk,
+            descricao=f'Insumo "{self.object.nome}" atualizado.',
+        )
         messages.success(self.request, "Insumo atualizado com sucesso.")
-        return super().form_valid(form)
+        return response
 
 
 class InsumoExcluirView(View):
@@ -131,5 +146,9 @@ class InsumoExcluirView(View):
         insumo = get_object_or_404(Insumo, pk=pk, cliente=cliente)
         insumo.ativo = False
         insumo.save(update_fields=["ativo", "atualizado_em"])
+        registrar_auditoria(
+            request, acao="excluir", modulo="insumo", registro_id=insumo.pk,
+            descricao=f'Insumo "{insumo.nome}" excluído (lógico).',
+        )
         messages.success(request, f'Insumo "{insumo.nome}" excluído com sucesso.')
         return redirect("insumo")

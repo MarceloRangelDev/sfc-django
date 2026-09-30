@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.cliente",
     "apps.modulo",
     "apps.acl",
+    "apps.auditoria",
 ]
 
 MIDDLEWARE = [

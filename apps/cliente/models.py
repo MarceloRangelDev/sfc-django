@@ -28,11 +28,15 @@ class Cliente(models.Model):
         choices=TIPO_PESSOA_CHOICES,
         verbose_name="Tipo de pessoa",
     )
-    # Sempre gravado normalizado (somente dígitos) — ver Cliente.clean() —
-    # para nunca ter o mesmo documento salvo em formatos diferentes
-    # ("12345678909" vs "123.456.789-09") e permitir um índice único real.
+    # Sempre GRAVADO normalizado (somente dígitos, no máximo 14 caracteres:
+    # tamanho de um CNPJ) — ver Cliente.clean(). O max_length do campo
+    # precisa ser 18 (não 14): a validação de tamanho do Django roda ANTES
+    # de clean_fields() chamar clean(), então a entrada ainda com máscara
+    # ("11.222.333/0001-81", 18 caracteres) tem que caber no campo para
+    # sequer chegar à normalização — senão um CNPJ mascarado era rejeitado
+    # só por causa do tamanho, antes de qualquer validação de fato.
     cpf_cnpj = models.CharField(
-        max_length=14,
+        max_length=18,
         unique=True,
         db_index=True,
         verbose_name="CPF/CNPJ",
