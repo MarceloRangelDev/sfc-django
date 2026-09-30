@@ -1,0 +1,10 @@
+{% load i18n %}
+{% if sort == campo %}
+  {% if dir == "asc" %}
+  <a class="text-body" href="{% querystring sort=campo dir="desc" %}">{{ label }} <i class="icon-base ti tabler-chevron-up"></i></a>
+  {% else %}
+  <a class="text-body" href="{% querystring sort=campo dir="asc" %}">{{ label }} <i class="icon-base ti tabler-chevron-down"></i></a>
+  {% endif %}
+{% else %}
+  <a class="text-body" href="{% querystring sort=campo dir="asc" %}">{{ label }}</a>
+{% endif %}

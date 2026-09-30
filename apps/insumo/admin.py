@@ -4,5 +4,6 @@ from .models import Insumo
 
 @admin.register(Insumo)
 class InsumoAdmin(admin.ModelAdmin):
-    list_display = ("nome", "criado_em", "atualizado_em")
+    list_display = ("nome", "cliente", "categoria", "unidade_medida", "quantidade", "preco", "ativo", "criado_em")
+    list_filter = ("cliente", "categoria", "unidade_medida", "ativo")
     search_fields = ("nome",)

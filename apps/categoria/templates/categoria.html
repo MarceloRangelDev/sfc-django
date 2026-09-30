@@ -2,13 +2,70 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}
-Test Page - Categoria
-{% endblock title %}
+{% block title %}{% translate "Categorias" %} - Sistema Faturando Certo{% endblock title %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Categorias" %}</h4>
+  {% if perms.categoria.add_categoria %}
+  <a href="{% url 'categoria-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova categoria" %}
+  </a>
+  {% endif %}
+</div>
 
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
 
-<h4 class="py-3 mb-6">{% translate "Title: Test Page - Categoria" %}</h4>
-<p>Content: Test page - Categoria.</p>
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Nome" %}</th>
+          <th>{% translate "Cadastrada em" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for categoria in categorias %}
+        <tr>
+          <td>{{ categoria.nome }}</td>
+          <td>{{ categoria.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>
+            {% if perms.categoria.change_categoria %}
+            <a href="{% url 'categoria-edit' categoria.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
+              <i class="icon-base ti tabler-edit"></i>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center py-6">{% translate "Nenhuma categoria cadastrada até o momento." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+    <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
 {% endblock %}
