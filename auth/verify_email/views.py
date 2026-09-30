@@ -7,60 +7,70 @@ from auth.helpers import send_verification_email
 import uuid
 
 
-
 class VerifyEmailTokenView(AuthView):
-    def get(self, request, token):
-        try:
-            profile = Profile.objects.filter(email_token=token).first()
-            profile.is_verified = True
-            profile.email_token = ""
-            profile.save()
-            if not request.user.is_authenticated:
-                # User is not already authenticated
-                # Perform the email verification and any other necessary actions
-                messages.success(request, "Email verified successfully")
-            return redirect("login")
-            # Now, redirect to the login page
+    """Confirma o cadastro do usuário a partir do link enviado por e-mail
+    (/verify/email/<token>/). O token é o mesmo gravado em
+    Profile.email_token por auth.helpers.send_verification_email.
+    """
 
-        except Profile.DoesNotExist:
-            messages.error(request, "Invalid token, please try again")
+    def get(self, request, token):
+        # Profile.objects.filter(...).first() nunca levanta DoesNotExist —
+        # por isso o "token inválido" precisa ser checado explicitamente
+        # (a versão anterior chamava profile.is_verified direto e quebrava
+        # com AttributeError quando o token não existia).
+        profile = Profile.objects.filter(email_token=token).first()
+        if profile is None:
+            messages.error(request, "Token inválido. Tente novamente.")
             return redirect("verify-email-page")
 
+        profile.is_verified = True
+        profile.email_token = ""
+        profile.save()
+
+        messages.success(request, "E-mail verificado com sucesso.")
+        return redirect("login")
+
+
 class VerifyEmailView(AuthView):
+    """Tela "Verifique seu e-mail", exibida após o cadastro (ou quando o
+    usuário logado ainda não confirmou o e-mail)."""
+
     def get(self, request):
-        # Render the login page for users who are not logged in.
         return super().get(request)
 
 
 class SendVerificationView(AuthView):
+    """Gera um novo token e reenvia o e-mail de verificação de cadastro,
+    tanto para quem já está logado (mas ainda não verificou) quanto para
+    quem acabou de se cadastrar (identificado pela sessão)."""
+
     def get(self, request):
-        email, message = self.get_email_and_message(request)
+        email = self._resolve_email(request)
+        if not email:
+            messages.error(request, "E-mail não encontrado na sessão. Cadastre-se novamente.")
+            return redirect("verify-email-page")
 
-        if email:
-            token = str(uuid.uuid4())
-            user_profile = Profile.objects.filter(email=email).first()
-            user_profile.email_token = token
-            user_profile.save()
-            send_verification_email(email, token)
-            messages.success(request, message)
-        else:
-            messages.error(request, "Email not found in session")
+        user_profile = Profile.objects.filter(email=email).first()
+        if user_profile is None:
+            messages.error(request, "Não foi possível localizar o cadastro para este e-mail.")
+            return redirect("verify-email-page")
 
+        if not settings.RESEND_API_KEY:
+            messages.error(
+                request,
+                "As configurações de e-mail não estão definidas. Não foi possível enviar o e-mail de verificação.",
+            )
+            return redirect("verify-email-page")
+
+        token = str(uuid.uuid4())
+        user_profile.email_token = token
+        user_profile.save()
+
+        send_verification_email(email, token)
+        messages.success(request, "E-mail de verificação reenviado com sucesso.")
         return redirect("verify-email-page")
 
-    def get_email_and_message(self, request):
+    def _resolve_email(self, request):
         if request.user.is_authenticated:
-            email = request.user.profile.email
-
-            if settings.RESEND_API_KEY:
-                message = messages.success(request, "Verification email sent successfully")
-            else:
-                message = messages.error(request, "Email settings are not configured. Unable to send verification email.")
-        else:
-            email = request.session.get('email')
-            if settings.RESEND_API_KEY:
-                message = "Resend verification email successfully" if email else None
-            else:
-                 message = messages.error(request, "Email settings are not configured. Unable to send verification email.")
-
-        return email, message
+            return request.user.profile.email
+        return request.session.get("email")

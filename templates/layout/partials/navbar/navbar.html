@@ -47,22 +47,22 @@
           <div class="nav-item dropdown-style-switcher dropdown me-2 me-xl-0">
             <a class="nav-link dropdown-toggle hide-arrow btn btn-icon btn-text-secondary rounded-pill" id="nav-theme" href="javascript:void(0);" data-bs-toggle="dropdown">
               <i class="icon-base ti tabler-sun icon-22px theme-icon-active text-heading"></i>
-              <span class="d-none ms-2" id="nav-theme-text">Toggle theme</span>
+              <span class="d-none ms-2" id="nav-theme-text">{% translate "Alternar tema" %}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="nav-theme-text">
               <li>
                 <button type="button" class="dropdown-item align-items-center active" data-bs-theme-value="light" aria-pressed="false">
-                  <span><i class="icon-base ti tabler-sun icon-22px me-3" data-icon="sun"></i>Light</span>
+                  <span><i class="icon-base ti tabler-sun icon-22px me-3" data-icon="sun"></i>{% translate "Claro" %}</span>
                 </button>
               </li>
               <li>
                 <button type="button" class="dropdown-item align-items-center" data-bs-theme-value="dark" aria-pressed="true">
-                  <span><i class="icon-base ti tabler-moon-stars icon-22px me-3" data-icon="moon-stars"></i>Dark</span>
+                  <span><i class="icon-base ti tabler-moon-stars icon-22px me-3" data-icon="moon-stars"></i>{% translate "Escuro" %}</span>
                 </button>
               </li>
               <li>
                 <button type="button" class="dropdown-item align-items-center" data-bs-theme-value="system" aria-pressed="false">
-                  <span><i class="icon-base ti tabler-device-desktop-analytics icon-22px me-3" data-icon="device-desktop-analytics"></i>System</span>
+                  <span><i class="icon-base ti tabler-device-desktop-analytics icon-22px me-3" data-icon="device-desktop-analytics"></i>{% translate "Sistema" %}</span>
                 </button>
               </li>
             </ul>
@@ -95,7 +95,7 @@
                             <p>Olá, visitante!</p>
                         {% endif %}
                       </h6>
-                      <small class="text-body-secondary">Admin</small>
+                      <small class="text-body-secondary">{% translate "Minha conta" %}</small>
                     </div>
                   </div>
                 </a>
@@ -104,15 +104,15 @@
                 <div class="dropdown-divider my-1 mx-n2"></div>
               </li>
               <li>
-                <a class="dropdown-item" href="{% url 'profile' %}"> <i class="icon-base ti tabler-user me-3 icon-md"></i><span class="align-middle">My Profile</span> </a>
+                <a class="dropdown-item" href="{% url 'profile' %}"> <i class="icon-base ti tabler-user me-3 icon-md"></i><span class="align-middle">{% translate "Meu perfil" %}</span> </a>
               </li>
               <li>
-                <a class="dropdown-item" href="javascript:void(0);"> <i class="icon-base ti tabler-settings me-3 icon-md"></i><span class="align-middle">Settings</span> </a>
+                <a class="dropdown-item" href="javascript:void(0);"> <i class="icon-base ti tabler-settings me-3 icon-md"></i><span class="align-middle">{% translate "Configurações" %}</span> </a>
               </li>
               <li>
                 <a class="dropdown-item" href="javascript:void(0);">
                   <span class="d-flex align-items-center align-middle">
-                    <i class="flex-shrink-0 icon-base ti tabler-file-dollar me-3 icon-md"></i><span class="flex-grow-1 align-middle">Billing</span>
+                    <i class="flex-shrink-0 icon-base ti tabler-file-dollar me-3 icon-md"></i><span class="flex-grow-1 align-middle">{% translate "Faturamento" %}</span>
                     <span class="flex-shrink-0 badge bg-danger d-flex align-items-center justify-content-center">4</span>
                   </span>
                 </a>
@@ -125,7 +125,7 @@
                   <form method="post" action="{% url 'logout' %}">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-sm btn-danger d-flex" style="width: 100%;">
-                        <small class="align-middle">Logout</small>
+                        <small class="align-middle">{% translate "Sair" %}</small>
                         <i class="icon-base ti tabler-logout ms-2 icon-14px"></i>
                       </button>
                   </form>

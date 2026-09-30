@@ -3,7 +3,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}Login - Pages{% endblock %}
+{% block title %}{% translate "Login" %} - Sistema Faturando Certo{% endblock %}
 
 {% block vendor_css %}
 {{ block.super }}
@@ -49,17 +49,8 @@
     <!-- Login -->
     <div class="d-flex col-12 col-xl-4 align-items-center authentication-bg p-sm-12 p-6">
       <div class="w-px-400 mx-auto mt-12 pt-5">
-        <h4 class="mb-1">Welcome to {% get_theme_variables 'template_name' %}! 👋</h4>
-        <p class="mb-6">Please sign-in to your account and start the adventure</p>
-        <!--<div class="alert alert-primary small">
-          <p class="text-caption mb-1"> Admin Email: <strong>admin@demo.com</strong> / Username: <strong>admin</strong>
-            <span class="cursor-pointer" id="admin-user"><i class="icon-base ti tabler-help icon-xs text-body mb-1" data-bs-toggle="popover" data-bs-placement="top" data-bs-trigger="hover focus" title="Admin User" data-bs-content="Can access User, Roles, and Permissions pages. Possesses permissions to View, Update, Delete, and Create transactions on the Transaction Page."></i></span>
-          </p>
-          <p class="text-caption mb-1"> Client Email: <strong>client@demo.com</strong> / Username: <strong>client</strong>
-            <span class="cursor-pointer" id="client-user"><i class="icon-base ti tabler-help icon-xs text-body mb-1" data-bs-toggle="popover" data-bs-placement="top" data-bs-trigger="hover focus" title="Client User" data-bs-content="Unable to access User, Roles, and Permissions pages. Limited to viewing the Transaction page exclusively."></i></span>
-          </p>
-          <p class="text-caption mb-0">Password: <strong>Pwd_1234</strong></p>
-        </div>-->
+        <h4 class="mb-1">{% translate "Bem-vindo(a) ao" %} {% get_theme_variables 'template_name' %}! 👋</h4>
+        <p class="mb-6">{% translate "Faça login na sua conta para começar" %}</p>
         {% if messages %}
         {% for message in messages %}
         <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
@@ -71,13 +62,13 @@
         <form id="formAuthentication" class="mb-6" action="{% url 'login' %}" method="post">
           {% csrf_token %}
           <div class="mb-6 form-control-validation">
-            <label for="email" class="form-label">Email or Username</label>
-            <input type="email" class="form-control" id="email" name="email-username" value="admin@demo.com" placeholder="Email/Username" autofocus />
+            <label for="email" class="form-label">{% translate "E-mail ou usuário" %}</label>
+            <input type="text" class="form-control" id="email" name="email-username" placeholder="{% translate 'E-mail ou usuário' %}" autofocus />
           </div>
           <div class="mb-6 form-password-toggle form-control-validation">
-            <label class="form-label" for="password">Password</label>
+            <label class="form-label" for="password">{% translate "Senha" %}</label>
             <div class="input-group input-group-merge">
-              <input type="password" id="password" class="form-control" name="password" value="Pwd_1234" placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;" aria-describedby="password" />
+              <input type="password" id="password" class="form-control" name="password" placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;" aria-describedby="password" />
               <span class="input-group-text cursor-pointer"><i class="icon-base ti tabler-eye-off"></i></span>
             </div>
           </div>
@@ -86,24 +77,24 @@
               <div class="form-check mb-0 ms-2">
                 <input class="form-check-input" type="checkbox" id="remember-me">
                 <label class="form-check-label" for="remember-me">
-                  Remember Me
+                  {% translate "Lembrar-me" %}
                 </label>
               </div>
               <a href="{% url 'forgot-password' %}">
-                <p class="mb-0">Forgot Password?</p>
+                <p class="mb-0">{% translate "Esqueceu a senha?" %}</p>
               </a>
             </div>
           </div>
           {% if request.GET.next %}
           <input type="hidden" name="next" value="{{request.GET.next}}">
           {% endif %}
-          <button class="btn btn-primary d-grid w-100" type="submit">Sign in</button>
+          <button class="btn btn-primary d-grid w-100" type="submit">{% translate "Entrar" %}</button>
         </form>
 
         <p class="text-center">
-          <span>New on our platform?</span>
+          <span>{% translate "Ainda não tem conta?" %}</span>
           <a href="{% url 'register' %}">
-            <span>Create an account</span>
+            <span>{% translate "Criar uma conta" %}</span>
           </a>
         </p>
       </div>

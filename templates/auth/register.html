@@ -3,7 +3,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}Register - Pages{% endblock %}
+{% block title %}{% translate "Cadastro" %} - Sistema Faturando Certo{% endblock %}
 
 {% block vendor_css %}
 {{ block.super }}
@@ -48,8 +48,8 @@
     <!-- Register -->
     <div class="d-flex col-12 col-xl-4 align-items-center authentication-bg p-sm-12 p-6">
       <div class="w-px-400 mx-auto mt-12 pt-5">
-        <h4 class="mb-1">Adventure starts here 🚀</h4>
-        <p class="mb-6">Make your app management easy and fun!</p>
+        <h4 class="mb-1">{% translate "Comece sua jornada 🚀" %}</h4>
+        <p class="mb-6">{% translate "Crie sua conta para começar a usar o sistema" %}</p>
         {% if messages %}
         {% for message in messages %}
         <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
@@ -61,15 +61,15 @@
         <form id="formAuthentication" class="mb-6" action="{% url 'register' %}" method="post">
           {% csrf_token %}
           <div class="mb-6 form-control-validation">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" autofocus />
+            <label for="username" class="form-label">{% translate "Usuário" %}</label>
+            <input type="text" class="form-control" id="username" name="username" placeholder="{% translate 'Digite seu nome de usuário' %}" autofocus />
           </div>
           <div class="mb-6 form-control-validation">
-            <label for="email" class="form-label">Email</label>
-            <input type="text" class="form-control" id="email" name="email" placeholder="Enter your email" />
+            <label for="email" class="form-label">{% translate "E-mail" %}</label>
+            <input type="text" class="form-control" id="email" name="email" placeholder="{% translate 'Digite seu e-mail' %}" />
           </div>
           <div class="mb-6 form-password-toggle form-control-validation">
-            <label class="form-label" for="password">Password</label>
+            <label class="form-label" for="password">{% translate "Senha" %}</label>
             <div class="input-group input-group-merge">
               <input type="password" id="password" class="form-control" name="password" placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;" aria-describedby="password" />
               <span class="input-group-text cursor-pointer"><i class="icon-base ti tabler-eye-off"></i></span>
@@ -80,21 +80,21 @@
             <div class="form-check mb-8 ms-2 form-control-validation">
               <input class="form-check-input" type="checkbox" id="terms-conditions" name="terms" />
               <label class="form-check-label" for="terms-conditions">
-                I agree to
-                <a href="javascript:void(0);">privacy policy & terms</a>
+                {% translate "Eu concordo com a" %}
+                <a href="javascript:void(0);">{% translate "política de privacidade e os termos de uso" %}</a>
               </label>
             </div>
           </div>
           <button id="btnSubmit" class="btn btn-primary w-100" type="submit">
-            <span id="btnText" class="me-1">Sign up</span>
+            <span id="btnText" class="me-1">{% translate "Cadastrar" %}</span>
             <span id="btnLoader" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
           </button>
         </form>
 
         <p class="text-center">
-          <span>Already have an account?</span>
+          <span>{% translate "Já tem uma conta?" %}</span>
           <a href="{% url 'login' %}">
-            <span>Sign in instead</span>
+            <span>{% translate "Fazer login" %}</span>
           </a>
         </p>
       </div>

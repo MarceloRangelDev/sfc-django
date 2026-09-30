@@ -11,10 +11,9 @@ import uuid
 class RegisterView(AuthView):
     def get(self, request):
         if request.user.is_authenticated:
-            # If the user is already logged in, redirect them to the home page or another appropriate page.
-            return redirect("index")  # Replace 'index' with the actual URL name for the home page
+            # Usuário já logado não precisa desta tela.
+            return redirect("index")
 
-        # Render the login page for users who are not logged in.
         return super().get(request)
 
     def post(self, request):
@@ -22,31 +21,33 @@ class RegisterView(AuthView):
         email = request.POST.get("email")
         password = request.POST.get("password")
 
-        # Check if a user with the same username or email already exists
+        # Verifica duplicidade antes de criar o usuário.
         if User.objects.filter(username=username, email=email).exists():
-            messages.error(request, "User already exists, Try logging in.")
+            messages.error(request, "Já existe um usuário com este nome de usuário e e-mail. Tente fazer login.")
             return redirect("register")
         elif User.objects.filter(email=email).exists():
-            messages.error(request, "Email already exists.")
+            messages.error(request, "Este e-mail já está cadastrado.")
             return redirect("register")
         elif User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
+            messages.error(request, "Este nome de usuário já está em uso.")
             return redirect("register")
 
-        # Create the user and set their password
         created_user = User.objects.create_user(username=username, email=email, password=password)
         created_user.set_password(password)
         created_user.save()
 
-        # Add the user to the 'client' group (or any other group you want to use as default for new users)
-        user_group, created = Group.objects.get_or_create(name="client")
+        # Grupo padrão para autocadastro: "Visualizador" é o grupo ACL com
+        # menor privilégio (só permissão de visualizar, ver seed_acl.py).
+        # Antes o usuário era colocado num grupo "client" separado que não
+        # tinha nenhuma permissão atribuída — na prática, ficava sem acesso
+        # a nenhuma tela até um administrador reatribuir o grupo manualmente.
+        user_group, _created = Group.objects.get_or_create(name="Visualizador")
         created_user.groups.add(user_group)
 
-        # Generate a token and send a verification email here
+        # Gera o token de verificação de e-mail e envia o e-mail de confirmação.
         token = str(uuid.uuid4())
 
-        # Set the token in the user's profile
-        user_profile, created = Profile.objects.get_or_create(user=created_user)
+        user_profile, _created = Profile.objects.get_or_create(user=created_user)
         user_profile.email_token = token
         user_profile.email = email
         user_profile.save()
@@ -54,10 +55,12 @@ class RegisterView(AuthView):
         send_verification_email(email, token)
 
         if settings.RESEND_API_KEY:
-            messages.success(request, "Verification email sent successfully")
+            messages.success(request, "E-mail de verificação enviado com sucesso.")
         else:
-            messages.error(request, "Email settings are not configured. Unable to send verification email.")
+            messages.error(
+                request,
+                "As configurações de e-mail não estão definidas. Não foi possível enviar o e-mail de verificação.",
+            )
 
-        request.session['email'] = email ## Save email in session
-        # Redirect to the verification page after successful registration
+        request.session['email'] = email  # Guarda o e-mail na sessão para a tela de verificação.
         return redirect("verify-email-page")

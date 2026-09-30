@@ -3,7 +3,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}Verify Email - Pages{% endblock %}
+{% block title %}{% translate "Verificar e-mail" %} - Sistema Faturando Certo{% endblock %}
 
 {% block page_css %}
 {{ block.super }}
@@ -37,14 +37,14 @@
     <!--  Verify email -->
     <div class="d-flex col-12 col-xl-4 align-items-center authentication-bg p-6 p-sm-12">
       <div class="w-px-400 mx-auto mt-12 mt-5">
-        <h4 class="mb-1">Verify your email ✉️</h4>
+        <h4 class="mb-1">{% translate "Verifique seu e-mail ✉️" %}</h4>
         {% if request.user.is_authenticated %}
         <p class="text-start mb-4">
-          Verification link will be send to this email: {{request.user.email}}.
+          {% blocktranslate with user_email=request.user.email %}O link de verificação será enviado para este e-mail: {{ user_email }}.{% endblocktranslate %}
         </p>
         {% else %}
         <p class="text-start">
-          Verification link send to your email address.
+          {% translate "Enviamos um link de verificação para o seu endereço de e-mail." %}
         </p>
         {% endif %}
         {% if messages %}
@@ -56,19 +56,19 @@
         {% endif %}
         {% if request.user.is_authenticated %}
         <a id="btnSubmit" class="btn btn-primary w-100 my-2" href="{% url 'send-verification' %}">
-          <span id="btnText" class="me-1">Verify Email</span>
+          <span id="btnText" class="me-1">{% translate "Verificar e-mail" %}</span>
           <span id="btnLoader" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
         </a>
         <a class="btn btn-primary w-100 my-2" href="{% url 'index' %}">
-          Back
+          {% translate "Voltar" %}
         </a>
         {% else %}
         <a class="btn btn-primary w-100 my-3" href="{% url 'login' %}">
-          Skip for now & Login
+          {% translate "Pular por agora e entrar" %}
         </a>
-        <p class="text-center">Didn't get the mail?
+        <p class="text-center">{% translate "Não recebeu o e-mail?" %}
           <a id="btnSubmit" class="text-center" href="{% url 'send-verification' %}">
-            <span id="btnText" class="me-1">Resend</span>
+            <span id="btnText" class="me-1">{% translate "Reenviar" %}</span>
             <span id="btnLoader" class="spinner-border spinner-border-sm visually-hidden" role="status" aria-hidden="true"></span>
           </a>
         </p>

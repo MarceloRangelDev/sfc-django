@@ -140,6 +140,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Enable i18n and set the list of supported languages
 LANGUAGES = [
+    ("pt-br", _("Português (Brasil)")),
     ("en", _("English")),
     ("fr", _("French")),
     ("ar", _("Arabic")),
@@ -149,7 +150,9 @@ LANGUAGES = [
 
 # Set default language
 # ! Make sure you have cleared the browser cache after changing the default language
-LANGUAGE_CODE = "en" # Padrão de idioma para a aplicação Django (pode ser alterado conforme necessário)
+# Português do Brasil é o idioma padrão do sistema (requisito do projeto:
+# toda a interface, incluindo mensagens de erro nativas do Django, em pt-BR).
+LANGUAGE_CODE = "pt-br"
 
 TIME_ZONE = "UTC" # Fuso horário para a aplicação Django
 

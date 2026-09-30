@@ -1,3 +1,5 @@
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
 from web_project import TemplateLayout
 
@@ -9,6 +11,11 @@ Refer to sample/urls.py file for more pages.
 """
 
 
+# A rota "index" (raiz "/") é a home/dashboard exibida após o login e,
+# até aqui, era a única tela do projeto sem nenhuma proteção de sessão —
+# qualquer visitante anônimo conseguia acessá-la diretamente. Aplicamos o
+# mesmo padrão já usado nas telas de negócio (login_required).
+@method_decorator(login_required, name='dispatch')
 class SampleView(TemplateView):
     # Predefined function
     def get_context_data(self, **kwargs):

@@ -15,9 +15,14 @@ class Profile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    email = models.EmailField(max_length=100, unique=True)  # Use unique=True for unique email addresses
+    email = models.EmailField(max_length=100, unique=True)  # E-mail único por usuário
     email_token = models.CharField(max_length=100, blank=True, null=True)
     forget_password_token = models.CharField(max_length=100, blank=True, null=True)
+    # Validade do token de redefinição de senha (forget_password_token).
+    # Sem este campo o token gerado em "Esqueci minha senha" nunca era
+    # persistido e, na prática, o link de redefinição nunca expirava —
+    # falha de segurança corrigida junto com a tela de reset de senha.
+    forget_password_token_expiration = models.DateTimeField(blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     segmento_trabalho = models.CharField(
         max_length=10,
@@ -46,5 +51,5 @@ class Profile(models.Model):
 
 
     class Meta:
-        verbose_name = "User Profile"
-        verbose_name_plural = "User Profiles"
+        verbose_name = "Perfil do usuário"
+        verbose_name_plural = "Perfis de usuário"
