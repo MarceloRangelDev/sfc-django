@@ -1,0 +1,64 @@
+{% extends layout_path %}
+
+{% load i18n %}
+
+{% block title %}Meu Perfil{% endblock title %}
+
+{% block content %}
+
+<h4 class="py-4 mb-6">{% translate "Meu Perfil" %}</h4>
+
+<div class="row">
+  <div class="col-md-8 col-lg-6">
+    <div class="card mb-6">
+      <h5 class="card-header">{% translate "Segmento de trabalho" %}</h5>
+      <div class="card-body">
+        <p class="text-body-secondary">
+          {% translate "Escolha como você usa o Faturando Certo: para precificar serviços, produtos, ou ambos. Isso define quais regras de precificação são aplicadas para você." %}
+        </p>
+
+        <form method="post" action="{% url 'profile' %}">
+          {% csrf_token %}
+
+          {% for value, label in segmento_choices %}
+          <div class="form-check mb-3">
+            <input
+              class="form-check-input"
+              type="radio"
+              name="segmento_trabalho"
+              id="segmento-{{ value }}"
+              value="{{ value }}"
+              {% if profile.segmento_trabalho == value %}checked{% endif %}
+            />
+            <label class="form-check-label" for="segmento-{{ value }}">
+              {{ label }}
+            </label>
+          </div>
+          {% endfor %}
+
+          <button type="submit" class="btn btn-primary mt-3">
+            {% translate "Salvar" %}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h5 class="card-header">{% translate "Conta" %}</h5>
+      <div class="card-body">
+        <p class="mb-2"><strong>{% translate "Usuário" %}:</strong> {{ request.user.username }}</p>
+        <p class="mb-2"><strong>{% translate "E-mail" %}:</strong> {{ profile.email }}</p>
+        <p class="mb-0">
+          <strong>{% translate "Perfis de acesso" %}:</strong>
+          {% for group in request.user.groups.all %}
+            <span class="badge bg-label-primary">{{ group.name }}</span>
+          {% empty %}
+            <span class="text-body-secondary">{% translate "Nenhum" %}</span>
+          {% endfor %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

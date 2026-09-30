@@ -1,0 +1,104 @@
+{
+  "menu": [
+    {
+      "url": "index",
+      "icon": "menu-icon icon-base ti tabler-smart-home",
+      "name": "Page 1",
+      "slug": "index"
+    },
+    {
+      "url": "page-2",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Page 2",
+      "slug": "page-2"
+    },
+    {
+      "url": "insumo",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Insumos",
+      "slug": "insumo",
+      "permission": "insumo.view_insumo"
+    },
+    {
+      "url": "processado",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Processados",
+      "slug": "processado",
+      "permission": "processado.view_processado"
+    },
+    {
+      "url": "categoria",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Categorias",
+      "slug": "categoria",
+      "permission": "categoria.view_categoria"
+    },
+    {
+      "url": "produto",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Produto",
+      "slug": "produto",
+      "permission": "produto.view_produto"
+    },
+    {
+      "url": "ficha",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Ficha Tecnica",
+      "slug": "ficha",
+      "permission": "ficha.view_ficha"
+    },
+    {
+      "url": "precificacao",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Precificacao",
+      "slug": "precificacao",
+      "permission": "precificacao.view_precificacao"
+    },
+    {
+      "name": "Dashboards",
+      "icon": "menu-icon icon-base ti tabler-smart-home",
+      "slug": "dashboard",
+      "badge": [
+        "danger",
+        "5"
+      ],
+      "submenu": [
+        {
+          "url": "index",
+          "name": "Analytics",
+          "slug": "dashboard-analytics"
+        }
+      ]
+    },
+    {
+      "url": "profile",
+      "icon": "menu-icon icon-base ti tabler-user",
+      "name": "Meu Perfil",
+      "slug": "profile"
+    },
+    {
+      "url": "pages-misc-error",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Error",
+      "slug": "pages-misc-error"
+    },
+    {
+      "url": "pages-misc-under-maintenance",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Maintenance",
+      "slug": "pages-misc-under-maintenance"
+    },
+    {
+      "url": "pages-misc-comingsoon",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Comingsoon",
+      "slug": "pages-misc-comingsoon"
+    },
+    {
+      "url": "pages-misc-not-authorized",
+      "icon": "menu-icon icon-base ti tabler-app-window",
+      "name": "Not Authorized",
+      "slug": "pages-misc-not-authorized"
+    }
+  ]
+}
