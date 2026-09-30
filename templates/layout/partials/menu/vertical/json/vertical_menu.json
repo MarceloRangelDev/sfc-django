@@ -17,42 +17,48 @@
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Insumos",
       "slug": "insumo",
-      "permission": "insumo.view_insumo"
+      "permission": "insumo.view_insumo",
+      "module": "insumo"
     },
     {
       "url": "processado",
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Processados",
       "slug": "processado",
-      "permission": "processado.view_processado"
+      "permission": "processado.view_processado",
+      "module": "processado"
     },
     {
       "url": "categoria",
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Categorias",
       "slug": "categoria",
-      "permission": "categoria.view_categoria"
+      "permission": "categoria.view_categoria",
+      "module": "categoria"
     },
     {
       "url": "produto",
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Produto",
       "slug": "produto",
-      "permission": "produto.view_produto"
+      "permission": "produto.view_produto",
+      "module": "produto"
     },
     {
       "url": "ficha",
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Ficha Tecnica",
       "slug": "ficha",
-      "permission": "ficha.view_ficha"
+      "permission": "ficha.view_ficha",
+      "module": "ficha"
     },
     {
       "url": "precificacao",
       "icon": "menu-icon icon-base ti tabler-app-window",
       "name": "Precificacao",
       "slug": "precificacao",
-      "permission": "precificacao.view_precificacao"
+      "permission": "precificacao.view_precificacao",
+      "module": "precificacao"
     },
     {
       "url": "cliente-list",
@@ -60,6 +66,13 @@
       "name": "Clientes",
       "slug": "cliente",
       "permission": "cliente.view_cliente"
+    },
+    {
+      "url": "modulo-list",
+      "icon": "menu-icon icon-base ti tabler-apps",
+      "name": "Módulos",
+      "slug": "modulo",
+      "permission": "modulo.change_clientemodulo"
     },
     {
       "name": "Dashboards",

@@ -3,7 +3,7 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}Under Maintenance - Pages{% endblock %}
+{% block title %}{% translate "Em manutenção" %} - Sistema Faturando Certo{% endblock %}
 
 {% block page_css %}
 {{ block.super }}
@@ -14,9 +14,9 @@
 <!--Under Maintenance -->
 <div class="container-xxl container-p-y">
   <div class="misc-wrapper">
-    <h4 class="mb-2 mx-2">Under Maintenance! 🚧</h4>
-    <p class="mb-6 mx-2">Sorry for the inconvenience but we're performing some maintenance at the moment</p>
-    <a href="{% url 'index' %}" class="btn btn-primary">Back to home</a>
+    <h4 class="mb-2 mx-2">{% translate "Em manutenção! 🚧" %}</h4>
+    <p class="mb-6 mx-2">{% translate "Desculpe o transtorno, estamos realizando uma manutenção no momento." %}</p>
+    <a href="{% url 'index' %}" class="btn btn-primary">{% translate "Voltar para o início" %}</a>
     <div class="mt-12">
       <img src="{% static 'img/illustrations/page-misc-under-maintenance.png' %}" alt="page-misc-under-maintenance" width="550" class="img-fluid" />
     </div>

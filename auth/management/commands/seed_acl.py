@@ -29,6 +29,7 @@ SCREEN_APPS = [
 # fica de fora do acesso automático de Gestor/Operador/Visualizador.
 ADMIN_APPS = [
     "cliente",
+    "modulo",
 ]
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)

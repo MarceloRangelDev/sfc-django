@@ -1,7 +1,7 @@
 {% load i18n %}
 
 {% with is_group=item.submenu|filter_by_url:request %}
-  {% if not item.permission or request.user|has_permission:item.permission %}
+  {% if request.user|has_menu_access:item %}
     <li class="menu-item {% if is_group %}active{% endif %}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
         <i class="{{ item.icon }}"></i>

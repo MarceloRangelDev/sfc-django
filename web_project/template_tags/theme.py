@@ -48,6 +48,33 @@ def has_permission(user, permission):
         return True
 
 
+# Verifica se o módulo (Fase 3) está habilitado para o Cliente do usuário.
+@register.filter
+def has_module(user, modulo_slug):
+    from web_project.decorators import modulo_habilitado_para
+
+    return modulo_habilitado_para(user, modulo_slug)
+
+
+# Usado pelo menu lateral/superior (menu_link_template.html e
+# menu_collapsible_template.html): um item só aparece se o usuário tiver a
+# permissão do item (quando houver) E, se o item pertencer a um módulo de
+# negócio, se esse módulo estiver habilitado para o Cliente do usuário.
+# Itens sem "permission" nem "module" continuam sempre visíveis (ex: "Meu
+# Perfil", páginas de erro) — mesmo comportamento de antes da Fase 3.
+@register.filter
+def has_menu_access(user, item):
+    permission = item.get("permission")
+    if permission and not has_permission(user, permission):
+        return False
+
+    modulo_slug = item.get("module")
+    if modulo_slug and not has_module(user, modulo_slug):
+        return False
+
+    return True
+
+
 # For checking if the user group is admin
 @register.filter(name="is_admin")
 def is_admin(user):

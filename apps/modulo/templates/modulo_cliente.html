@@ -1,0 +1,78 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Módulos do cliente" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% translate "Módulos do cliente" %}</h4>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-6">
+        <label for="cliente" class="form-label">{% translate "Selecione o cliente" %}</label>
+        <select name="cliente" id="cliente" class="form-select" onchange="this.form.submit()">
+          {% for cliente in clientes %}
+          <option value="{{ cliente.pk }}" {% if cliente_selecionado.pk == cliente.pk %}selected{% endif %}>
+            {{ cliente.nome_razao_social }} ({{ cliente.cpf_cnpj_formatado }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if cliente_selecionado %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">{% translate "Módulos habilitados para" %} {{ cliente_selecionado.nome_razao_social }}</h5>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="cliente_id" value="{{ cliente_selecionado.pk }}">
+      <div class="row g-3">
+        {% for modulo in modulos %}
+        <div class="col-md-4">
+          <div class="form-check form-switch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              role="switch"
+              name="modulos"
+              value="{{ modulo.pk }}"
+              id="modulo-{{ modulo.pk }}"
+              {% if modulo.pk in modulos_habilitados_ids %}checked{% endif %}
+              {% if not modulo.ativo %}disabled title="{% translate 'Módulo indisponível no sistema no momento' %}"{% endif %}
+            >
+            <label class="form-check-label" for="modulo-{{ modulo.pk }}">
+              {{ modulo.nome }}
+              {% if not modulo.ativo %}<span class="badge bg-label-secondary">{% translate "Indisponível" %}</span>{% endif %}
+            </label>
+          </div>
+          {% if modulo.descricao %}<div class="form-text">{{ modulo.descricao }}</div>{% endif %}
+        </div>
+        {% empty %}
+        <p class="text-muted">{% translate "Nenhum módulo cadastrado. Rode o comando \"seed_modulos\"." %}</p>
+        {% endfor %}
+      </div>
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% else %}
+<p class="text-muted">{% translate "Nenhum cliente cadastrado até o momento." %}</p>
+{% endif %}
+{% endblock %}
