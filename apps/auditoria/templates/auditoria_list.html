@@ -1,0 +1,138 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Auditoria" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Auditoria" %}</h4>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label for="q" class="form-label">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Descrição, registro, ID ou usuário...' %}" value="{{ filtros.q }}">
+      </div>
+      <div class="col-md-2">
+        <label for="usuario" class="form-label">{% translate "Usuário" %}</label>
+        <select id="usuario" name="usuario" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for u in usuarios %}
+          <option value="{{ u.pk }}" {% if filtros.usuario == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="modulo" class="form-label">{% translate "Módulo" %}</label>
+        <select id="modulo" name="modulo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for m in modulos %}
+          <option value="{{ m }}" {% if filtros.modulo == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="acao" class="form-label">{% translate "Ação" %}</label>
+        <select id="acao" name="acao" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          {% for codigo, rotulo in acoes.items %}
+          <option value="{{ codigo }}" {% if filtros.acao == codigo %}selected{% endif %}>{{ rotulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="per_page" class="form-label">{% translate "Por página" %}</label>
+        <select id="per_page" name="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}
+          <option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="de" class="form-label">{% translate "De" %}</label>
+        <input type="date" id="de" name="de" class="form-control" value="{{ filtros.de }}">
+      </div>
+      <div class="col-md-3">
+        <label for="ate" class="form-label">{% translate "Até" %}</label>
+        <input type="date" id="ate" name="ate" class="form-control" value="{{ filtros.ate }}">
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% url 'auditoria-list' %}" class="btn btn-outline-secondary">{% translate "Limpar" %}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Data" %}</th>
+          <th>{% translate "Usuário" %}</th>
+          <th>{% translate "Módulo" %}</th>
+          <th>{% translate "Ação" %}</th>
+          <th>{% translate "Registro" %}</th>
+          <th>{% translate "Resultado" %}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for registro in registros %}
+        <tr>
+          <td>{{ registro.criado_em|date:"d/m/Y H:i:s" }}</td>
+          <td>{{ registro.usuario.username|default:"—" }}</td>
+          <td>{{ registro.modulo|default:"—" }}</td>
+          <td>{{ registro.acao_rotulo }}</td>
+          <td>
+            {% if registro.registro_id %}#{{ registro.registro_id }}{% if registro.registro_nome %} — {{ registro.registro_nome|truncatechars:40 }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if registro.resultado == "sucesso" %}<span class="badge bg-label-success">{% translate "Sucesso" %}</span>
+            {% else %}<span class="badge bg-label-danger">{% translate "Falha" %}</span>{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'auditoria-detail' registro.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Detalhes' %}">
+              <i class="icon-base ti tabler-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center py-6">{% translate "Nenhum registro de auditoria encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    {% if page_obj %}
+    <div class="text-muted">
+      {% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if is_paginated %}
+  <div class="card-body pt-0">
+    <nav>
+      <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">{% translate "Anterior" %}</span></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">{% translate "Próxima" %}</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

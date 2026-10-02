@@ -31,6 +31,7 @@ ADMIN_APPS = [
     "cliente",
     "modulo",
     "medida",
+    "auditoria",
 ]
 
 # Permissões nativas do próprio Django (app_label "auth", de

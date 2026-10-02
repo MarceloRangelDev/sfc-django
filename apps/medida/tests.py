@@ -150,7 +150,7 @@ class MedidaCrudTests(TestCase):
         medida = Medida.objects.get(sigla="pit")
         self.client.post(reverse("medida-excluir", args=[medida.pk]))
         self.assertFalse(Medida.objects.filter(pk=medida.pk).exists())
-        self.assertTrue(RegistroAuditoria.objects.filter(modulo="medida", acao="excluir", descricao__startswith="Excluída").exists())
+        self.assertTrue(RegistroAuditoria.objects.filter(modulo="medida", acao="excluir", descricao__startswith="Excluído").exists())
 
     def test_exclusao_exige_post(self):
         self.assertEqual(self.client.get(reverse("medida-excluir", args=[1])).status_code, 405)

@@ -7,7 +7,8 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
-from apps.auditoria.utils import registrar as registrar_auditoria
+from apps.auditoria.mixins import AuditoriaFormMixin
+from apps.auditoria.utils import registrar_edicao, registrar_exclusao, tirar_foto
 from web_project import TemplateLayout
 from web_project.regras import RegraNegocioError
 from web_project.regras.conversao import DIMENSOES, preco_por_unidade_padrao
@@ -74,7 +75,7 @@ class MedidaListView(ListView):
         return context
 
 
-class MedidaCreateView(CreateView):
+class MedidaCreateView(AuditoriaFormMixin, CreateView):
     model = Medida
     form_class = MedidaForm
     template_name = "medida_form.html"
@@ -85,16 +86,12 @@ class MedidaCreateView(CreateView):
 
     def form_valid(self, form):
         form.instance.usuario = self.request.user  # quem cadastrou (coluna id_usuario)
-        response = super().form_valid(form)
-        registrar_auditoria(
-            self.request, acao="criar", modulo="medida", registro_id=self.object.pk,
-            descricao=f'Criada medida ID {self.object.pk} - {self.object.medida}.',
-        )
+        response = super().form_valid(form)  # salva e audita (AuditoriaFormMixin)
         messages.success(self.request, "Medida cadastrada com sucesso.")
         return response
 
 
-class MedidaUpdateView(UpdateView):
+class MedidaUpdateView(AuditoriaFormMixin, UpdateView):
     model = Medida
     form_class = MedidaForm
     template_name = "medida_form.html"
@@ -106,11 +103,7 @@ class MedidaUpdateView(UpdateView):
         return context
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        registrar_auditoria(
-            self.request, acao="editar", modulo="medida", registro_id=self.object.pk,
-            descricao=f'Atualizada medida ID {self.object.pk} - {self.object.medida}.',
-        )
+        response = super().form_valid(form)  # salva e audita (AuditoriaFormMixin)
         messages.success(self.request, "Medida atualizada com sucesso.")
         return response
 
@@ -121,13 +114,12 @@ class MedidaAlternarAtivoView(View):
 
     def post(self, request, pk):
         medida = get_object_or_404(Medida, pk=pk)
-        medida.ativo = not medida.ativo
-        medida.save(update_fields=["ativo", "atualizado_em"])
+        with transaction.atomic():
+            foto = tirar_foto(medida)
+            medida.ativo = not medida.ativo
+            medida.save(update_fields=["ativo", "atualizado_em"])
+            registrar_edicao(request, medida, foto)  # grava "Ativo: Sim -> Não"
         situacao = "ativada" if medida.ativo else "inativada"
-        registrar_auditoria(
-            request, acao="editar", modulo="medida", registro_id=medida.pk,
-            descricao=f"Medida ID {medida.pk} - {medida.medida} foi {situacao}.",
-        )
         messages.success(request, f'Medida "{medida.medida}" {situacao}.')
         return redirect("medida-list")
 
@@ -145,21 +137,15 @@ class MedidaExcluirView(View):
     def post(self, request, pk):
         with transaction.atomic():
             medida = get_object_or_404(Medida.objects.select_for_update(), pk=pk)
-            nome, medida_id = medida.medida, medida.pk
+            nome = medida.medida
             if medida.em_uso():
+                registrar_exclusao(request, medida, logica=True)
                 medida.ativo = False
                 medida.save(update_fields=["ativo", "atualizado_em"])
-                registrar_auditoria(
-                    request, acao="excluir", modulo="medida", registro_id=medida_id,
-                    descricao=f"Medida ID {medida_id} - {nome} foi inativada (em uso; exclusão física bloqueada).",
-                )
                 messages.warning(request, f'A medida "{nome}" está em uso e não pode ser apagada; ela foi apenas inativada.')
             else:
+                registrar_exclusao(request, medida)  # antes do delete(): depois o objeto perde o id
                 medida.delete()
-                registrar_auditoria(
-                    request, acao="excluir", modulo="medida", registro_id=medida_id,
-                    descricao=f"Excluída medida ID {medida_id} - {nome}.",
-                )
                 messages.success(request, f'Medida "{nome}" excluída com sucesso.')
         return redirect("medida-list")
 

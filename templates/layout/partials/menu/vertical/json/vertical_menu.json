@@ -75,6 +75,13 @@
       "permission": "modulo.change_clientemodulo"
     },
     {
+      "url": "auditoria-list",
+      "icon": "menu-icon icon-base ti tabler-history",
+      "name": "Auditoria",
+      "slug": "auditoria",
+      "permission": "auditoria.view_registroauditoria"
+    },
+    {
       "url": "medida-list",
       "icon": "menu-icon icon-base ti tabler-ruler-measure",
       "name": "Medidas",

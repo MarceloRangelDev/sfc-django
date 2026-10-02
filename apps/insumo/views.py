@@ -1,11 +1,14 @@
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
+from apps.auditoria.mixins import AuditoriaFormMixin
 from apps.auditoria.utils import registrar as registrar_auditoria
+from apps.auditoria.utils import registrar_exclusao
 from web_project import TemplateLayout
 from web_project.mixins import ClienteScopedMixin
 
@@ -95,7 +98,7 @@ class InsumoListView(ClienteScopedMixin, ListView):
         return context
 
 
-class InsumoCreateView(InsumoFormKwargsMixin, ClienteScopedMixin, CreateView):
+class InsumoCreateView(AuditoriaFormMixin, InsumoFormKwargsMixin, ClienteScopedMixin, CreateView):
     model = Insumo
     form_class = InsumoForm
     template_name = "insumo_form.html"
@@ -105,16 +108,12 @@ class InsumoCreateView(InsumoFormKwargsMixin, ClienteScopedMixin, CreateView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        registrar_auditoria(
-            self.request, acao="criar", modulo="insumo", registro_id=self.object.pk,
-            descricao=f'Insumo "{self.object.nome}" cadastrado.',
-        )
+        response = super().form_valid(form)  # salva e audita (AuditoriaFormMixin)
         messages.success(self.request, "Insumo cadastrado com sucesso.")
         return response
 
 
-class InsumoUpdateView(InsumoFormKwargsMixin, ClienteScopedMixin, UpdateView):
+class InsumoUpdateView(AuditoriaFormMixin, InsumoFormKwargsMixin, ClienteScopedMixin, UpdateView):
     model = Insumo
     form_class = InsumoForm
     template_name = "insumo_form.html"
@@ -124,11 +123,7 @@ class InsumoUpdateView(InsumoFormKwargsMixin, ClienteScopedMixin, UpdateView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        registrar_auditoria(
-            self.request, acao="editar", modulo="insumo", registro_id=self.object.pk,
-            descricao=f'Insumo "{self.object.nome}" atualizado.',
-        )
+        response = super().form_valid(form)  # salva e audita (AuditoriaFormMixin)
         messages.success(self.request, "Insumo atualizado com sucesso.")
         return response
 
@@ -144,11 +139,9 @@ class InsumoExcluirView(View):
         # pelo "pk" da URL — para que um pk de outro cliente resulte em 404
         # em vez de permitir a exclusão (proteção contra IDOR).
         insumo = get_object_or_404(Insumo, pk=pk, cliente=cliente)
-        insumo.ativo = False
-        insumo.save(update_fields=["ativo", "atualizado_em"])
-        registrar_auditoria(
-            request, acao="excluir", modulo="insumo", registro_id=insumo.pk,
-            descricao=f'Insumo "{insumo.nome}" excluído (lógico).',
-        )
+        with transaction.atomic():
+            registrar_exclusao(request, insumo, logica=True)
+            insumo.ativo = False
+            insumo.save(update_fields=["ativo", "atualizado_em"])
         messages.success(request, f'Insumo "{insumo.nome}" excluído com sucesso.')
         return redirect("insumo")

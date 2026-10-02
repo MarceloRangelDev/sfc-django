@@ -63,7 +63,7 @@ class Insumo(models.Model):
         validators=[MinValueValidator(Decimal("0.0001"), message="A quantidade deve ser maior que zero.")],
         verbose_name="Quantidade comprada",
     )
-    preco_pago = models.PositiveBigIntegerField(verbose_name="Valor pago (centavos)", default=0)
+    preco_pago = models.PositiveBigIntegerField(verbose_name="Valor pago", default=0)
     # Preço de 1 KG / 1 L / 1 UN (conforme a dimensão da medida), em
     # centavos. Calculado em save(); None se não puder ser calculado.
     preco_unidade = models.PositiveBigIntegerField(null=True, blank=True, editable=False, verbose_name="Preço por unidade (centavos)")
@@ -74,6 +74,9 @@ class Insumo(models.Model):
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Cadastrado em")
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    # Campos em centavos: a auditoria os mostra como "R$ 40,00".
+    AUDITORIA_MONETARIOS = ("preco_pago",)
 
     class Meta:
         verbose_name = "Insumo"

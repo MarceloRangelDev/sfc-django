@@ -46,6 +46,8 @@ urlpatterns = [
     path("", include("apps.modulo.urls")),
     # acl urls (papéis e permissões)
     path("", include("apps.acl.urls")),
+    # auditoria urls (consulta administrativa do log de auditoria)
+    path("", include("apps.auditoria.urls")),
     # medida urls (cadastro global de unidades de medida - administradores)
     path("", include("apps.medida.urls")),
 ]

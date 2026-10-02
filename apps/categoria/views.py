@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
 
+from apps.auditoria.mixins import AuditoriaFormMixin
 from web_project import TemplateLayout
 from web_project.mixins import ClienteScopedMixin
 
@@ -29,7 +30,7 @@ class CategoriaListView(ClienteScopedMixin, ListView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
 
-class CategoriaCreateView(CategoriaFormKwargsMixin, ClienteScopedMixin, CreateView):
+class CategoriaCreateView(AuditoriaFormMixin, CategoriaFormKwargsMixin, ClienteScopedMixin, CreateView):
     model = Categoria
     form_class = CategoriaForm
     template_name = "categoria_form.html"
@@ -43,7 +44,7 @@ class CategoriaCreateView(CategoriaFormKwargsMixin, ClienteScopedMixin, CreateVi
         return super().form_valid(form)
 
 
-class CategoriaUpdateView(CategoriaFormKwargsMixin, ClienteScopedMixin, UpdateView):
+class CategoriaUpdateView(AuditoriaFormMixin, CategoriaFormKwargsMixin, ClienteScopedMixin, UpdateView):
     model = Categoria
     form_class = CategoriaForm
     template_name = "categoria_form.html"

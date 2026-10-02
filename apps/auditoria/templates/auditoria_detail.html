@@ -1,0 +1,62 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Detalhes da auditoria" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Detalhes da Auditoria" %}</h4>
+  <a href="{% url 'auditoria-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+</div>
+
+<div class="card mb-6">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">{% translate "Usuário" %}</dt>
+      <dd class="col-sm-9">{{ registro.usuario.username|default:"—" }}</dd>
+      <dt class="col-sm-3">{% translate "Data" %}</dt>
+      <dd class="col-sm-9">{{ registro.criado_em|date:"d/m/Y H:i:s" }}</dd>
+      <dt class="col-sm-3">{% translate "Módulo" %}</dt>
+      <dd class="col-sm-9">{{ registro.modulo|default:"—" }}</dd>
+      <dt class="col-sm-3">{% translate "Tabela" %}</dt>
+      <dd class="col-sm-9">{{ registro.tabela|default:"—" }}</dd>
+      <dt class="col-sm-3">{% translate "Registro" %}</dt>
+      <dd class="col-sm-9">{% if registro.registro_id %}ID {{ registro.registro_id }}{% if registro.registro_nome %} — {{ registro.registro_nome }}{% endif %}{% else %}—{% endif %}</dd>
+      <dt class="col-sm-3">{% translate "Ação" %}</dt>
+      <dd class="col-sm-9">{{ acao_rotulo }}</dd>
+      <dt class="col-sm-3">{% translate "Cliente" %}</dt>
+      <dd class="col-sm-9">{{ registro.cliente.nome_razao_social|default:"—" }}</dd>
+      <dt class="col-sm-3">{% translate "Endereço IP" %}</dt>
+      <dd class="col-sm-9">{{ registro.ip|default:"—" }}</dd>
+      <dt class="col-sm-3">{% translate "Resultado" %}</dt>
+      <dd class="col-sm-9">{{ registro.get_resultado_display }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card mb-6">
+  <div class="card-header"><h5 class="mb-0">{% translate "Descrição" %}</h5></div>
+  <div class="card-body"><div style="white-space: pre-wrap;">{{ registro.descricao|default:"—" }}</div></div>
+</div>
+
+{% if registro.alteracoes %}
+<div class="card">
+  <div class="card-header"><h5 class="mb-0">{% translate "Alterações" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Campo" %}</th><th>{% translate "Antes" %}</th><th>{% translate "Depois" %}</th></tr></thead>
+      <tbody>
+        {% for alteracao in registro.alteracoes %}
+        <tr>
+          <td>{{ alteracao.rotulo }}</td>
+          <td>{{ alteracao.antes|default:"(vazio)" }}</td>
+          <td>{{ alteracao.depois|default:"(vazio)" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

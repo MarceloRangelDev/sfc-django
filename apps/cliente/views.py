@@ -1,10 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
+from apps.auditoria.mixins import AuditoriaFormMixin
+from apps.auditoria.utils import registrar_alteracoes
 from web_project import TemplateLayout
 
 from .forms import ClienteForm
@@ -26,7 +29,7 @@ class ClienteListView(ListView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
 
-class ClienteCreateView(CreateView):
+class ClienteCreateView(AuditoriaFormMixin, CreateView):
     model = Cliente
     form_class = ClienteForm
     template_name = "cliente_form.html"
@@ -40,7 +43,7 @@ class ClienteCreateView(CreateView):
         return super().form_valid(form)
 
 
-class ClienteUpdateView(UpdateView):
+class ClienteUpdateView(AuditoriaFormMixin, UpdateView):
     model = Cliente
     form_class = ClienteForm
     template_name = "cliente_form.html"
@@ -71,8 +74,13 @@ class ClienteVincularUsuarioView(View):
         # manipule a requisição e vincule um usuário a um Cliente qualquer.
         user_id = request.POST.get("user_id")
         user = get_object_or_404(User, pk=user_id, profile__cliente__isnull=True)
-        user.profile.cliente = cliente
-        user.profile.save()
+        with transaction.atomic():
+            user.profile.cliente = cliente
+            user.profile.save()
+            registrar_alteracoes(
+                request, cliente,
+                [{"campo": "usuarios", "rotulo": "Usuário vinculado", "antes": None, "depois": user.username}],
+            )
         messages.success(request, f"Usuário \"{user.username}\" vinculado a {cliente.nome_razao_social}.")
         return redirect("cliente-edit", pk=cliente.pk)
 
@@ -86,7 +94,12 @@ class ClienteDesvincularUsuarioView(View):
         # evita que, trocando o user_id na URL, alguém desvincule um
         # usuário de um Cliente diferente do informado no "pk".
         user = get_object_or_404(User, pk=user_id, profile__cliente=cliente)
-        user.profile.cliente = None
-        user.profile.save()
+        with transaction.atomic():
+            user.profile.cliente = None
+            user.profile.save()
+            registrar_alteracoes(
+                request, cliente,
+                [{"campo": "usuarios", "rotulo": "Usuário vinculado", "antes": user.username, "depois": None}],
+            )
         messages.success(request, f"Usuário \"{user.username}\" desvinculado de {cliente.nome_razao_social}.")
         return redirect("cliente-edit", pk=cliente.pk)
