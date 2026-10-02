@@ -1,9 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
-from django.utils import timezone
 
-from auth.models import Profile
+from auth.services import ErroDeAutenticacao, perfil_por_token_de_redefinicao, redefinir_senha
 from auth.views import AuthView
 
 
@@ -20,14 +19,7 @@ class ResetPasswordView(AuthView):
         (Profile.forget_password_token_expiration) — sem esta checagem o
         link de redefinição de senha nunca expirava (falha de segurança).
         """
-        profile = Profile.objects.filter(forget_password_token=token).first()
-        if profile is None or not token:
-            return None
-        if not profile.forget_password_token_expiration:
-            return None
-        if profile.forget_password_token_expiration < timezone.now():
-            return None
-        return profile
+        return perfil_por_token_de_redefinicao(token)
 
     def get(self, request, token):
         if request.user.is_authenticated:
@@ -66,15 +58,13 @@ class ResetPasswordView(AuthView):
             messages.error(request, "As senhas não coincidem.")
             return render(request, self.template_name, {"token": token})
 
-        user = profile.user
-        user.set_password(new_password)
-        user.save()
-
-        # Token de uso único: depois de usado, não pode ser reaproveitado
-        # (nem por um segundo POST acidental na mesma URL).
-        profile.forget_password_token = ""
-        profile.forget_password_token_expiration = None
-        profile.save()
+        # O serviço valida a força da senha (AUTH_PASSWORD_VALIDATORS), troca a
+        # senha e invalida o token (uso único) numa transação.
+        try:
+            user = redefinir_senha(token, new_password)
+        except ErroDeAutenticacao as erro:
+            messages.error(request, erro.mensagem)
+            return render(request, self.template_name, {"token": token})
 
         authenticated_user = authenticate(request, username=user.username, password=new_password)
         if authenticated_user:

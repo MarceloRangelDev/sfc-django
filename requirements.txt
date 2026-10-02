@@ -11,3 +11,8 @@ resend>=2.0.0
 # Exportação do módulo de Insumos (Fase 5)
 openpyxl==3.1.5
 reportlab==5.0.1
+
+# API REST + documentação Swagger/OpenAPI (Fase 7)
+djangorestframework==3.16.1
+drf-spectacular==0.30.0
+drf-spectacular-sidecar==2026.10.1

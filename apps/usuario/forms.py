@@ -75,7 +75,7 @@ class UsuarioForm(forms.ModelForm):
         username = self.cleaned_data["username"]
         duplicado = User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk)
         if duplicado.exists():
-            raise ValidationError("Este nome de usuário já está em uso.")
+            raise ValidationError("Este nome de usuário já está em uso.", code="unique")
         return username
 
     def clean_email(self):
@@ -87,7 +87,7 @@ class UsuarioForm(forms.ModelForm):
         usuarios = User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk)
         perfis = Profile.objects.filter(email__iexact=email).exclude(user_id=self.instance.pk)
         if usuarios.exists() or perfis.exists():
-            raise ValidationError("Este e-mail já está cadastrado.")
+            raise ValidationError("Este e-mail já está cadastrado.", code="unique")
         return email
 
     def clean(self):

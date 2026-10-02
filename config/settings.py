@@ -65,6 +65,12 @@ INSTALLED_APPS = [
     "apps.auditoria",
     "apps.medida",
     "apps.usuario",
+    # API REST (Fase 7)
+    "rest_framework",
+    "rest_framework.authtoken",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # arquivos do Swagger UI servidos localmente (sem CDN)
+    "apps.api",
 ]
 
 MIDDLEWARE = [
@@ -257,3 +263,60 @@ SESSION_COOKIE_AGE = 3600 # Tempo de expiração do cookie de sessão em segundo
 LOGIN_URL = "login" # login url para páginas que exigem login
 LOGIN_REDIRECT_URL = "index"      # login url para redirecionar após login bem-sucedido
 LOGOUT_REDIRECT_URL = "login" # logout url para quando o usuário fizer logout
+
+
+# API REST (Fase 7) - ver apps/api e a seção "API" do README
+# ------------------------------------------------------------------------------
+API_TOKEN_TTL_DIAS = int(os.environ.get("API_TOKEN_TTL_DIAS", default=30))  # validade do token de login
+
+REST_FRAMEWORK = {
+    # Só token (Authorization: Bearer <token>). Sem SessionAuthentication de
+    # propósito: sem cookie de sessão não há CSRF nem "login esquecido" no navegador.
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.api.authentication.TokenComExpiracao"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_RENDERER_CLASSES": ["apps.api.renderers.EnvelopeRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    "DEFAULT_PAGINATION_CLASS": "apps.api.pagination.PaginacaoPadrao",
+    "EXCEPTION_HANDLER": "apps.api.exceptions.tratador_de_excecoes",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.environ.get("API_THROTTLE_ANON", default="60/hour"),
+        "user": os.environ.get("API_THROTTLE_USER", default="2000/hour"),
+        # Endpoints sensíveis (ver throttle_scope nas views).
+        "cadastro": os.environ.get("API_THROTTLE_CADASTRO", default="10/hour"),
+        "senha": os.environ.get("API_THROTTLE_SENHA", default="10/hour"),
+    },
+    "NON_FIELD_ERRORS_KEY": "non_field_errors",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "SFC - Sistema Faturando Certo - API",
+    "DESCRIPTION": (
+        "API REST do sistema (preparada para aplicativos mobile).\n\n"
+        "**Autenticação:** faça `POST /api/v1/auth/login/`, copie o `token` e use o botão "
+        "*Authorize* com `Bearer <token>`.\n\n"
+        "**Respostas:** sempre no formato `{success, message, data}` (sucesso) ou "
+        "`{success, message, errors}` (erro).\n\n"
+        "**Dinheiro:** nunca é float. Valores são inteiros em *centavos* (`preco_pago`), "
+        "acompanhados de `*_decimal` (string) e `*_formatado` (texto)."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    # Schema e Swagger são protegidos em apps/api/urls.py (login + administrador).
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "SERVE_AUTHENTICATION": [],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "SECURITY": [{"BearerAuth": []}],
+    "POSTPROCESSING_HOOKS": ["apps.api.schema.envelopar_respostas"],
+    "ENUM_NAME_OVERRIDES": {},
+    "SORT_OPERATIONS": False,
+}

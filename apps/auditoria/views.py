@@ -1,13 +1,12 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
-from django.utils.dateparse import parse_date
 from django.views.generic import DetailView, ListView
 
 from web_project import TemplateLayout
 from web_project.acesso import administrador_global, cliente_do_usuario
 
+from .filtros import filtrar_registros
 from .models import ACOES, RegistroAuditoria
 
 PADRAO_POR_PAGINA = 25
@@ -36,29 +35,7 @@ class AuditoriaListView(ListView):
     context_object_name = "registros"
 
     def get_queryset(self):
-        queryset = registros_visiveis(self.request.user)
-        params = self.request.GET
-
-        termo = params.get("q", "").strip()
-        if termo:
-            queryset = queryset.filter(
-                Q(descricao__icontains=termo) | Q(registro_nome__icontains=termo)
-                | Q(registro_id__iexact=termo) | Q(usuario__username__icontains=termo)
-            )
-        if params.get("usuario", "").isdigit():
-            queryset = queryset.filter(usuario_id=params["usuario"])
-        if params.get("modulo"):
-            queryset = queryset.filter(modulo=params["modulo"])
-        if params.get("acao") in ACOES:
-            queryset = queryset.filter(acao=params["acao"])
-
-        # Período: a data final é inclusiva (vai até o fim do dia).
-        inicio, fim = parse_date(params.get("de", "")), parse_date(params.get("ate", ""))
-        if inicio:
-            queryset = queryset.filter(criado_em__date__gte=inicio)
-        if fim:
-            queryset = queryset.filter(criado_em__date__lte=fim)
-        return queryset.order_by("-criado_em", "-id")
+        return filtrar_registros(registros_visiveis(self.request.user), self.request.GET)
 
     def get_paginate_by(self, queryset):
         try:

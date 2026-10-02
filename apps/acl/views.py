@@ -1,29 +1,13 @@
 from django.contrib import messages
-from django.contrib.auth.models import Group, Permission
-from django.db import transaction
+from django.contrib.auth.models import Group
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import ListView
 
-from apps.auditoria.utils import registrar_alteracoes, registrar_criacao, registrar_exclusao
 from web_project import TemplateLayout
 
-from .permissions_matrix import ids_validos_da_matriz, montar_matriz_permissoes
-
-
-def _alteracoes_de_permissoes(antes, depois):
-    """Compara dois conjuntos de (codename, app_label) e devolve as
-    alterações de auditoria: uma linha para as permissões concedidas e
-    outra para as removidas."""
-    def texto(conjunto):
-        return ", ".join(sorted(f"{app}.{codigo}" for codigo, app in conjunto)) or None
-
-    alteracoes = []
-    if depois - antes:
-        alteracoes.append({"campo": "permissoes_concedidas", "rotulo": "Permissões concedidas", "antes": None, "depois": texto(depois - antes)})
-    if antes - depois:
-        alteracoes.append({"campo": "permissoes_removidas", "rotulo": "Permissões removidas", "antes": texto(antes - depois), "depois": None})
-    return alteracoes
+from .permissions_matrix import montar_matriz_permissoes
+from .services import excluir_papel, salvar_papel
 
 
 class PapelListView(ListView):
@@ -72,35 +56,8 @@ class PapelFormView(View):
             context = TemplateLayout.init(self, {"grupo": grupo, "matriz": montar_matriz_permissoes()})
             return render(request, self.template_name, context)
 
-        criando = grupo is None
-        # Só aceitamos ids de permissão que pertencem à matriz conhecida
-        # (módulos de negócio + administrativos) — mesmo que alguém edite o
-        # HTML do formulário e envie outro id (ex: de uma permissão de
-        # gerenciar papéis), ele é ignorado aqui.
-        ids_marcados = set(request.POST.getlist("permissoes"))
-        ids_validos = ids_validos_da_matriz()
-        ids_para_aplicar = {int(pid) for pid in ids_marcados if pid.isdigit() and int(pid) in ids_validos}
-
-        with transaction.atomic():
-            alteracoes = []
-            if criando:
-                grupo = Group.objects.create(name=nome)
-                permissoes_antes = set()
-            else:
-                permissoes_antes = set(grupo.permissions.values_list("codename", "content_type__app_label"))
-                if grupo.name != nome:
-                    alteracoes.append({"campo": "name", "rotulo": "Nome", "antes": grupo.name, "depois": nome})
-                    grupo.name = nome
-                    grupo.save()
-
-            grupo.permissions.set(Permission.objects.filter(pk__in=ids_para_aplicar))
-
-            permissoes_depois = set(grupo.permissions.values_list("codename", "content_type__app_label"))
-            alteracoes.extend(_alteracoes_de_permissoes(permissoes_antes, permissoes_depois))
-            if criando:
-                registrar_criacao(request, grupo, modulo="acl")
-            elif alteracoes:
-                registrar_alteracoes(request, grupo, alteracoes, modulo="acl")
+        # Validação dos ids de permissão, transação e auditoria: apps/acl/services.py
+        grupo = salvar_papel(request, grupo, nome, request.POST.getlist("permissoes"))
 
         messages.success(request, f'Papel "{grupo.name}" salvo com sucesso.')
         return redirect("acl-papel-list")
@@ -113,9 +70,7 @@ class PapelDeleteView(View):
     def post(self, request, pk):
         grupo = get_object_or_404(Group, pk=pk)
         nome = grupo.name
-        with transaction.atomic():
-            registrar_exclusao(request, grupo, modulo="acl")  # antes do delete(): depois o objeto perde o id
-            grupo.delete()
+        excluir_papel(request, grupo)
         messages.success(request, f'Papel "{nome}" excluído com sucesso.')
         return redirect("acl-papel-list")
 
