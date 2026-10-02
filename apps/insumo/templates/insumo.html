@@ -35,6 +35,21 @@
           </button>
         </form>
       </div>
+
+      <div class="col-md-auto">
+        <form method="get" class="d-flex align-items-center gap-2">
+          {% if termo_pesquisa %}<input type="hidden" name="q" value="{{ termo_pesquisa }}">{% endif %}
+          {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+          {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+          <label for="per_page" class="form-label mb-0 text-nowrap">{% translate "Registros por página" %}</label>
+          <select name="per_page" id="per_page" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+            {% for opcao in opcoes_por_pagina %}
+            <option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+
       <div class="col-md-auto d-flex gap-2">
         <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success">
           <i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}
@@ -67,7 +82,7 @@
           <td>{{ insumo.codigo }} &mdash; {{ insumo.nome }}</td>
           <td>{{ insumo.categoria.nome }}</td>
           <td>{{ insumo.get_unidade_medida_display }}</td>
-          <td>{{ insumo.quantidade|floatformat:4 }}</td>
+          <td>{{ insumo.quantidade|floatformat:3 }}</td>
           <td>{{ insumo.preco_formatado }}</td>
           <td>{{ insumo.preco_por_unidade_formatado }}</td>
           <td>
