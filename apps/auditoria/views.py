@@ -6,12 +6,12 @@ from django.utils.dateparse import parse_date
 from django.views.generic import DetailView, ListView
 
 from web_project import TemplateLayout
+from web_project.acesso import administrador_global, cliente_do_usuario
 
 from .models import ACOES, RegistroAuditoria
 
 PADRAO_POR_PAGINA = 25
 OPCOES_POR_PAGINA = [10, 25, 50, 100]
-GRUPO_ADMINISTRADOR = "Administrador"
 
 
 def registros_visiveis(user):
@@ -23,9 +23,9 @@ def registros_visiveis(user):
     a auditoria de um cliente nunca vaza para outro.
     """
     queryset = RegistroAuditoria.objects.select_related("usuario", "cliente")
-    if user.is_superuser or user.groups.filter(name=GRUPO_ADMINISTRADOR).exists():
+    if administrador_global(user):
         return queryset
-    cliente = getattr(getattr(user, "profile", None), "cliente", None)
+    cliente = cliente_do_usuario(user)
     return queryset.filter(cliente=cliente) if cliente else queryset.none()
 
 

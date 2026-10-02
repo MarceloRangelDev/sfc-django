@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.acl",
     "apps.auditoria",
     "apps.medida",
+    "apps.usuario",
 ]
 
 MIDDLEWARE = [

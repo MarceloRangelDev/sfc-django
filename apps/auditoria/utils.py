@@ -112,21 +112,37 @@ def _texto_do_valor(objeto, campo, valor):
     return str(valor)
 
 
-def tirar_foto(objeto):
+def tirar_foto(objeto, ignorar=()):
     """Foto dos campos do objeto: {campo: {"rotulo", "valor", "texto"}}.
 
     `valor` é o valor bruto (para detectar mudança de verdade: Decimal
     '10.0' e '10' são iguais) e `texto` é o que aparece na auditoria.
     Tire a foto ANTES de salvar uma edição.
+
+    `ignorar`: nomes de campos que NÃO devem ser auditados (ex.: "password":
+    o hash da senha jamais deve ir para o log). Campos ManyToMany editáveis
+    entram na foto como conjunto de ids (ex.: perfis de um cliente).
     """
     foto = {}
     for campo in _campos_auditaveis(objeto):
+        if campo.name in ignorar:
+            continue
         valor = campo.value_from_object(objeto)
         foto[campo.name] = {
             "rotulo": str(campo.verbose_name)[:1].upper() + str(campo.verbose_name)[1:],
             "valor": valor,
             "texto": _texto_do_valor(objeto, campo, valor),
         }
+    if objeto.pk:
+        for campo in objeto._meta.many_to_many:
+            if not campo.editable or campo.name in ignorar:
+                continue
+            relacionados = list(getattr(objeto, campo.name).all())
+            foto[campo.name] = {
+                "rotulo": str(campo.verbose_name)[:1].upper() + str(campo.verbose_name)[1:],
+                "valor": frozenset(r.pk for r in relacionados),
+                "texto": ", ".join(sorted(str(r) for r in relacionados)) or None,
+            }
     return foto
 
 

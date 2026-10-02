@@ -75,6 +75,13 @@
       "permission": "modulo.change_clientemodulo"
     },
     {
+      "url": "usuario-list",
+      "icon": "menu-icon icon-base ti tabler-users",
+      "name": "Usuários",
+      "slug": "usuario",
+      "permission": "auth.view_user"
+    },
+    {
       "url": "auditoria-list",
       "icon": "menu-icon icon-base ti tabler-history",
       "name": "Auditoria",

@@ -45,6 +45,16 @@ class Cliente(models.Model):
     nome_razao_social = models.CharField(max_length=200, verbose_name="Nome / Razão social")
     nome_fantasia = models.CharField(max_length=200, blank=True, verbose_name="Nome fantasia")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    # Perfis (papéis/Groups do ACL) que podem ser atribuídos aos usuários
+    # DESTE cliente. Ao criar um usuário, o perfil escolhido precisa estar
+    # nesta lista (ver apps/usuario/forms.py) — assim "Usuário -> Cliente ->
+    # Perfil -> Permissões" é uma cadeia validada no backend.
+    perfis = models.ManyToManyField(
+        "auth.Group",
+        blank=True,
+        related_name="clientes",
+        verbose_name="Perfis disponíveis",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

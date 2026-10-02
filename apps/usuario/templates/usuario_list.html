@@ -1,0 +1,137 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Usuários" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Usuários" %}</h4>
+  {% if perms.auth.add_user %}
+  <a href="{% url 'usuario-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo usuário" %}
+  </a>
+  {% endif %}
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label for="q" class="form-label">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Usuário, nome ou e-mail...' %}" value="{{ filtros.q }}">
+      </div>
+      <div class="col-md-3">
+        <label for="cliente" class="form-label">{% translate "Cliente" %}</label>
+        <select id="cliente" name="cliente" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for c in clientes %}<option value="{{ c.pk }}" {% if filtros.cliente == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome_razao_social }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="perfil" class="form-label">{% translate "Perfil" %}</label>
+        <select id="perfil" name="perfil" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for g in perfis %}<option value="{{ g.pk }}" {% if filtros.perfil == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="status" class="form-label">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          <option value="ativo" {% if filtros.status == "ativo" %}selected{% endif %}>{% translate "Ativos" %}</option>
+          <option value="inativo" {% if filtros.status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="per_page" class="form-label">{% translate "Por página" %}</label>
+        <select id="per_page" name="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% url 'usuario-list' %}" class="btn btn-outline-secondary">{% translate "Limpar" %}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Usuário" %}</th>
+          <th>{% translate "Nome" %}</th>
+          <th>{% translate "E-mail" %}</th>
+          <th>{% translate "Cliente" %}</th>
+          <th>{% translate "Perfil" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.get_full_name|default:"—" }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.profile.cliente.nome_razao_social|default:"—" }}</td>
+          <td>{% for g in u.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+          <td>
+            {% if u.is_active %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.auth.change_user %}
+            <a href="{% url 'usuario-edit' u.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% if u.pk != request.user.pk %}
+            <form method="post" action="{% url 'usuario-alternar-ativo' u.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-secondary rounded-pill" title="{% if u.is_active %}{% translate 'Inativar' %}{% else %}{% translate 'Ativar' %}{% endif %}">
+                <i class="icon-base ti {% if u.is_active %}tabler-toggle-right{% else %}tabler-toggle-left{% endif %}"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center py-6">{% translate "Nenhum usuário encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">
+      {% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if is_paginated %}
+  <div class="card-body pt-0">
+    <nav>
+      <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>
+        {% else %}<li class="page-item disabled"><span class="page-link">{% translate "Anterior" %}</span></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>
+        {% else %}<li class="page-item disabled"><span class="page-link">{% translate "Próxima" %}</span></li>{% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

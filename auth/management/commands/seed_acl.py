@@ -47,6 +47,10 @@ AUTH_CODENAMES_ADMINISTRADOR = [
     "change_group",
     "delete_group",
     "view_permission",
+    # Usuários (Fase 6). Sem "delete_user" de propósito: usuários só são inativados.
+    "view_user",
+    "add_user",
+    "change_user",
 ]
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)

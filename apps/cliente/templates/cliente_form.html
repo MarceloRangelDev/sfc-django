@@ -49,6 +49,20 @@
           <label for="{{ form.nome_fantasia.id_for_label }}" class="form-label">{% translate "Nome fantasia" %} ({% translate "opcional" %})</label>
           {{ form.nome_fantasia }}
         </div>
+        <div class="col-12">
+          <label class="form-label d-block">{% translate "Perfis disponíveis para os usuários deste cliente" %}</label>
+          <div class="d-flex flex-wrap gap-4">
+            {% for opcao in form.perfis %}
+            <div class="form-check">
+              {{ opcao.tag }}
+              <label class="form-check-label" for="{{ opcao.id_for_label }}">{{ opcao.choice_label }}</label>
+            </div>
+            {% empty %}
+            <span class="text-muted">{% translate "Nenhum perfil cadastrado." %}</span>
+            {% endfor %}
+          </div>
+          <div class="form-text">{% translate "Só estes perfis poderão ser atribuídos aos usuários do cliente." %}</div>
+        </div>
       </div>
       <div class="mt-6">
         <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
