@@ -41,7 +41,7 @@
           <td>{{ cliente.get_tipo_pessoa_display }}</td>
           <td>{{ cliente.cpf_cnpj_formatado }}</td>
           <td>{{ cliente.nome_razao_social }}</td>
-          <td>{{ cliente.usuarios.count }}</td>
+          <td>{{ cliente.qtd_usuarios }}</td>
           <td>
             {% if cliente.ativo %}
             <span class="badge bg-label-success">{% translate "Ativo" %}</span>

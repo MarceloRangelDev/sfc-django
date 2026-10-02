@@ -48,14 +48,15 @@ class LoginView(AuthView):
                 user_email = User.objects.filter(email=username).first()
                 if user_email is None:
                     ratelimit.hit("login", rl_key, settings.LOGIN_RATE_LIMIT_WINDOW)
-                    messages.error(request, "Por favor, insira um email válido.")
+                    # Mesma mensagem de "senha errada": não revela se a conta existe.
+                    messages.error(request, "Nome de usuário ou senha inválidos.")
                     return redirect("login")
                 username = user_email.username
 
             user_email = User.objects.filter(username=username).first()
             if user_email is None:
                 ratelimit.hit("login", rl_key, settings.LOGIN_RATE_LIMIT_WINDOW)
-                messages.error(request, "Por favor, insira um nome de usuário válido.")
+                messages.error(request, "Nome de usuário ou senha inválidos.")
                 return redirect("login")
 
             authenticated_user = authenticate(request, username=username, password=password)

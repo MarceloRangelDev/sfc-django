@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
 
 from django.utils.translation import gettext_lazy as _
@@ -31,11 +32,21 @@ SECRET_KEY = os.environ.get("SECRET_KEY", default='')
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", 'True').lower() in ['true', 'yes', '1']
+# Padrão seguro: se a variável DEBUG não existir, o modo debug fica DESLIGADO.
+DEBUG = os.environ.get("DEBUG", "False").lower() in ["true", "yes", "1"]
+TESTING = "test" in sys.argv  # rodando `manage.py test`
 
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]
+# Em produção, defina ALLOWED_HOSTS no .env (separados por vírgula), ex.: app.exemplo.com,www.exemplo.com
+ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"] + [
+    host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()
+]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+
+# O sistema está atrás de um proxy confiável (nginx)? Só então o IP do cliente
+# é lido de X-Forwarded-For (ver auth/ratelimit.py::get_client_ip).
+TRUST_X_FORWARDED_FOR = os.environ.get("TRUST_X_FORWARDED_FOR", "False").lower() in ["true", "yes", "1"]
 
 # Current DJANGO_ENVIRONMENT
 ENVIRONMENT = os.environ.get("DJANGO_ENVIRONMENT", default="local")
@@ -121,12 +132,30 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# SQLite (padrão): desenvolvimento e testes. PostgreSQL: defina DB_ENGINE=postgres
+# (e DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT) no .env e instale o driver
+# (`pip install "psycopg[binary]"`). O banco PostgreSQL deve ser criado em UTF-8
+# (veja a seção "Banco de dados" do README).
+if os.environ.get("DB_ENGINE", "sqlite").lower() in ("postgres", "postgresql"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "sfc"),
+            "USER": os.environ.get("DB_USER", "sfc"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", default=60)),
+            "OPTIONS": {"client_encoding": "UTF8"},
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -254,6 +283,19 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db" # Uso do banco de dados p
 SESSION_COOKIE_SECURE = True # Garantir que o cookie de sessão seja enviado apenas em conexões HTTPS
 SESSION_COOKIE_HTTPONLY = True # Garantir que o cookie de sessão não seja acessado pelo JavaScript
 SESSION_COOKIE_SAMESITE = "Lax" # Controlar o comportamento do cookie em requisições cross-site
+
+# HTTPS em produção (DEBUG desligado): redireciona HTTP -> HTTPS, HSTS, cookies só por
+# HTTPS. Atrás do nginx, ele precisa enviar "X-Forwarded-Proto: https".
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False  # o JavaScript do tema lê o token CSRF em alguns fluxos
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+if not DEBUG and not TESTING:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() in ["true", "yes", "1"]
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", default=31536000))  # 1 ano
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_REFERRER_POLICY = "same-origin"
 
 SESSION_COOKIE_AGE = 3600 # Tempo de expiração do cookie de sessão em segundos (1 hora)
 

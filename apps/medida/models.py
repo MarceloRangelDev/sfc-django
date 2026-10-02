@@ -79,6 +79,17 @@ class Medida(models.Model):
         """'100' -> '100 gramas' (função global de web_project/regras/extenso.py)."""
         return extenso.quantidade_por_extenso(quantidade, self.singular, self.plural)
 
+    @classmethod
+    def ids_em_uso(cls):
+        """Ids de TODAS as medidas em uso, em poucas consultas (uma por
+        relação), para listas: chamar em_uso() em cada linha faria uma
+        consulta por medida (problema N+1)."""
+        usadas = set()
+        for relacao in cls._meta.related_objects:
+            campo = f"{relacao.field.name}_id"
+            usadas.update(relacao.related_model._default_manager.values_list(campo, flat=True).distinct())
+        return usadas
+
     def em_uso(self):
         """True se algum registro de qualquer tabela referencia esta medida.
 

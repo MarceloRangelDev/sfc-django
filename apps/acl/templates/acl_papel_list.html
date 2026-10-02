@@ -37,8 +37,8 @@
         {% for papel in papeis %}
         <tr>
           <td>{{ papel.name }}</td>
-          <td>{{ papel.permissions.count }}</td>
-          <td>{{ papel.user_set.count }}</td>
+          <td>{{ papel.qtd_permissoes }}</td>
+          <td>{{ papel.qtd_usuarios }}</td>
           <td>
             {% if perms.auth.change_group %}
             <a href="{% url 'acl-papel-edit' papel.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">

@@ -7,7 +7,6 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -687,3 +686,70 @@ class DocumentacaoTests(BaseAPITests):
                 continue
             resposta = self.anonimo.get(caminho)
             self.assertIn(resposta.status_code, (401, 405), f"{caminho} -> {resposta.status_code}")
+
+
+class DesempenhoAPITests(BaseAPITests):
+    """Listas não podem fazer uma consulta por linha (N+1): o número de
+    consultas é o mesmo com 1 ou com 12 registros."""
+
+    def consultas(self, api, caminho):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as contexto:
+            resposta = api.get(f"{V1}/{caminho}/", {"por_pagina": 100})
+        self.assertEqual(resposta.status_code, 200, resposta.content[:300])
+        return len(contexto)
+
+    def assert_constante(self, api, caminho, criar_mais):
+        antes = self.consultas(api, caminho)
+        criar_mais()
+        depois = self.consultas(api, caminho)
+        self.assertEqual(antes, depois, f"{caminho}: {antes} consultas -> {depois} (N+1)")
+
+    def test_insumos(self):
+        novo_insumo(self.cliente_a, "Semente")  # com 0 registros a consulta da lista nem roda
+        self.assert_constante(self.api_a, "insumos", lambda: [novo_insumo(self.cliente_a, f"I{i}") for i in range(12)])
+
+    def test_medidas(self):
+        novo_insumo(self.cliente_a, "Em uso", "g", "1", 100)
+        self.assert_constante(self.api_a, "medidas", lambda: [
+            Medida.objects.create(medida=f"M{i}", sigla=f"m{i}", dimensao="massa", fator_base=Decimal("1")) for i in range(12)
+        ])
+
+    def test_usuarios(self):
+        operador = Group.objects.get(name="Operador")
+
+        def criar():
+            for i in range(12):
+                u = User.objects.create_user(username=f"u{i}", email=f"u{i}@t.local", password="x")
+                u.profile.cliente = self.cliente_a
+                u.profile.save()
+                u.groups.add(operador)
+
+        self.assert_constante(self.api_admin, "usuarios", criar)
+
+    def test_clientes(self):
+        def criar():
+            for i, doc in enumerate(["52998224725", "11144477735", "39053344705"]):
+                c = Cliente.objects.create(tipo_pessoa="PF", cpf_cnpj=doc, nome_razao_social=f"PF{i}")
+                c.perfis.add(Group.objects.get(name="Gestor"))
+
+        self.assert_constante(self.api_admin, "clientes", criar)
+
+    def test_perfis(self):
+        def criar():
+            for i in range(8):
+                g = Group.objects.create(name=f"G{i}")
+                g.permissions.add(*Permission.objects.filter(content_type__app_label="insumo"))
+
+        self.assert_constante(self.api_admin, "perfis", criar)
+
+    def test_auditoria(self):
+        self.api_a.post(f"{V1}/categorias/", {"nome": "Semente"}, format="json")
+
+        def criar():
+            for i in range(10):
+                self.api_a.post(f"{V1}/categorias/", {"nome": f"Cat{i}"}, format="json")
+
+        self.assert_constante(self.api_admin, "auditoria", criar)

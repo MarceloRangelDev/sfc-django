@@ -20,6 +20,13 @@ from apps.cliente.validators import (  # noqa: F401  (reexport)
 
 from . import RegraNegocioError
 
+# Reexporta as validações de CPF/CNPJ para existir um único ponto de importação.
+__all__ = [
+    "formatar_documento", "normalizar_documento", "validar_cnpj", "validar_cpf",
+    "somente_digitos", "validar_telefone", "validar_celular", "formatar_telefone", "validar_email",
+    "ler_data_br", "ler_datahora_br", "formatar_data_br",
+]
+
 
 def somente_digitos(texto):
     return re.sub(r"\D", "", texto or "")

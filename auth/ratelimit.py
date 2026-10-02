@@ -8,6 +8,7 @@ e pode ser trocado por Redis/Memcached em produção só mudando CACHES.
 """
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.core.cache import cache
 
 CACHE_PREFIX = "ratelimit"
@@ -24,10 +25,20 @@ def _key(scope: str, identifier: str) -> str:
 
 
 def get_client_ip(request) -> str:
-    """Obtém o IP do cliente, respeitando um eventual proxy reverso (X-Forwarded-For)."""
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    """Obtém o IP do cliente (usado pelo rate limit e pela auditoria).
+
+    X-Forwarded-For é um cabeçalho que QUALQUER cliente pode forjar. Por isso
+    só é lido quando settings.TRUST_X_FORWARDED_FOR é True (o sistema está
+    atrás de um proxy confiável, como o nginx deste projeto) e, mesmo
+    assim, usa-se o ÚLTIMO valor da lista: é o IP que o nosso proxy viu
+    (`$proxy_add_x_forwarded_for` acrescenta o IP real ao final). O primeiro
+    valor é o que o cliente mandou e permitiria burlar o rate limit
+    trocando o cabeçalho a cada tentativa.
+    """
+    if getattr(settings, "TRUST_X_FORWARDED_FOR", False):
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if forwarded_for:
+            return forwarded_for.split(",")[-1].strip()
     return request.META.get("REMOTE_ADDR", "unknown")
 
 

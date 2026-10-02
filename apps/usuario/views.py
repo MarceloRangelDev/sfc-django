@@ -7,7 +7,6 @@ from django.views import View
 from django.views.generic import FormView, ListView
 
 from apps.cliente.models import Cliente
-from auth.models import Profile
 from web_project import TemplateLayout
 from web_project.acesso import administrador_global, cliente_do_usuario
 

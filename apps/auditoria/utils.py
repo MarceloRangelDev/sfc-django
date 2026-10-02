@@ -20,10 +20,11 @@ from decimal import Decimal
 
 from django.utils import timezone
 
+from auth.ratelimit import get_client_ip
 from web_project.regras.dinheiro import DinheiroService
 from web_project.regras.extenso import formatar_numero_br
 
-from .models import ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR, ACOES, RegistroAuditoria  # noqa: F401
+from .models import ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR, RegistroAuditoria
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,7 @@ logger = logging.getLogger(__name__)
 def _obter_ip(request):
     if request is None:
         return None
-    encaminhado_por = request.META.get("HTTP_X_FORWARDED_FOR")
-    if encaminhado_por:
-        return encaminhado_por.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+    return get_client_ip(request)  # mesma regra (e mesma confiança em proxy) do rate limit
 
 
 def registrar(

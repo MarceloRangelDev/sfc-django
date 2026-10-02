@@ -58,7 +58,8 @@ class LoginTests(TestCase):
             reverse("login"), {"email-username": "nao-existe", "password": "qualquer"}, follow=True
         )
         mensagens = [str(m) for m in resposta.context["messages"]]
-        self.assertIn("Por favor, insira um nome de usuário válido.", mensagens)
+        # Mesma mensagem da senha errada: não revela se o usuário existe.
+        self.assertIn("Nome de usuário ou senha inválidos.", mensagens)
 
     def test_logout_invalida_a_sessao(self):
         self.client.login(username="usuario1", password="SenhaForte123!")
@@ -86,3 +87,53 @@ class RegistroTests(TestCase):
         )
         usuario = User.objects.get(username="novato")
         self.assertTrue(usuario.groups.filter(name="Visualizador").exists())
+
+
+class SegurancaTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        User.objects.create_user(username="usuario1", email="usuario1@teste.local", password="SenhaForte123!")
+
+    def test_ip_ignora_x_forwarded_for_por_padrao(self):
+        from django.test import RequestFactory
+
+        from auth.ratelimit import get_client_ip
+
+        requisicao = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="9.9.9.9")
+        self.assertEqual(get_client_ip(requisicao), "9.9.9.9")  # cabeçalho forjável não é confiável
+
+    @override_settings(TRUST_X_FORWARDED_FOR=True)
+    def test_atras_de_proxy_confiavel_usa_o_ultimo_salto(self):
+        from django.test import RequestFactory
+
+        from auth.ratelimit import get_client_ip
+
+        # o cliente tentou forjar "1.1.1.1"; o nginx acrescentou o IP real ao final
+        requisicao = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="1.1.1.1, 203.0.113.7", REMOTE_ADDR="10.0.0.1")
+        self.assertEqual(get_client_ip(requisicao), "203.0.113.7")
+
+    def test_rate_limit_nao_e_burlado_trocando_x_forwarded_for(self):
+        for i in range(3):
+            self.client.post(reverse("login"), {"email-username": "usuario1", "password": "errada"}, HTTP_X_FORWARDED_FOR=f"8.8.8.{i}")
+        resposta = self.client.post(
+            reverse("login"), {"email-username": "usuario1", "password": "SenhaForte123!"}, HTTP_X_FORWARDED_FOR="8.8.8.99", follow=True
+        )
+        mensagens = [str(m) for m in resposta.context["messages"]]
+        self.assertTrue(any("Muitas tentativas" in m for m in mensagens), mensagens)
+
+    def test_esqueci_a_senha_responde_igual_para_email_existente_ou_nao(self):
+        from django.core.cache import cache
+
+        existente = self.client.post(reverse("forgot-password"), {"email": "usuario1@teste.local"}, follow=True)
+        cache.clear()
+        inexistente = self.client.post(reverse("forgot-password"), {"email": "ninguem@teste.local"}, follow=True)
+        self.assertEqual(
+            [str(m) for m in existente.context["messages"]], [str(m) for m in inexistente.context["messages"]]
+        )
+
+    def test_cadastro_e_reset_exigem_senha_forte(self):
+        resposta = self.client.post(reverse("register"), {"username": "fraco", "email": "fraco@teste.local", "password": "12345678"}, follow=True)
+        self.assertFalse(User.objects.filter(username="fraco").exists())
+        self.assertTrue(any("senha" in str(m).lower() for m in resposta.context["messages"]))

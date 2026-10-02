@@ -11,13 +11,12 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import Group, User
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ErrorDetail, Throttled, ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 

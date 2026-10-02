@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -23,7 +24,7 @@ class ClienteListView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        return Cliente.objects.all().order_by("nome_razao_social")
+        return Cliente.objects.annotate(qtd_usuarios=Count("usuarios")).order_by("nome_razao_social")
 
     def get_context_data(self, **kwargs):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))

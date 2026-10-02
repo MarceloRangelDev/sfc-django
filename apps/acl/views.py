@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.models import Group
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import ListView
@@ -18,7 +19,10 @@ class PapelListView(ListView):
     context_object_name = "papeis"
 
     def get_queryset(self):
-        return Group.objects.all().order_by("name")
+        # Contagens feitas no banco (uma consulta só), não por papel na tela.
+        return Group.objects.annotate(
+            qtd_permissoes=Count("permissions", distinct=True), qtd_usuarios=Count("user", distinct=True)
+        ).order_by("name")
 
     def get_context_data(self, **kwargs):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))

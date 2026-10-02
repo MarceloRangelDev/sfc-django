@@ -11,7 +11,7 @@ nunca são aceitos na entrada.
 """
 from decimal import Decimal
 
-from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -100,7 +100,11 @@ class MedidaSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.BooleanField())
     def get_em_uso(self, medida):
-        return medida.em_uso()
+        # Calculado uma vez por requisição (o contexto é compartilhado pelos
+        # itens de uma lista), em vez de uma consulta por medida.
+        if "ids_em_uso" not in self.context:
+            self.context["ids_em_uso"] = Medida.ids_em_uso()
+        return medida.pk in self.context["ids_em_uso"]
 
     def _unico(self, campo, valor, mensagem):
         duplicadas = Medida.objects.filter(**{f"{campo}__iexact": valor})
@@ -356,7 +360,8 @@ class UsuarioSerializer(serializers.Serializer):
 
     def to_representation(self, usuario):
         profile = usuario.profile
-        grupo = usuario.groups.first()
+        grupos = list(usuario.groups.all())  # usa o prefetch (.first() faria uma consulta por usuário)
+        grupo = grupos[0] if grupos else None
         return {
             "id": usuario.pk,
             "username": usuario.username,

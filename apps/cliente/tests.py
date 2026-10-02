@@ -1,4 +1,6 @@
+from django.core.management import call_command
 from django.test import TestCase
+from django.urls import reverse
 
 from .models import Cliente
 from .validators import formatar_documento, normalizar_documento, validar_cnpj, validar_cpf
@@ -73,3 +75,30 @@ class ClienteModelTests(TestCase):
         cliente = Cliente(tipo_pessoa=Cliente.TIPO_PJ, cpf_cnpj="11.444.777/0001-61", nome_razao_social="Empresa C")
         cliente.full_clean()
         self.assertEqual(cliente.cpf_cnpj, "11444777000161")
+
+
+class ListagensSemN1Tests(TestCase):
+    """As listas de clientes e de papéis fazem o mesmo número de consultas
+    com poucos ou muitos registros."""
+
+    def _consultas(self, nome_rota):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as contexto:
+            self.assertEqual(self.client.get(reverse(nome_rota)).status_code, 200)
+        return len(contexto)
+
+    def test_clientes_e_papeis(self):
+        from django.contrib.auth.models import Group, User
+
+        call_command("seed_acl", verbosity=0)
+        admin = User.objects.create_user(username="adm", email="adm@teste.local", password="SenhaForte123!")
+        admin.groups.add(Group.objects.get(name="Administrador"))
+        self.client.login(username="adm", password="SenhaForte123!")
+        Cliente.objects.create(tipo_pessoa="PJ", cpf_cnpj="11222333000181", nome_razao_social="C0")
+        antes = (self._consultas("cliente-list"), self._consultas("acl-papel-list"))
+        for i, doc in enumerate(["52998224725", "11144477735", "39053344705"]):
+            Cliente.objects.create(tipo_pessoa="PF", cpf_cnpj=doc, nome_razao_social=f"C{i + 1}")
+            Group.objects.create(name=f"Papel {i}")
+        self.assertEqual(antes, (self._consultas("cliente-list"), self._consultas("acl-papel-list")))

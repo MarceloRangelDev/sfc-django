@@ -162,3 +162,23 @@ crescer além dos 4 grupos padrão listados acima:
 ### 🔒 Grupos Especiais de Segurança e Auditoria
 - **Auditor / Compliance:** Acesso de leitura a logs de sistema, históricos de alteração e dados de segurança.
 - **Data_Analyst / BI_Viewer:** Permissão focada em exportação de relatórios e conexão com ferramentas de Business Intelligence.
+
+---
+
+## Atualização (Fases 3 a 8)
+
+Novas telas/recursos protegidos pelo mesmo mecanismo (permissões nativas do Django) e concedidos **somente ao grupo Administrador** por `seed_acl`:
+
+| Recurso | Permissões usadas |
+|---|---|
+| Medidas (`/medidas`) | `medida.view/add/change/delete_medida` |
+| Usuários (`/usuarios`) | `auth.view_user`, `auth.add_user`, `auth.change_user` (não existe exclusão física) |
+| Auditoria (`/auditoria`) | `auditoria.view_registroauditoria` (a única que existe: o log é imutável) |
+
+Além disso:
+
+- **Perfis por cliente:** `Cliente.perfis` define quais papéis podem ser atribuídos aos usuários daquele cliente; o `UsuarioForm` (e a API) validam isso no servidor.
+- **Escopo:** quem não é administrador global (superusuário ou grupo "Administrador") só enxerga usuários e auditoria do próprio cliente (`web_project/acesso.py`).
+- **API:** a classe `apps/api/permissions.py::PermissaoDoSistema` aplica as mesmas permissões e a mesma checagem de módulo habilitado (`modulo_slug`) às rotas `/api/v1/`.
+
+Veja o README (seções "ACL", "API" e "Segurança") para o quadro completo.
