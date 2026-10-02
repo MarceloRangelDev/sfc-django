@@ -159,6 +159,12 @@ LANGUAGES = [
 # toda a interface, incluindo mensagens de erro nativas do Django, em pt-BR).
 LANGUAGE_CODE = "pt-br"
 
+# UTF-8 de ponta a ponta: o Django já usa utf-8 por padrão nas respostas HTTP;
+# declarar explicitamente evita surpresas e documenta a regra do projeto.
+# (Arquivos lidos por código Python precisam de encoding="utf-8" explícito:
+# no Windows o padrão de open() é cp1252 e corrompe acentos.)
+DEFAULT_CHARSET = "utf-8"
+
 TIME_ZONE = "UTC" # Fuso horário para a aplicação Django
 
 USE_I18N = True # Ativar internacionalização
