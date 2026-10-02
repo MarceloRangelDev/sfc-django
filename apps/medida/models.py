@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from web_project.regras import extenso
-from web_project.regras.conversao import DIMENSOES
+from web_project.regras.conversao import DIMENSOES, sigla_preco_padrao
 
 
 class Medida(models.Model):
@@ -69,6 +69,11 @@ class Medida(models.Model):
     @property
     def plural(self):
         return self.nome_plural or extenso.plural_padrao(self.singular)
+
+    @property
+    def sigla_preco(self):
+        """Sigla do rótulo de preço desta dimensão: KG, L, UN, M..."""
+        return sigla_preco_padrao(self.dimensao)
 
     def por_extenso(self, quantidade):
         """'100' -> '100 gramas' (função global de web_project/regras/extenso.py)."""

@@ -1,91 +1,60 @@
 from decimal import Decimal
 
 from django import forms
+from django.db.models import Q
 
-from apps.categoria.models import Categoria
+from apps.medida.models import Medida
+from web_project.forms import DecimalBRField, MoedaCentavosField
+from web_project.regras import RegraNegocioError
 
-from .models import Insumo
-
-
-def normalizar_valor_monetario(texto):
-    """Aceita '1234.56', '1234,56', '1.234,56' ou 'R$ 1.234,56' e devolve
-    uma string decimal padrão ('1234.56') para o DecimalField processar.
-
-    Nunca confia no formato exato vindo do frontend — o usuário pode digitar
-    com vírgula (padrão brasileiro) ou colar um valor com o símbolo "R$".
-    """
-    if texto is None:
-        return texto
-    texto = str(texto).strip().replace("R$", "").replace(" ", "")
-    if not texto:
-        return texto
-    if "," in texto and "." in texto:
-        # "1.234,56" -> ponto é separador de milhar, vírgula é decimal.
-        texto = texto.replace(".", "").replace(",", ".")
-    elif "," in texto:
-        # "1234,56" -> vírgula é o separador decimal.
-        texto = texto.replace(",", ".")
-    return texto
-
-
-class DecimalMonetarioField(forms.DecimalField):
-    """DecimalField tolerante ao formato brasileiro de número.
-
-    A checagem de NaN/Infinity/valor não numérico já é feita pelo próprio
-    Django (forms.DecimalField.validate() rejeita valores não finitos) —
-    aqui só normalizamos o separador decimal antes dessa validação nativa
-    rodar.
-    """
-
-    def to_python(self, value):
-        return super().to_python(normalizar_valor_monetario(value))
+from .models import LIMITE_CENTAVOS, Insumo
 
 
 class InsumoForm(forms.ModelForm):
-    quantidade = DecimalMonetarioField(
+    """Cadastro/edição de insumo.
+
+    O usuário informa: nome, unidade comprada, quantidade comprada e valor
+    pago. O preço por KG/L/UN NÃO é um campo do formulário: é calculado no
+    backend (Insumo.save) a partir desses três dados — a tela só mostra uma
+    prévia (via /medidas/calcular), nunca decide o valor.
+    """
+
+    quantidade = DecimalBRField(
         max_digits=15,
         decimal_places=4,
-        min_value=Decimal("0"),
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: 1,5"}),
+        min_value=Decimal("0.0001"),
+        label="Quantidade comprada",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: 100", "data-mask": "decimal", "data-calc": "quantidade"}),
         error_messages={
             "invalid": "Informe uma quantidade válida.",
-            "min_value": "A quantidade não pode ser negativa.",
+            "min_value": "A quantidade deve ser maior que zero.",
         },
     )
-    preco = DecimalMonetarioField(
-        max_digits=15,
-        decimal_places=4,
-        min_value=Decimal("0"),
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: 12,90"}),
-        error_messages={
-            "invalid": "Informe um preço válido.",
-            "min_value": "O preço não pode ser negativo.",
-        },
+    preco_pago = MoedaCentavosField(
+        label="Valor pago (R$)",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: 4,00", "data-mask": "moeda", "data-calc": "preco"}),
+        error_messages={"invalid": "Informe um valor válido.", "min_value": "O valor não pode ser negativo."},
     )
 
     class Meta:
         model = Insumo
-        fields = ["nome", "categoria", "unidade_medida", "quantidade", "preco", "ativo"]
+        fields = ["nome", "medida", "quantidade", "preco_pago", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control"}),
-            "categoria": forms.Select(attrs={"class": "form-select"}),
-            "unidade_medida": forms.Select(attrs={"class": "form-select"}),
+            "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, cliente=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.cliente = cliente
-        # Só mostra (e só aceita, ver clean_categoria) categorias do
-        # PRÓPRIO cliente — nunca confia em um id de categoria de outro
-        # cliente vindo no POST.
-        self.fields["categoria"].queryset = Categoria.objects.filter(cliente=cliente).order_by("nome")
-
-    def clean_categoria(self):
-        categoria = self.cleaned_data.get("categoria")
-        if categoria and categoria.cliente_id != getattr(self.cliente, "pk", None):
-            raise forms.ValidationError("Categoria inválida para este cliente.")
-        return categoria
+        # Só medidas ativas aparecem para novos cadastros; ao editar, a
+        # medida atual do insumo continua selecionável mesmo se inativada.
+        filtro = Q(ativo=True)
+        if self.instance.pk:
+            filtro |= Q(pk=self.instance.medida_id)
+        self.fields["medida"].queryset = Medida.objects.filter(filtro).order_by("id")
+        self.fields["medida"].empty_label = "Selecione..."
 
     def clean_nome(self):
         nome = (self.cleaned_data.get("nome") or "").strip()
@@ -97,3 +66,21 @@ class InsumoForm(forms.ModelForm):
         if queryset.exists():
             raise forms.ValidationError("Este insumo já está cadastrado.")
         return nome
+
+    def clean_preco_pago(self):
+        valor = self.cleaned_data.get("preco_pago")
+        if valor is not None and valor > LIMITE_CENTAVOS:
+            raise forms.ValidationError("Valor acima do limite permitido.")
+        return valor
+
+    def clean(self):
+        dados = super().clean()
+        # Antecipa o erro de cálculo (ex.: preço por unidade gigante) com
+        # mensagem amigável em vez de falhar só ao gravar.
+        if all(dados.get(campo) is not None for campo in ("medida", "quantidade", "preco_pago")):
+            tentativa = Insumo(medida=dados["medida"], quantidade=dados["quantidade"], preco_pago=dados["preco_pago"])
+            try:
+                tentativa.calcular_preco_unidade()
+            except RegraNegocioError as erro:
+                raise forms.ValidationError(str(erro)) from None
+        return dados

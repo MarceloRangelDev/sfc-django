@@ -1,5 +1,7 @@
 """Campos de formulário reutilizáveis (backend). Substituem cópias locais de
 "aceitar vírgula brasileira" espalhadas pelos apps."""
+from decimal import Decimal
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -14,6 +16,15 @@ class DecimalBRField(forms.DecimalField):
     Django (max_digits, decimal_places, min_value); aqui só normalizamos o
     texto antes disso.
     """
+
+    def prepare_value(self, value):
+        # Valor vindo do banco (Decimal('100.0000')) é mostrado no padrão
+        # brasileiro e sem zeros inúteis ('100', '12,5'). Sem isso a máscara
+        # decimal do navegador trataria o ponto como lixo e '100.0000'
+        # viraria '1000000'.
+        if isinstance(value, Decimal):
+            return format(value.normalize(), "f").replace(".", ",")
+        return value
 
     def to_python(self, value):
         if value in self.empty_values:

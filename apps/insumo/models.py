@@ -3,40 +3,32 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from web_project.regras import RegraNegocioError
+from web_project.regras.conversao import preco_por_unidade_padrao
+from web_project.regras.dinheiro import DinheiroService
 
-def formatar_moeda_brl(valor):
-    """Formata um Decimal como 'R$ 1.234,56' sem depender da configuração
-    de locale do sistema operacional (evita formatação inconsistente entre
-    ambientes de desenvolvimento e produção)."""
-    if valor is None:
-        return "-"
-    texto = f"{valor:,.2f}"
-    texto = texto.replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"R$ {texto}"
+# Teto de segurança para valores em centavos (R$ 10 trilhões): impede estouro
+# do BIGINT quando uma quantidade minúscula é convertida para preço por KG/L.
+LIMITE_CENTAVOS = 10**15
 
 
 class Insumo(models.Model):
     """Insumo utilizado nas receitas/produtos de um Cliente.
 
-    Campos monetários e de quantidade usam DecimalField (nunca FloatField)
-    para não perder precisão em cálculos financeiros — ver a seção
-    "Segurança dos valores" do README. MinValueValidator(0) bloqueia
-    valores negativos tanto vindos do formulário quanto de qualquer outro
-    código que grave um Insumo diretamente (Django Admin, um script...).
-    """
+    Dinheiro é guardado em CENTAVOS (inteiro) — nunca float nem Decimal no
+    banco (ver web_project/regras/dinheiro.py). Exemplo do cadastro:
 
-    UNIDADE_KG = "KG"
-    UNIDADE_G = "G"
-    UNIDADE_L = "L"
-    UNIDADE_ML = "ML"
-    UNIDADE_UN = "UN"
-    UNIDADE_CHOICES = [
-        (UNIDADE_KG, "Quilograma (kg)"),
-        (UNIDADE_G, "Grama (g)"),
-        (UNIDADE_L, "Litro (L)"),
-        (UNIDADE_ML, "Mililitro (mL)"),
-        (UNIDADE_UN, "Unidade (un)"),
-    ]
+        comprou 100 g por R$ 4,00  ->  quantidade=100, medida=Gramas,
+                                       preco_pago=400, preco_unidade=4000
+                                       (R$ 40,00 por KG, calculado)
+
+    `preco_unidade` é recalculado a cada save() pela regra central
+    (web_project/regras/conversao.py) usando o fator da tabela `medidas`.
+
+    Insumos NÃO têm categoria (as categorias são dos produtos). A coluna
+    `categoria` continua no banco, oculta e opcional, só para não perder os
+    dados de insumos cadastrados antes desta mudança.
+    """
 
     # Isolamento multi-tenant: todo Insumo pertence a exatamente um
     # Cliente, e toda consulta/edição/exclusão deve filtrar por ele (ver
@@ -53,25 +45,28 @@ class Insumo(models.Model):
         on_delete=models.PROTECT,
         related_name="insumos",
         verbose_name="Categoria",
+        null=True,
+        blank=True,
+        editable=False,  # oculta: fora de formulários, admin e API
     )
-    unidade_medida = models.CharField(
-        max_length=2,
-        choices=UNIDADE_CHOICES,
-        default=UNIDADE_UN,
+    # PROTECT: uma medida em uso nunca é apagada em cascata (ver
+    # apps/medida/views.py::MedidaExcluirView — ela só é inativada).
+    medida = models.ForeignKey(
+        "medida.Medida",
+        on_delete=models.PROTECT,
+        related_name="insumos",
         verbose_name="Unidade de medida",
     )
     quantidade = models.DecimalField(
         max_digits=15,
         decimal_places=4,
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Quantidade",
+        validators=[MinValueValidator(Decimal("0.0001"), message="A quantidade deve ser maior que zero.")],
+        verbose_name="Quantidade comprada",
     )
-    preco = models.DecimalField(
-        max_digits=15,
-        decimal_places=4,
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Preço pago (R$)",
-    )
+    preco_pago = models.PositiveBigIntegerField(verbose_name="Valor pago (centavos)", default=0)
+    # Preço de 1 KG / 1 L / 1 UN (conforme a dimensão da medida), em
+    # centavos. Calculado em save(); None se não puder ser calculado.
+    preco_unidade = models.PositiveBigIntegerField(null=True, blank=True, editable=False, verbose_name="Preço por unidade (centavos)")
     # Exclusão lógica: "excluir" um insumo só marca ativo=False (ver
     # apps/insumo/views.py::InsumoExcluirView) — o registro permanece no
     # banco (histórico, fichas técnicas que já o referenciam etc.) e some
@@ -85,9 +80,32 @@ class Insumo(models.Model):
         verbose_name_plural = "Insumos"
         ordering = ["nome"]
         unique_together = ("cliente", "nome")
+        indexes = [models.Index(fields=["cliente", "ativo"], name="insumo_cliente_ativo_idx")]
 
     def __str__(self):
         return self.nome
+
+    def calcular_preco_unidade(self):
+        """Preço por KG/L/UN em centavos, ou None se a quantidade for zero.
+
+        Levanta RegraNegocioError para entradas inválidas (usado pelo form
+        para dar uma mensagem amigável antes de gravar)."""
+        if not self.quantidade or self.quantidade <= 0:
+            return None
+        valor = preco_por_unidade_padrao(self.preco_pago, self.quantidade, self.medida)
+        if valor > LIMITE_CENTAVOS:
+            raise RegraNegocioError("O preço por unidade calculado é grande demais; confira a quantidade e o valor pago.")
+        return valor
+
+    def save(self, *args, **kwargs):
+        # Só recalcula quando o save grava os campos de que o preço depende
+        # (o soft delete usa update_fields=["ativo", ...] e não precisa).
+        campos = kwargs.get("update_fields")
+        if campos is None or {"quantidade", "medida", "preco_pago"} & set(campos):
+            self.preco_unidade = self.calcular_preco_unidade()
+            if campos is not None and "preco_unidade" not in campos:
+                kwargs["update_fields"] = [*campos, "preco_unidade"]
+        super().save(*args, **kwargs)
 
     @property
     def codigo(self):
@@ -96,15 +114,18 @@ class Insumo(models.Model):
         return f"INS-{self.pk:05d}" if self.pk else ""
 
     @property
-    def preco_por_unidade(self):
-        if not self.quantidade:
-            return None
-        return self.preco / self.quantidade
+    def preco_pago_formatado(self):
+        return DinheiroService.formatar(self.preco_pago)
 
     @property
-    def preco_formatado(self):
-        return formatar_moeda_brl(self.preco)
+    def preco_unidade_formatado(self):
+        return DinheiroService.formatar(self.preco_unidade)
 
     @property
-    def preco_por_unidade_formatado(self):
-        return formatar_moeda_brl(self.preco_por_unidade)
+    def rotulo_preco(self):
+        """'PREÇO (por KG)' — a sigla muda conforme a dimensão da medida."""
+        return f"PREÇO (por {self.medida.sigla_preco})"
+
+    @property
+    def quantidade_por_extenso(self):
+        return self.medida.por_extenso(self.quantidade)

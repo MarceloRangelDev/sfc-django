@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -8,7 +9,9 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.utils import registrar as registrar_auditoria
 from web_project import TemplateLayout
-from web_project.regras.conversao import DIMENSOES
+from web_project.regras import RegraNegocioError
+from web_project.regras.conversao import DIMENSOES, preco_por_unidade_padrao
+from web_project.regras.dinheiro import DinheiroService, ler_numero_brasileiro
 
 from .forms import MedidaForm
 from .models import Medida
@@ -159,3 +162,35 @@ class MedidaExcluirView(View):
                 )
                 messages.success(request, f'Medida "{nome}" excluída com sucesso.')
         return redirect("medida-list")
+
+
+class MedidaCalcularView(View):
+    """Cálculos de apoio aos formulários (prévia na tela, sem gravar nada).
+
+    GET /medidas/calcular?medida=<id>&quantidade=100&preco=4,00 devolve:
+      - quantidade por extenso ('100 gramas');
+      - o rótulo e o valor de 'PREÇO (por KG)'.
+    Usa exatamente as mesmas funções do backend (web_project/regras), então
+    a prévia nunca diverge do valor que será gravado. Qualquer usuário
+    autenticado pode usar (não exige permissão de administrar medidas).
+    """
+
+    def get(self, request):
+        resposta = {"quantidade_extenso": None, "rotulo_preco": None, "preco_unidade": None}
+        medida_id = request.GET.get("medida", "")
+        medida = Medida.objects.filter(pk=medida_id, ativo=True).first() if medida_id.isdigit() else None
+        if medida is None:
+            return JsonResponse(resposta)
+
+        resposta["rotulo_preco"] = f"PREÇO (por {medida.sigla_preco})"
+        try:
+            quantidade = ler_numero_brasileiro(request.GET.get("quantidade"))
+            resposta["quantidade_extenso"] = medida.por_extenso(quantidade)
+            if quantidade > 0:
+                centavos = DinheiroService.de_texto(request.GET.get("preco"))
+                resposta["preco_unidade"] = DinheiroService.para_api(
+                    preco_por_unidade_padrao(centavos, quantidade, medida)
+                )
+        except RegraNegocioError:
+            pass  # entrada ainda incompleta/inválida: devolve só o que foi possível calcular
+        return JsonResponse(resposta)

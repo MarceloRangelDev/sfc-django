@@ -1,14 +1,17 @@
+from django.contrib.auth.decorators import login_required
 from django.urls import path
 
 from web_project.decorators import screen_required
 
-from .views import MedidaAlternarAtivoView, MedidaCreateView, MedidaExcluirView, MedidaListView, MedidaUpdateView
+from .views import MedidaAlternarAtivoView, MedidaCalcularView, MedidaCreateView, MedidaExcluirView, MedidaListView, MedidaUpdateView
 
 # Medidas é um cadastro GLOBAL e administrativo: usa screen_required (login
 # + permissão), não module_required (que é por cliente). As permissões
 # medida.* são concedidas só ao grupo Administrador (ver auth/management/
 # commands/seed_acl.py).
 urlpatterns = [
+    # Prévia de cálculos para formulários (qualquer usuário logado).
+    path("medidas/calcular", login_required(MedidaCalcularView.as_view()), name="medida-calcular"),
     path("medidas", screen_required("medida.view_medida")(MedidaListView.as_view()), name="medida-list"),
     path("medidas/novo", screen_required("medida.add_medida")(MedidaCreateView.as_view()), name="medida-create"),
     path("medidas/<int:pk>/editar", screen_required("medida.change_medida")(MedidaUpdateView.as_view()), name="medida-edit"),

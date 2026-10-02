@@ -18,14 +18,15 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from web_project.regras.dinheiro import DinheiroService
+
 CABECALHO = [
     "Código",
     "Insumo",
-    "Categoria",
     "Unidade",
     "Quantidade",
-    "Preço (R$)",
-    "Preço por unidade (R$)",
+    "Valor pago (R$)",
+    "Preço por KG/L/UN (R$)",
     "Status",
     "Cadastrado em",
 ]
@@ -46,11 +47,12 @@ def _linha_insumo(insumo):
     return [
         insumo.codigo,
         _sanitizar_texto_excel(insumo.nome),
-        _sanitizar_texto_excel(insumo.categoria.nome) if insumo.categoria_id else "",
-        insumo.get_unidade_medida_display(),
+        insumo.medida.medida,
+        # Excel recebe número (Decimal -> float só aqui, na camada de
+        # exportação; o banco e os cálculos continuam em centavos/Decimal).
         float(insumo.quantidade),
-        float(insumo.preco),
-        float(insumo.preco_por_unidade) if insumo.preco_por_unidade is not None else None,
+        float(DinheiroService.para_decimal(insumo.preco_pago)),
+        float(DinheiroService.para_decimal(insumo.preco_unidade)) if insumo.preco_unidade is not None else None,
         "Ativo" if insumo.ativo else "Inativo",
         timezone.localtime(insumo.criado_em).strftime("%d/%m/%Y %H:%M"),
     ]
@@ -102,17 +104,17 @@ def exportar_insumos_pdf(queryset, usuario, termo_pesquisa=""):
         elementos.append(Paragraph(f"Filtro de pesquisa: \"{termo_pesquisa}\"", estilos["Normal"]))
     elementos.append(Spacer(1, 0.5 * cm))
 
-    dados = [["Código", "Insumo", "Categoria", "Unidade", "Quantidade", "Preço (R$)", "Status"]]
+    dados = [["Código", "Insumo", "Unidade", "Quantidade", "Valor pago", "Preço por KG/L/UN", "Status"]]
     for insumo in queryset:
         quantidade_texto = f"{insumo.quantidade:.4f}".rstrip("0").rstrip(".")
         dados.append(
             [
                 insumo.codigo,
                 insumo.nome,
-                insumo.categoria.nome if insumo.categoria_id else "-",
-                insumo.get_unidade_medida_display(),
+                insumo.medida.medida,
                 quantidade_texto,
-                insumo.preco_formatado,
+                insumo.preco_pago_formatado,
+                f"{insumo.preco_unidade_formatado} / {insumo.medida.sigla_preco}",
                 "Ativo" if insumo.ativo else "Inativo",
             ]
         )

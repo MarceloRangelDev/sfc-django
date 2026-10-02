@@ -18,10 +18,10 @@ from .models import Insumo
 # conhecidos, mapeados para o campo real do model/relacionamento.
 COLUNAS_ORDENAVEIS = {
     "nome": "nome",
-    "categoria": "categoria__nome",
-    "unidade_medida": "unidade_medida",
+    "medida": "medida__medida",
     "quantidade": "quantidade",
-    "preco": "preco",
+    "preco": "preco_pago",
+    "preco_unidade": "preco_unidade",
     "criado_em": "criado_em",
 }
 PADRAO_POR_PAGINA = 25
@@ -44,11 +44,11 @@ class InsumoListView(ClienteScopedMixin, ListView):
     context_object_name = "insumos"
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("categoria").filter(ativo=True)
+        queryset = super().get_queryset().select_related("medida").filter(ativo=True)
 
         termo = self.request.GET.get("q", "").strip()
         if termo:
-            queryset = queryset.filter(Q(nome__icontains=termo) | Q(categoria__nome__icontains=termo))
+            queryset = queryset.filter(Q(nome__icontains=termo) | Q(medida__medida__icontains=termo))
 
         campo_pedido = self.request.GET.get("sort", "nome")
         direcao = self.request.GET.get("dir", "asc")

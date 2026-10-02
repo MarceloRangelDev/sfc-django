@@ -17,42 +17,37 @@
 
 <div class="card">
   <div class="card-body">
-    <form method="post" id="formInsumo">
+    <form method="post" id="formInsumo" data-calculo-url="{% url 'medida-calcular' %}">
       {% csrf_token %}
       {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
       {% endif %}
       <div class="row g-4">
-        <div class="col-md-6">
+        <div class="col-md-12">
           <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
           {{ form.nome }}
           {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
         </div>
-        <div class="col-md-6">
-          <label for="{{ form.categoria.id_for_label }}" class="form-label">{% translate "Categoria" %}</label>
-          {{ form.categoria }}
-          {% if form.categoria.errors %}<div class="text-danger small mt-1">{{ form.categoria.errors|striptags }}</div>{% endif %}
-          {% if not form.fields.categoria.queryset.exists %}
-          <div class="form-text text-warning">
-            {% translate "Nenhuma categoria cadastrada ainda." %}
-            <a href="{% url 'categoria-create' %}">{% translate "Cadastrar uma categoria" %}</a>
-          </div>
-          {% endif %}
-          <a href="{% url 'categoria-create' %}">{% translate "Cadastrar uma categoria" %}</a>
+        <div class="col-md-4">
+          <label for="{{ form.medida.id_for_label }}" class="form-label">{% translate "Unidade de medida comprada" %}</label>
+          {{ form.medida }}
+          {% if form.medida.errors %}<div class="text-danger small mt-1">{{ form.medida.errors|striptags }}</div>{% endif %}
         </div>
         <div class="col-md-4">
-          <label for="{{ form.unidade_medida.id_for_label }}" class="form-label">{% translate "Unidade de medida" %}</label>
-          {{ form.unidade_medida }}
-        </div>
-        <div class="col-md-4">
-          <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade" %}</label>
+          <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade comprada" %}</label>
           {{ form.quantidade }}
+          <div class="form-text fw-medium text-primary" data-calc-saida="extenso" aria-live="polite"></div>
           {% if form.quantidade.errors %}<div class="text-danger small mt-1">{{ form.quantidade.errors|striptags }}</div>{% endif %}
         </div>
         <div class="col-md-4">
-          <label for="{{ form.preco.id_for_label }}" class="form-label">{% translate "Preço pago (R$)" %}</label>
-          {{ form.preco }}
-          {% if form.preco.errors %}<div class="text-danger small mt-1">{{ form.preco.errors|striptags }}</div>{% endif %}
+          <label for="{{ form.preco_pago.id_for_label }}" class="form-label">{% translate "Valor pago (R$)" %}</label>
+          {{ form.preco_pago }}
+          {% if form.preco_pago.errors %}<div class="text-danger small mt-1">{{ form.preco_pago.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" data-calc-saida="rotulo">{% translate "PREÇO (por KG / UN / L)" %}</label>
+          <input type="text" class="form-control" data-calc-saida="preco" readonly tabindex="-1" placeholder="{% translate 'Calculado automaticamente' %}">
+          <div class="form-text">{% translate "Calculado a partir da quantidade, da unidade e do valor pago." %}</div>
         </div>
         <div class="col-md-4">
           <label class="form-label d-block">{% translate "Status" %}</label>
@@ -75,6 +70,7 @@
 
 {% block page_js %}
 {{ block.super }}
+<script src="{% static 'js/calculo-medida.js' %}"></script>
 <script>
   // Evita duplo clique/duplo envio enquanto a requisição de salvar está em
   // andamento (o formulário grava dados financeiros, então um duplo POST
