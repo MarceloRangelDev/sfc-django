@@ -30,6 +30,7 @@ SCREEN_APPS = [
 ADMIN_APPS = [
     "cliente",
     "modulo",
+    "medida",
 ]
 
 # Permissões nativas do próprio Django (app_label "auth", de

@@ -1,0 +1,157 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Medidas" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Medidas" %}</h4>
+  {% if perms.medida.add_medida %}
+  <a href="{% url 'medida-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova medida" %}
+  </a>
+  {% endif %}
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-4">
+        <label for="q" class="form-label">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome, sigla ou descrição...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-3">
+        <label for="dimensao" class="form-label">{% translate "Dimensão" %}</label>
+        <select id="dimensao" name="dimensao" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          {% for codigo, nome in dimensoes.items %}
+          <option value="{{ codigo }}" {% if codigo == dimensao_filtro %}selected{% endif %}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="status" class="form-label">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          <option value="ativo" {% if status_filtro == "ativo" %}selected{% endif %}>{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status_filtro == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Medida" as label %}{% include "_th_ordenavel.html" with campo="medida" label=label %}</th>
+          <th>{% translate "Sigla" as label %}{% include "_th_ordenavel.html" with campo="sigla" label=label %}</th>
+          <th>{% translate "Dimensão" as label %}{% include "_th_ordenavel.html" with campo="dimensao" label=label %}</th>
+          <th>{% translate "Equivale a" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for medida in medidas %}
+        <tr>
+          <td>{{ medida.medida }}</td>
+          <td>{{ medida.sigla }}</td>
+          <td>{{ medida.get_dimensao_display }}</td>
+          <td>{{ medida.equivale|default:"-" }}</td>
+          <td>
+            {% if medida.ativo %}
+            <span class="badge bg-label-success">{% translate "Ativa" %}</span>
+            {% else %}
+            <span class="badge bg-label-secondary">{% translate "Inativa" %}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if perms.medida.change_medida %}
+            <a href="{% url 'medida-edit' medida.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
+              <i class="icon-base ti tabler-edit"></i>
+            </a>
+            <form method="post" action="{% url 'medida-alternar-ativo' medida.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-secondary rounded-pill" title="{% if medida.ativo %}{% translate 'Inativar' %}{% else %}{% translate 'Ativar' %}{% endif %}">
+                <i class="icon-base ti {% if medida.ativo %}tabler-toggle-right{% else %}tabler-toggle-left{% endif %}"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if perms.medida.delete_medida %}
+            <form method="post" action="{% url 'medida-excluir' medida.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Deseja realmente excluir esta medida? Se ela estiver em uso, será apenas inativada." %}');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}">
+                <i class="icon-base ti tabler-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center py-6">{% translate "Nenhuma medida encontrada." %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <form method="get" class="d-flex align-items-center gap-2">
+      {% if termo_pesquisa %}<input type="hidden" name="q" value="{{ termo_pesquisa }}">{% endif %}
+      {% if dimensao_filtro %}<input type="hidden" name="dimensao" value="{{ dimensao_filtro }}">{% endif %}
+      {% if status_filtro %}<input type="hidden" name="status" value="{{ status_filtro }}">{% endif %}
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <label for="per_page" class="form-label mb-0 text-nowrap">{% translate "Registros por página" %}</label>
+      <select name="per_page" id="per_page" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+        {% for opcao in opcoes_por_pagina %}
+        <option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if page_obj %}
+    <div class="text-muted">
+      {% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if is_paginated %}
+  <div class="card-body pt-0">
+    <nav>
+      <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">{% translate "Anterior" %}</span></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">{% translate "Próxima" %}</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

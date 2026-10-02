@@ -75,6 +75,13 @@
       "permission": "modulo.change_clientemodulo"
     },
     {
+      "url": "medida-list",
+      "icon": "menu-icon icon-base ti tabler-ruler-measure",
+      "name": "Medidas",
+      "slug": "medida",
+      "permission": "medida.view_medida"
+    },
+    {
       "url": "acl-papel-list",
       "icon": "menu-icon icon-base ti tabler-shield-lock",
       "name": "Papéis",

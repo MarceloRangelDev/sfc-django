@@ -21,6 +21,7 @@ MODULOS_GERENCIAVEIS = {
     "precificacao": "Precificação",
     "cliente": "Clientes",
     "modulo": "Módulos",
+    "medida": "Medidas",
 }
 
 ACOES = ["view", "add", "change", "delete"]

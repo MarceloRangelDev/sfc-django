@@ -1,0 +1,55 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar medida" %}{% else %}{% translate "Nova medida" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar medida" %}{% else %}{% translate "Nova medida" %}{% endif %}</h4>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if em_uso %}
+<div class="alert alert-info" role="alert">
+  {% translate "Esta medida já está em uso: a dimensão e o fator de conversão não podem ser alterados. Para mudar, cadastre uma nova medida e inative esta." %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="row g-6">
+        {% for campo in form.visible_fields %}
+        <div class="{% if campo.name == 'ativo' %}col-12{% else %}col-md-6{% endif %}">
+          {% if campo.name == 'ativo' %}
+          <div class="form-check">
+            {{ campo }}
+            <label for="{{ campo.id_for_label }}" class="form-check-label">{{ campo.label }}</label>
+          </div>
+          {% else %}
+          <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+          {{ campo }}
+          {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+          {% endif %}
+          {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+        <a href="{% url 'medida-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
