@@ -18,7 +18,11 @@ Ficha Técnica, Precificação) tem um model "âncora" simples em
 
 ### Menu dinâmico
 
-`templates/layout/partials/menu/vertical/json/vertical_menu.json` tem um
+> **Atualizado:** o menu agora é montado a partir da tabela de módulos
+> (`web_project/menu.py`); o JSON guarda apenas itens estáticos. O texto
+> abaixo descreve o desenho original.
+
+`templates/layout/partials/menu/vertical/json/vertical_menu.json` tinha um
 campo `"permission"` em cada item de tela (ex: `"insumo.view_insumo"`). Os
 templates do menu (`menu_item_template.html`, `menu_collapsible_template.html`,
 `menu_header_template.html`) só mostram o item se
@@ -116,16 +120,17 @@ MAIL_REPLY_TO=naoresponda@sistemafaturandocerto.com
 Antes de usar em produção, é preciso verificar o domínio do remetente
 (`MAIL_FROM_EMAIL`) no painel do Resend.
 
-## 4. Segmento de trabalho (Serviço x Produto)
+## 4. Segmento de trabalho
 
-`auth/models.py::Profile` ganhou o campo `segmento_trabalho`
-(`servico` / `produto` / `ambos`, padrão `produto`), editável pelo próprio
-usuário na tela "Meu Perfil" (`/profile/`, link no menu do usuário na
-navbar e no menu lateral).
+> **Atualizado:** o segmento agora pertence ao **Cliente** (`Cliente.segmento`
+> -> `modulo.Segmento`), não mais ao usuário. O campo
+> `Profile.segmento_trabalho` foi removido (a migration `cliente.0006` copiou
+> o valor para o cliente). O tipo de precificação (`servico` / `produto` /
+> `ambos`) vive em `Segmento.tipo_precificacao`. Veja `apps/modulo/README.md`.
 
 Outras partes do sistema podem consultar o segmento do usuário logado via:
 
-- `request.user.profile.segmento_trabalho`
+- `request.user.profile.segmento` (herdado do cliente)
 - `request.user.profile.precifica_servico` / `precifica_produto` (booleanos)
 - Nos templates: filtros `is_segmento_servico` / `is_segmento_produto`
   (`web_project/template_tags/theme.py`)

@@ -7,13 +7,6 @@
 {% block content %}
 <h4 class="py-4 mb-6">{% translate "Módulos do cliente" %}</h4>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card mb-6">
   <div class="card-body">

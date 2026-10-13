@@ -6,10 +6,10 @@
 {% if has_customizer %}
 <script src="{% static 'vendor/js/template-customizer.js' %}"></script>
 <!--? O customizer só traz en/fr/ar/de; este arquivo registra o pt-br (evita 'Language "pt-br" not found!'). -->
-<script src="{% static 'js/template-customizer-pt-br.js' %}"></script>
+<script src="{% static_v 'js/template-customizer-pt-br.js' %}"></script>
 {% endif %}
 <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
-<script src="{% static 'js/config.js' %}"></script>
+<script src="{% static_v 'js/config.js' %}"></script>
 <!-- beautify ignore:start -->
 {% if has_customizer %}
 <script>

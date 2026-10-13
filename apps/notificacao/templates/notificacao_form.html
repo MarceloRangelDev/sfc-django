@@ -1,0 +1,96 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Nova notificação" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% translate "Nova notificação" %}</h4>
+
+{% if confirmacao %}
+{# Etapa 2: confirmação. Os dados voltam como campos ocultos e são revalidados no envio. #}
+<div class="card">
+  <div class="card-body">
+    <h5 class="mb-4">{% translate "Confirme o envio" %}</h5>
+    <dl class="row mb-4">
+      <dt class="col-sm-3">{% translate "Título" %}</dt><dd class="col-sm-9">{{ form.cleaned_data.titulo }}</dd>
+      <dt class="col-sm-3">{% translate "Mensagem" %}</dt><dd class="col-sm-9">{{ form.cleaned_data.mensagem|linebreaksbr }}</dd>
+      <dt class="col-sm-3">{% translate "Destinatários" %}</dt><dd class="col-sm-9">{{ form.instance.get_tipo_destinatario_display }}</dd>
+      <dt class="col-sm-3">{% translate "Quantidade estimada" %}</dt>
+      <dd class="col-sm-9"><strong>{{ confirmacao.total }}</strong> {% translate "usuário(s)" %}</dd>
+    </dl>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="confirmado" value="1">
+      <input type="hidden" name="titulo" value="{{ form.cleaned_data.titulo }}">
+      <input type="hidden" name="mensagem" value="{{ form.cleaned_data.mensagem }}">
+      <input type="hidden" name="link" value="{{ form.cleaned_data.link }}">
+      <input type="hidden" name="tipo_destinatario" value="{{ form.cleaned_data.tipo_destinatario }}">
+      {% for segmento in form.cleaned_data.segmentos %}<input type="hidden" name="segmentos" value="{{ segmento.pk }}">{% endfor %}
+      {% for usuario in form.cleaned_data.usuarios %}<input type="hidden" name="usuarios" value="{{ usuario.pk }}">{% endfor %}
+      <button type="submit" class="btn btn-primary" {% if not confirmacao.total %}disabled{% endif %}>{% translate "Confirmar e enviar" %}</button>
+      <a href="{% url 'notificacao-create' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        <div class="col-md-8">
+          <label for="{{ form.titulo.id_for_label }}" class="form-label">{{ form.titulo.label }}</label>
+          {{ form.titulo }}
+          {% if form.titulo.errors %}<div class="text-danger small mt-1">{{ form.titulo.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.tipo_destinatario.id_for_label }}" class="form-label">{{ form.tipo_destinatario.label }}</label>
+          {{ form.tipo_destinatario }}
+          {% if form.tipo_destinatario.errors %}<div class="text-danger small mt-1">{{ form.tipo_destinatario.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <label for="{{ form.mensagem.id_for_label }}" class="form-label">{{ form.mensagem.label }}</label>
+          {{ form.mensagem }}
+          {% if form.mensagem.errors %}<div class="text-danger small mt-1">{{ form.mensagem.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.link.id_for_label }}" class="form-label">{{ form.link.label }}</label>
+          {{ form.link }}
+          {% if form.link.errors %}<div class="text-danger small mt-1">{{ form.link.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Página aberta ao clicar na notificação (ex.: /insumo)." %}</div>
+        </div>
+        <div class="col-md-6 destino destino-segmento">
+          <label for="{{ form.segmentos.id_for_label }}" class="form-label">{{ form.segmentos.label }}</label>
+          {{ form.segmentos }}
+          {% if form.segmentos.errors %}<div class="text-danger small mt-1">{{ form.segmentos.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6 destino destino-usuarios">
+          <label for="{{ form.usuarios.id_for_label }}" class="form-label">{{ form.usuarios.label }}</label>
+          {{ form.usuarios }}
+          {% if form.usuarios.errors %}<div class="text-danger small mt-1">{{ form.usuarios.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Continuar" %}</button>
+        <a href="{% url 'notificacao-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Apenas conveniência visual: o servidor ignora os campos que não pertencem ao tipo escolhido.
+  (function () {
+    var tipo = document.getElementById("{{ form.tipo_destinatario.id_for_label }}");
+    function atualizar() {
+      document.querySelectorAll(".destino-segmento").forEach(function (e) { e.style.display = tipo.value === "segmento" ? "" : "none"; });
+      document.querySelectorAll(".destino-usuarios").forEach(function (e) { e.style.display = tipo.value === "usuarios" ? "" : "none"; });
+    }
+    tipo.addEventListener("change", atualizar);
+    atualizar();
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar conta" %}{% else %}{% translate "Nova conta" %}{% endif %} - {{ titulo }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar" %} {{ rotulo_conta }}{% else %}{% translate "Nova" %} {{ rotulo_conta }}{% endif %}</h4>
+
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" id="formConta" data-form-salvar novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>
+          {{ form.descricao }}
+          {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.contraparte.id_for_label }}" class="form-label">{{ rotulo_contraparte }} ({% translate "opcional" %})</label>
+          {{ form.contraparte }}
+          {% if form.contraparte.errors %}<div class="text-danger small mt-1">{{ form.contraparte.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.categoria.id_for_label }}" class="form-label">{% translate "Categoria" %}</label>
+          {{ form.categoria }}
+          {% if form.categoria.errors %}<div class="text-danger small mt-1">{{ form.categoria.errors|striptags }}</div>{% endif %}
+          {% if not form.fields.categoria.queryset.exists %}
+          <div class="form-text text-warning">{% translate "Nenhuma categoria ativa deste tipo." %}
+            {% if perms.financeiro.view_categoriafinanceira %}<a href="{% url 'financeiro-categorias' %}">{% translate "Cadastre ou crie as categorias padrão." %}</a>{% endif %}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-2">
+          <label for="{{ form.valor.id_for_label }}" class="form-label">{% translate "Valor (R$)" %}</label>
+          {{ form.valor }}
+          {% if form.valor.errors %}<div class="text-danger small mt-1">{{ form.valor.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-2">
+          <label for="{{ form.emissao.id_for_label }}" class="form-label">{% translate "Emissão" %}</label>
+          {{ form.emissao }}
+          {% if form.emissao.errors %}<div class="text-danger small mt-1">{{ form.emissao.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-2">
+          <label for="{{ form.vencimento.id_for_label }}" class="form-label">{% translate "Vencimento" %}</label>
+          {{ form.vencimento }}
+          {% if form.vencimento.errors %}<div class="text-danger small mt-1">{{ form.vencimento.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
+          {{ form.observacao }}
+        </div>
+      </div>
+      <div class="mt-6">
+        {% url nomes.list as url_lista %}{% translate "Salvar e adicionar outra" as texto_novo %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('conta-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

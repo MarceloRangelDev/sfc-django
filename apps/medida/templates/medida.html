@@ -14,13 +14,6 @@
   {% endif %}
 </div>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
   <div class="card-body">
@@ -95,7 +88,7 @@
             </form>
             {% endif %}
             {% if perms.medida.delete_medida %}
-            <form method="post" action="{% url 'medida-excluir' medida.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Deseja realmente excluir esta medida? Se ela estiver em uso, será apenas inativada." %}');">
+            <form method="post" action="{% url 'medida-excluir' medida.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir esta medida? Se ela estiver em uso, será apenas inativada." %}">
               {% csrf_token %}
               <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}">
                 <i class="icon-base ti tabler-trash"></i>

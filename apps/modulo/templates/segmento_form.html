@@ -1,0 +1,62 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar segmento" %}{% else %}{% translate "Novo segmento" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar segmento" %}{% else %}{% translate "Novo segmento" %}{% endif %}</h4>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{{ form.nome.label }}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.slug.id_for_label }}" class="form-label">{{ form.slug.label }}</label>
+          {{ form.slug }}
+          {% if form.slug.errors %}<div class="text-danger small mt-1">{{ form.slug.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
+          {{ form.descricao }}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.tipo_precificacao.id_for_label }}" class="form-label">{{ form.tipo_precificacao.label }}</label>
+          {{ form.tipo_precificacao }}
+          <div class="form-text">{{ form.tipo_precificacao.help_text }}</div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label d-block">{% translate "Status" %}</label>
+          <div class="form-check form-switch mt-2">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label d-block">{% translate "Módulos do segmento" %}</label>
+          <div class="d-flex flex-wrap gap-4">
+            {% for opcao in form.modulos %}
+            <div class="form-check">
+              {{ opcao.tag }}
+              <label class="form-check-label" for="{{ opcao.id_for_label }}">{{ opcao.choice_label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="form-text">{% translate "Os módulos de Configurações são essenciais e valem para todos os segmentos." %}</div>
+        </div>
+      </div>
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+        <a href="{% url 'segmento-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

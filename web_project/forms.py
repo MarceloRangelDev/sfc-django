@@ -66,3 +66,23 @@ class MoedaCentavosField(forms.Field):
         if centavos < 0:
             raise ValidationError(self.error_messages["min_value"], code="min_value")
         return centavos
+
+
+class UnidadeFormMixin:
+    """Ao CRIAR um item, deixa a matriz escolher a unidade (ela mesma ou uma
+    filial). O campo só existe quando há mais de uma opção, e as opções vêm do
+    escopo do usuário (web_project/acesso.py::clientes_dos_itens), então um id
+    de fora é rejeitado pelo próprio campo. Chamar no __init__, após super()."""
+
+    def configurar_unidade(self, cliente, unidades):
+        self.cliente = cliente  # unidade dona do item (a atual, ao editar)
+        if self.instance.pk or unidades is None or unidades.count() < 2:
+            return
+        self.fields["cliente"] = forms.ModelChoiceField(
+            queryset=unidades, initial=cliente, empty_label=None, label="Unidade",
+            widget=forms.Select(attrs={"class": "form-select"}),
+        )
+        self.order_fields(["cliente"])  # antes de "nome": a duplicidade é checada na unidade escolhida
+
+    def cliente_alvo(self):
+        return self.cleaned_data.get("cliente") or self.cliente

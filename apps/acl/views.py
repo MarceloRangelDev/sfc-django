@@ -1,11 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import ListView
 
 from web_project import TemplateLayout
+from web_project.acesso import perfis_visiveis
 
 from .permissions_matrix import montar_matriz_permissoes
 from .services import excluir_papel, salvar_papel
@@ -20,7 +22,7 @@ class PapelListView(ListView):
 
     def get_queryset(self):
         # Contagens feitas no banco (uma consulta só), não por papel na tela.
-        return Group.objects.annotate(
+        return perfis_visiveis(self.request.user).annotate(
             qtd_permissoes=Count("permissions", distinct=True), qtd_usuarios=Count("user", distinct=True)
         ).order_by("name")
 
@@ -35,7 +37,7 @@ class PapelFormView(View):
     template_name = "acl_papel_form.html"
 
     def get(self, request, pk=None):
-        grupo = get_object_or_404(Group, pk=pk) if pk else None
+        grupo = get_object_or_404(perfis_visiveis(request.user), pk=pk) if pk else None
         marcadas = grupo.permissions.values_list("pk", flat=True) if grupo else []
 
         context = TemplateLayout.init(self, {
@@ -45,7 +47,7 @@ class PapelFormView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, pk=None):
-        grupo = get_object_or_404(Group, pk=pk) if pk else None
+        grupo = get_object_or_404(perfis_visiveis(request.user), pk=pk) if pk else None
         nome = (request.POST.get("nome") or "").strip()
 
         if not nome:
@@ -61,7 +63,11 @@ class PapelFormView(View):
             return render(request, self.template_name, context)
 
         # Validação dos ids de permissão, transação e auditoria: apps/acl/services.py
-        grupo = salvar_papel(request, grupo, nome, request.POST.getlist("permissoes"))
+        try:
+            grupo = salvar_papel(request, grupo, nome, request.POST.getlist("permissoes"))
+        except ValidationError as erro:
+            messages.error(request, erro.message)
+            return redirect("acl-papel-list")
 
         messages.success(request, f'Papel "{grupo.name}" salvo com sucesso.')
         return redirect("acl-papel-list")
@@ -72,9 +78,13 @@ class PapelDeleteView(View):
     deixam de ter as permissões associadas a ele — não são excluídos."""
 
     def post(self, request, pk):
-        grupo = get_object_or_404(Group, pk=pk)
+        grupo = get_object_or_404(perfis_visiveis(request.user), pk=pk)
         nome = grupo.name
-        excluir_papel(request, grupo)
+        try:
+            excluir_papel(request, grupo)
+        except ValidationError as erro:
+            messages.error(request, erro.message)
+            return redirect("acl-papel-list")
         messages.success(request, f'Papel "{nome}" excluído com sucesso.')
         return redirect("acl-papel-list")
 

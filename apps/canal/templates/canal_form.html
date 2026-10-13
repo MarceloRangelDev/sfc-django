@@ -1,0 +1,120 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar canal" %}{% else %}{% translate "Novo canal" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar canal de venda" %}{% else %}{% translate "Novo canal de venda" %}{% endif %}</h4>
+
+
+<form method="post" id="formCanal" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  {% if formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
+
+  <div class="card mb-6">
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome exibido do canal" %}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-8">
+          <label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>
+          {{ form.descricao }}
+          {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <div class="form-check form-switch">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{% translate "Taxas do canal" %}</h5>
+      {% if object %}
+      <span class="text-muted">
+        {% translate "Total" %}: <strong>{{ object.taxa_percentual_formatada }}{% if object.taxa_fixa_total %} + {{ object.taxa_fixa_formatada }}{% endif %}</strong>
+        &middot; {% translate "Líquido" %}: <strong>{{ object.liquido_formatado }}</strong>
+      </span>
+      {% endif %}
+    </div>
+    {{ formset.management_form }}
+    <div class="table-responsive">
+      <table class="table" id="tabelaTaxas">
+        <thead>
+          <tr>
+            <th>{% translate "Descrição da taxa" %}</th>
+            <th>{% translate "Percentual (%)" %}</th>
+            <th>{% translate "ou Valor fixo (R$)" %}</th>
+            <th>{% translate "Remover" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in formset %}
+          <tr>
+            <td>{{ f.id }}{{ f.descricao }}</td>
+            <td>{{ f.percentual }}{% if f.percentual.errors %}<div class="text-danger small">{{ f.percentual.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.valor_fixo }}{% if f.valor_fixo.errors %}<div class="text-danger small">{{ f.valor_fixo.errors|striptags }}</div>{% endif %}
+              {% if f.non_field_errors %}<div class="text-danger small">{{ f.non_field_errors|striptags }}</div>{% endif %}</td>
+            <td class="text-center">{% if f.instance.pk %}{{ f.DELETE }}{% else %}<button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body">
+      <button type="button" class="btn btn-outline-primary" id="adicionarLinha"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar taxa" %}</button>
+      <div class="small text-muted mt-3">
+        {% translate "Cada taxa é percentual sobre o preço OU valor fixo por venda. Os totais são calculados ao salvar; o líquido é 100% menos as taxas percentuais." %}
+      </div>
+    </div>
+  </div>
+
+  <template id="modeloLinha">
+    <tr>
+      <td>{{ formset.empty_form.id }}{{ formset.empty_form.descricao }}</td>
+      <td>{{ formset.empty_form.percentual }}</td>
+      <td>{{ formset.empty_form.valor_fixo }}</td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button></td>
+    </tr>
+  </template>
+
+  {% url 'canal-list' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+</form>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('canal-form');</script>
+<script>
+  (function () {
+    var total = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
+    var corpo = document.querySelector('#tabelaTaxas tbody');
+    document.getElementById('adicionarLinha').addEventListener('click', function () {
+      corpo.insertAdjacentHTML('beforeend', document.getElementById('modeloLinha').innerHTML.replace(/__prefix__/g, total.value));
+      total.value = parseInt(total.value, 10) + 1;
+    });
+    corpo.addEventListener('click', function (e) {
+      var botao = e.target.closest('.remover-linha');
+      if (botao) botao.closest('tr').remove();
+    });
+    document.getElementById('formCanal').addEventListener('submit', function (e) {
+      if (e.submitter && e.submitter.name) {
+        var oculto = document.createElement('input');
+        oculto.type = 'hidden'; oculto.name = e.submitter.name; oculto.value = e.submitter.value;
+        this.appendChild(oculto);
+      }
+      this.querySelectorAll('[data-botao-salvar]').forEach(function (b) { b.disabled = true; });
+    });
+  })();
+</script>
+{% endblock %}

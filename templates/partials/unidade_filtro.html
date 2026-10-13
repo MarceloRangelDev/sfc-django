@@ -1,0 +1,12 @@
+{% load i18n %}
+{% comment %}Filtro "Unidade" (dentro de um form GET); só para quem alcança mais de uma unidade.{% endcomment %}
+{% if mostrar_unidade %}
+<select name="unidade" class="form-select" style="width: auto;" aria-label="{% translate 'Unidade' %}" onchange="this.form.submit()">
+  <option value="">{% translate "Todas as unidades" %}</option>
+  {% for unidade in unidades %}
+  <option value="{{ unidade.pk }}" {% if unidade_selecionada == unidade.pk|stringformat:"s" %}selected{% endif %}>
+    {% if unidade.tipo_estabelecimento == "filial" %}{% translate "Filial" %}{% else %}{% translate "Matriz" %}{% endif %} &mdash; {{ unidade.nome_razao_social }}
+  </option>
+  {% endfor %}
+</select>
+{% endif %}

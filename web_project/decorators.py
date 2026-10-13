@@ -21,11 +21,11 @@ Para telas de CRUD (quando forem criadas), use a permissão correspondente:
 Usuários sem a permissão são redirecionados para a página "Não autorizado"
 (handler403, configurado em config/urls.py).
 
-Para telas que pertencem a um módulo habilitável por Cliente (Fase 3:
-Insumo, Categoria, Produto, Processado, Ficha, Precificação), use
+Para telas que pertencem a um módulo (Insumo, Categoria, Produto,
+Processado, Ficha, Precificação, Configurações...), use
 `module_required` no lugar de `screen_required` — ele faz a mesma
 checagem de login + permissão e ADICIONA a checagem de que o módulo está
-habilitado para o Cliente do usuário logado:
+liberado para o usuário (segmento do cliente + habilitação do cliente):
 
     from web_project.decorators import module_required
 
@@ -44,6 +44,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 
+from .acesso import modulos_habilitados
+
 
 def screen_required(permission, raise_exception=True):
     """Exige login E a permissão informada para acessar a view."""
@@ -56,24 +58,10 @@ def screen_required(permission, raise_exception=True):
 
 
 def modulo_habilitado_para(user, modulo_slug):
-    """Retorna True se o Cliente do usuário logado tem o módulo
-    `modulo_slug` habilitado (e o módulo está disponível no sistema).
-    Reaproveitado tanto pelo decorator `module_required` (backend) quanto
-    pelo filtro de template `has_module`/`has_menu_access` (menu)."""
-    if not user.is_authenticated:
-        return False
-
-    # Import local para evitar import circular (apps.modulo depende de
-    # apps.cliente, e este módulo é importado bem cedo, junto com as urls).
-    from apps.modulo.models import ClienteModulo
-
-    cliente = getattr(getattr(user, "profile", None), "cliente", None)
-    if cliente is None:
-        return False
-
-    return ClienteModulo.objects.filter(
-        cliente=cliente, modulo__slug=modulo_slug, modulo__ativo=True, ativo=True
-    ).exists()
+    """True se o módulo está liberado para o usuário (segmento do cliente +
+    habilitação do cliente; regra em web_project/acesso.py). Reaproveitado
+    pelo decorator `module_required`, pela API e pelo menu."""
+    return modulo_slug in modulos_habilitados(user)
 
 
 def module_required(modulo_slug, permission, raise_exception=True):
@@ -85,6 +73,8 @@ def module_required(modulo_slug, permission, raise_exception=True):
 
         @wraps(protected)
         def wrapped(request, *args, **kwargs):
+            # O menu usa o módulo da rota para marcar o item ativo e manter o submenu aberto.
+            request.modulo_slug = modulo_slug
             if request.user.is_authenticated and not modulo_habilitado_para(request.user, modulo_slug):
                 if raise_exception:
                     raise PermissionDenied("Este módulo não está habilitado para o seu cliente.")

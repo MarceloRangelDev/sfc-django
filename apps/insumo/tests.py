@@ -6,8 +6,8 @@ from django.urls import reverse
 
 from apps.cliente.models import Cliente
 from apps.medida.models import Medida
-from apps.modulo.models import ClienteModulo, Modulo
 from web_project.regras import RegraNegocioError
+from web_project.testing import habilitar_modulo
 
 from .models import Insumo
 
@@ -28,8 +28,7 @@ def criar_cliente_com_acesso_total(sufixo, cpf_cnpj):
     cliente = Cliente.objects.create(
         tipo_pessoa=Cliente.TIPO_PJ, cpf_cnpj=cpf_cnpj, nome_razao_social=f"Empresa {sufixo}"
     )
-    modulo, _ = Modulo.objects.get_or_create(slug="insumo", defaults={"nome": "Insumos", "ativo": True})
-    ClienteModulo.objects.get_or_create(cliente=cliente, modulo=modulo, defaults={"ativo": True})
+    habilitar_modulo(cliente, "insumo")
 
     grupo, _ = Group.objects.get_or_create(name=f"Grupo Insumo {sufixo}")
     permissoes = Permission.objects.filter(content_type__app_label="insumo")
@@ -181,6 +180,9 @@ class InsumoListagemTests(TestCase):
     def setUp(self):
         self.cliente, self.usuario = criar_cliente_com_acesso_total("B", "11222333000181")
         self.client.login(username="usuario_b", password="SenhaForte123!")
+        # A 1ª requisição da sessão grava a presença do usuário (1x por minuto, apps/dashboard):
+        # "aquece" aqui para que a contagem de consultas dos testes seja estável.
+        self.client.get(reverse("insumo"))
         for i in range(3):
             novo_insumo(self.cliente, f"Insumo {i}", "un", "1", i * 100)
 
@@ -358,8 +360,7 @@ class InsumoPermissaoTests(TestCase):
         self.cliente = Cliente.objects.create(
             tipo_pessoa=Cliente.TIPO_PJ, cpf_cnpj="11222333000181", nome_razao_social="Empresa Sem Permissao"
         )
-        modulo, _ = Modulo.objects.get_or_create(slug="insumo", defaults={"nome": "Insumos", "ativo": True})
-        ClienteModulo.objects.create(cliente=self.cliente, modulo=modulo, ativo=True)
+        habilitar_modulo(self.cliente, "insumo")
 
         # Grupo só com permissão de VISUALIZAR — não pode excluir.
         grupo = Group.objects.create(name="Somente Visualizar")
@@ -382,3 +383,86 @@ class InsumoPermissaoTests(TestCase):
 
     def test_usuario_sem_permissao_de_criar_recebe_403(self):
         self.assertEqual(self.client.get(reverse("insumo-create")).status_code, 403)
+
+
+class InsumoMarcaEFiltrosTests(TestCase):
+    """Marca opcional (com auditoria) e filtros da listagem: status + pesquisa + paginação juntos."""
+
+    def setUp(self):
+        self.cliente, self.usuario = criar_cliente_com_acesso_total("M", "11222333000181")
+        self.client.force_login(self.usuario)
+
+    def dados(self, **extra):
+        base = {"nome": "Leite", "medida": medida("L").pk, "quantidade": "1", "preco_pago": "6,00", "ativo": "on"}
+        return {**base, **extra}
+
+    def test_marca_e_opcional(self):
+        resposta = self.client.post(reverse("insumo-create"), self.dados())
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(Insumo.objects.get(nome="Leite").marca, "")
+
+    def test_marca_e_gravada_e_normalizada(self):
+        self.client.post(reverse("insumo-create"), self.dados(marca="  Qualy   Light "))
+        self.assertEqual(Insumo.objects.get().marca, "Qualy Light")
+
+    def test_marca_invalida_e_recusada(self):
+        for marca in ("<script>", "x" * 61, 'aspas"'):
+            resposta = self.client.post(reverse("insumo-create"), self.dados(marca=marca))
+            self.assertEqual(resposta.status_code, 200, marca)
+            self.assertFalse(Insumo.objects.exists(), marca)
+
+    def test_auditoria_registra_marca_na_criacao_e_na_edicao(self):
+        from apps.auditoria.models import RegistroAuditoria
+
+        self.client.post(reverse("insumo-create"), self.dados(marca="Qualy"))
+        criacao = RegistroAuditoria.objects.get(acao="criar", modulo="insumo")
+        self.assertIn({"campo": "marca", "rotulo": "Marca do produto", "antes": None, "depois": "Qualy"}, criacao.alteracoes)
+        insumo = Insumo.objects.get()
+        self.client.post(reverse("insumo-edit", args=[insumo.pk]), self.dados(marca="Piracanjuba"))
+        edicao = RegistroAuditoria.objects.filter(acao="editar", modulo="insumo").latest("pk")
+        self.assertIn({"campo": "marca", "rotulo": "Marca do produto", "antes": "Qualy", "depois": "Piracanjuba"}, edicao.alteracoes)
+
+    def test_criacao_sem_marca_nao_gera_alteracao_de_marca(self):
+        from apps.auditoria.models import RegistroAuditoria
+
+        self.client.post(reverse("insumo-create"), self.dados())
+        self.assertEqual(RegistroAuditoria.objects.get(acao="criar", modulo="insumo").alteracoes, [])
+
+    def test_listagem_sem_quantidade_e_valor_pago_e_com_coluna_preco(self):
+        novo_insumo(self.cliente, "Açúcar", "kg", "1", 399)
+        html = self.client.get(reverse("insumo")).content.decode()
+        cabecalho = html[html.index("<thead>"):html.index("</thead>")]
+        self.assertNotIn("Quantidade", cabecalho)
+        self.assertNotIn("Valor pago", cabecalho)
+        self.assertNotIn("Preço por KG/L/UN", cabecalho)
+        self.assertIn("Preço", cabecalho)
+        self.assertIn("R$ 3,99", html)
+
+    def test_filtro_de_status_pesquisa_e_marca_juntos(self):
+        novo_insumo(self.cliente, "Leite", "L", "1", 600)
+        inativo = novo_insumo(self.cliente, "Leite velho", "L", "1", 500)
+        Insumo.objects.filter(pk=inativo.pk).update(ativo=False)
+        Insumo.objects.filter(nome="Leite").update(marca="Qualy")
+
+        def nomes(**params):
+            return [i.nome for i in self.client.get(reverse("insumo"), params).context["insumos"]]
+
+        self.assertEqual(nomes(), ["Leite"])  # padrão: só ativos
+        self.assertEqual(nomes(status="inativo"), ["Leite velho"])
+        self.assertEqual(sorted(nomes(status="todos")), ["Leite", "Leite velho"])
+        self.assertEqual(nomes(status="todos", q="velho"), ["Leite velho"])
+        self.assertEqual(nomes(q="qualy"), ["Leite"])  # pesquisa também pela marca
+        self.assertEqual(nomes(status="invalido"), ["Leite"])  # valor desconhecido volta ao padrão
+
+    def test_status_e_pesquisa_preservados_na_paginacao(self):
+        for n in range(12):
+            novo_insumo(self.cliente, f"Item {n:02d}", "kg", "1", 100)
+        html = self.client.get(reverse("insumo"), {"q": "Item", "status": "ativo", "per_page": "10"}).content.decode()
+        self.assertIn("page=2", html)
+        self.assertIn("status=ativo", html)
+        self.assertIn("q=Item", html)
+
+    def test_filtro_de_status_nao_vaza_outro_cliente(self):
+        _, outro = criar_cliente_com_acesso_total("N", "34028316000103")
+        novo_insumo(outro.profile.cliente, "Segredo", "kg", "1", 100)
+        self.assertEqual(list(self.client.get(reverse("insumo"), {"status": "todos"}).context["insumos"]), [])

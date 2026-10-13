@@ -1,5 +1,7 @@
+import re
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -10,6 +12,14 @@ from web_project.regras.dinheiro import DinheiroService
 # Teto de segurança para valores em centavos (R$ 10 trilhões): impede estouro
 # do BIGINT quando uma quantidade minúscula é convertida para preço por KG/L.
 LIMITE_CENTAVOS = 10**15
+
+
+def validar_marca(valor):
+    """A marca é texto livre curto: letras (com acento), números, espaço e
+    pontuação comum de nomes comerciais. Barra "<", ">", aspas duplas e
+    caracteres de controle (evita marcação/script colado em telas e relatórios)."""
+    if not re.fullmatch(r"[\w .,&'+/()%\-]*", valor or ""):
+        raise ValidationError("A marca contém caracteres não permitidos.")
 
 
 class Insumo(models.Model):
@@ -64,6 +74,10 @@ class Insumo(models.Model):
         verbose_name="Quantidade comprada",
     )
     preco_pago = models.PositiveBigIntegerField(verbose_name="Valor pago", default=0)
+    # Marca do produto comprado (ex.: "Qualy"). Opcional: vazio é válido.
+    marca = models.CharField(
+        max_length=60, blank=True, default="", validators=[validar_marca], verbose_name="Marca do produto",
+    )
     # Preço de 1 KG / 1 L / 1 UN (conforme a dimensão da medida), em
     # centavos. Calculado em save(); None se não puder ser calculado.
     preco_unidade = models.PositiveBigIntegerField(null=True, blank=True, editable=False, verbose_name="Preço por unidade (centavos)")
@@ -77,6 +91,8 @@ class Insumo(models.Model):
 
     # Campos em centavos: a auditoria os mostra como "R$ 40,00".
     AUDITORIA_MONETARIOS = ("preco_pago",)
+    # Campos opcionais que, quando preenchidos, entram também no registro de CRIAÇÃO.
+    AUDITORIA_NA_CRIACAO = ("marca",)
 
     class Meta:
         verbose_name = "Insumo"

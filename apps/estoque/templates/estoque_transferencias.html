@@ -1,0 +1,61 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Transferências" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Estoque" %}</h4>
+  {% if perms.estoque.add_transferenciaestoque %}
+  <a href="{% url 'estoque-transferencia-nova' %}" class="btn btn-primary"><i class="icon-base ti tabler-transfer me-1"></i>{% translate "Nova transferência" %}</a>
+  {% endif %}
+</div>
+
+{% include "_estoque_nav.html" with ativa="transferencias" %}
+
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% translate "Data" as label %}{% include "_th_ordenavel.html" with campo="data" label=label %}</th>
+          <th>{% translate "Origem" %}</th><th>{% translate "Destino" %}</th><th>{% translate "Responsável" %}</th><th>{% translate "Observação" %}</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transferencias %}
+        <tr>
+          <td>{{ t.pk }}</td><td>{{ t.data|date:"d/m/Y H:i" }}</td>
+          <td>{{ t.origem.nome_razao_social }} <span class="badge bg-label-{% if t.origem.tipo_estabelecimento == 'filial' %}info{% else %}primary{% endif %}">{{ t.origem.get_tipo_estabelecimento_display }}</span></td>
+          <td>{{ t.destino.nome_razao_social }} <span class="badge bg-label-{% if t.destino.tipo_estabelecimento == 'filial' %}info{% else %}primary{% endif %}">{{ t.destino.get_tipo_estabelecimento_display }}</span></td>
+          <td>{{ t.responsavel_nome|default:"—" }}</td><td>{{ t.observacao }}</td>
+          <td><a href="{% url 'estoque-transferencia' t.pk %}">{% translate "Detalhes" %}</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center py-6">{% translate "Nenhuma transferência registrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-transferencias');</script>
+{% endblock page_js %}

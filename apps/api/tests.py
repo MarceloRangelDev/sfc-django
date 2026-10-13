@@ -18,6 +18,7 @@ from apps.insumo.models import Insumo
 from apps.insumo.tests import criar_cliente_com_acesso_total, medida, novo_insumo
 from apps.medida.models import Medida
 from apps.modulo.models import ClienteModulo, Modulo
+from web_project.testing import habilitar_modulo
 from auth.models import Profile
 
 SENHA = "SenhaForte123!"
@@ -40,10 +41,8 @@ class BaseAPITests(TestCase):
         call_command("seed_acl", verbosity=0)
         self.cliente_a, self.usuario_a = criar_cliente_com_acesso_total("A", "11222333000181")
         self.cliente_b, self.usuario_b = criar_cliente_com_acesso_total("B", "11444777000161")
-        for slug in ("categoria",):
-            modulo, _ = Modulo.objects.get_or_create(slug=slug, defaults={"nome": slug.title(), "ativo": True})
-            for cliente in (self.cliente_a, self.cliente_b):
-                ClienteModulo.objects.get_or_create(cliente=cliente, modulo=modulo, defaults={"ativo": True})
+        for cliente in (self.cliente_a, self.cliente_b):
+            habilitar_modulo(cliente, "categoria")
         for usuario in (self.usuario_a, self.usuario_b):
             usuario.groups.first().permissions.add(*Permission.objects.filter(content_type__app_label="categoria"))
         self.admin = User.objects.create_user(username="admin", email="admin@teste.local", password=SENHA)
@@ -548,7 +547,10 @@ class UsuarioAPITests(BaseAPITests):
 
 class ClientePerfilModuloAPITests(BaseAPITests):
     def cliente_payload(self, **extra):
-        dados = {"tipo_pessoa": "PJ", "cpf_cnpj": "11.222.333/0001-81", "nome_razao_social": "Nova Empresa"}
+        dados = {
+            "tipo_pessoa": "PJ", "cpf_cnpj": "11.222.333/0001-81", "nome_razao_social": "Nova Empresa",
+            "email_gestor": "gestor.nova@teste.local",
+        }
         dados.update(extra)
         return dados
 
@@ -593,7 +595,7 @@ class ClientePerfilModuloAPITests(BaseAPITests):
         self.assertIn("insumo.view_insumo", corpo["permissoes_codigos"])
         self.erro(self.api_admin.post(f"{V1}/perfis/", {"name": "estoque"}, format="json"), 409)
         # permissão de gerenciar papéis NÃO pode ser concedida por aqui
-        proibida = Permission.objects.get(codename="delete_group").pk
+        proibida = Permission.objects.get(content_type__app_label="auth", codename="delete_group").pk
         self.erro(self.api_admin.post(f"{V1}/perfis/", {"name": "Hack", "permissoes": [proibida]}, format="json"), 400)
         self.ok(self.api_admin.patch(f"{V1}/perfis/{corpo['id']}/", {"name": "Estoque 2"}, format="json"))
         self.assertEqual(sorted(Group.objects.get(pk=corpo["id"]).permissions.values_list("pk", flat=True)), sorted(ids))  # PATCH sem permissoes mantém

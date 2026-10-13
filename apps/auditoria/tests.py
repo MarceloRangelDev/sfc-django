@@ -255,6 +255,7 @@ class AuditoriaAdministrativaTests(TestCase):
     def test_cliente_criado_e_editado(self):
         self.client.post(reverse("cliente-create"), {
             "tipo_pessoa": "PJ", "cpf_cnpj": "11.222.333/0001-81", "nome_razao_social": "Empresa", "nome_fantasia": "", "ativo": "on",
+            "email_gestor": "gestor.empresa@teste.local",
         })
         cliente = Cliente.objects.get(cpf_cnpj="11222333000181")
         self.assertTrue(RegistroAuditoria.objects.filter(acao="criar", modulo="cliente", registro_id=str(cliente.pk)).exists())

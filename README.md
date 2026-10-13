@@ -23,16 +23,17 @@ Sistema web (e API para aplicativos mobile) de gestão e precificação para peq
 15. [Swagger](#swagger)
 16. [Auditoria](#auditoria)
 17. [Insumos](#insumos)
-18. [Medidas](#medidas)
-19. [Regras de negócio](#regras-de-negócio)
-20. [Máscaras](#máscaras)
-21. [Indicadores](#indicadores)
-22. [Encoding (UTF-8)](#encoding-utf-8)
-23. [Segurança](#segurança)
-24. [Testes](#testes)
-25. [Manutenção](#manutenção)
-26. [Decisões técnicas](#decisões-técnicas)
-27. [Pendências e pontos de atenção](#pendências-e-pontos-de-atenção)
+18. [Módulos de negócio e como se conectam](#módulos-de-negócio-e-como-se-conectam)
+19. [Medidas](#medidas)
+20. [Regras de negócio](#regras-de-negócio)
+21. [Máscaras](#máscaras)
+22. [Indicadores](#indicadores)
+23. [Encoding (UTF-8)](#encoding-utf-8)
+24. [Segurança](#segurança)
+25. [Testes](#testes)
+26. [Manutenção](#manutenção)
+27. [Decisões técnicas](#decisões-técnicas)
+28. [Pendências e pontos de atenção](#pendências-e-pontos-de-atenção)
 
 ---
 
@@ -125,6 +126,7 @@ BASE_URL=http://127.0.0.1:8000
 | `RESEND_API_KEY`, `MAIL_FROM_NAME`, `MAIL_FROM_EMAIL`, `MAIL_REPLY_TO` | Envio de e-mails (verificação de cadastro e redefinição de senha). Sem a chave, tudo funciona, menos o envio real | vazio |
 | `LOGIN_RATE_LIMIT_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW` | Tentativas de login permitidas e janela em segundos | `3` / `900` |
 | `PASSWORD_RESET_RATE_LIMIT_ATTEMPTS` / `_WINDOW` | Pedidos de redefinição de senha permitidos e janela | `2` / `3600` |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_ADMIN_EMAIL` | Notificações push no navegador (gere com `python manage.py gerar_chaves_vapid`). Sem elas o push fica desligado; o sino da navbar funciona normalmente | vazio |
 | `API_TOKEN_TTL_DIAS` | Validade do token da API | `30` |
 | `API_THROTTLE_ANON`, `API_THROTTLE_USER`, `API_THROTTLE_CADASTRO`, `API_THROTTLE_SENHA` | Limites de requisições da API (`60/hour`, `2000/hour`, `10/hour`, `10/hour`) | veja ao lado |
 | `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Troca para PostgreSQL (ver abaixo) | SQLite |
@@ -160,7 +162,8 @@ Depois do primeiro `migrate`, rode também os dados padrão (são **idempotentes
 
 ```bash
 python manage.py seed_acl        # cria os perfis padrão e suas permissões
-python manage.py seed_modulos    # cria os módulos e habilita nos clientes já existentes
+python manage.py seed_modulos    # atualiza o catálogo de módulos, os segmentos padrão e as habilitações
+python manage.py gerar_chaves_vapid   # (opcional) chaves das notificações push; cole no .env
 ```
 
 A tabela de **medidas** já nasce preenchida (17 unidades) pelo próprio `migrate`.
@@ -207,14 +210,22 @@ sfc-django/
 │   ├── acl/                    # Telas de Perfis (papéis) e Permissões + services.py
 │   ├── api/                    # API REST v1: views, serializers, permissões, erros, Swagger
 │   ├── auditoria/              # Log de auditoria: utils.py (registrar), mixins.py, telas
-│   ├── categoria/              # Categorias (usadas pelos produtos)
-│   ├── cliente/                # Clientes (empresas/tenants) e seus perfis disponíveis
+│   ├── canal/                  # Canais de venda e suas taxas (Configurações)
+│   ├── dashboard/              # Painel (página inicial) e usuários online
+│   ├── financeiro/             # Contas a pagar/receber, baixas, DRE e balanço gerenciais
+│   ├── estoque/                # Estoque: lotes, validade, movimentações, transferências e alertas
+│   ├── custo/                  # Custo operacional fixo/variável distribuído por categoria
+│   ├── categoria/              # Categorias (usadas pelos produtos) com ticket médio e % do faturamento
+│   ├── cliente/                # Clientes (tenants), Matriz/Filiais, segmento e Gestor padrão
 │   ├── insumo/                 # Insumos (cálculo de preço por KG/L/UN)
 │   ├── medida/                 # Unidades de medida (tabela `medidas`) + prévia de cálculo
-│   ├── modulo/                 # Módulos habilitáveis por cliente
+│   ├── modulo/                 # Catálogo de módulos (menu/permissões), Segmentos e habilitação por cliente
+│   ├── notificacao/            # Notificações (Web Push, pronto para FCM), histórico e caixa de entrada
+│   ├── tour/                   # Tours de página reutilizáveis (initTour) e "não mostrar novamente"
 │   ├── usuario/                # Cadastro de usuários (cliente + perfil)
-│   ├── produto/, processado/,  # "Âncoras" de permissão: ainda sem tela/CRUD (veja Pendências)
-│   │   ficha/, precificacao/
+│   ├── processado/             # Receitas e processados + motor de recálculo em cascata
+│   ├── produto/, ficha/        # Produtos e Fichas técnicas (itens, custo, exportação)
+│   ├── precificacao/           # Precificação: preço de venda, lucro e CMV (margem/markup/valor)
 │   └── pages/, sample/         # Páginas de sistema e exemplos do tema
 ├── auth/                       # Login, cadastro, senha, perfil; services.py compartilhado com a API
 ├── config/                     # settings.py, urls.py
@@ -222,10 +233,11 @@ sfc-django/
 │   ├── regras/                 # REGRAS DE NEGÓCIO globais (dinheiro, conversão, extenso, indicadores...)
 │   ├── decorators.py           # screen_required / module_required (proteção de telas)
 │   ├── mixins.py               # ClienteScopedMixin (isolamento por cliente)
-│   ├── acesso.py               # administrador_global(), cliente_do_usuario()
+│   ├── acesso.py               # REGRAS CENTRAIS de escopo: clientes/usuários/perfis/módulos acessíveis
+│   ├── menu.py                 # Menu lateral montado a partir da tabela de módulos
 │   └── forms.py                # Campos de formulário reutilizáveis (DecimalBRField, MoedaCentavosField)
 ├── src/assets/js/              # mascaras.js, calculo-medida.js, template-customizer-pt-br.js
-├── templates/                  # Layout, menu (vertical_menu.json), telas de auth
+├── templates/                  # Layout, navbar, itens estáticos do menu, telas de auth
 ├── nginx/, Dockerfile, docker-compose.yml, gunicorn-cfg.py
 └── manage.py
 ```
@@ -236,7 +248,8 @@ sfc-django/
 
 **Autenticação** = provar quem você é.
 
-- **Web:** login com usuário **ou** e-mail e senha (`/login/`). A sessão dura 1 hora, é guardada no banco e o cookie só trafega por HTTPS em produção. O login tem **rate limit** (limite de tentativas): após 3 falhas seguidas, bloqueia por 15 minutos.
+- **Web:** login com usuário **ou** e-mail e senha (`/login/`). A sessão é guardada no banco e o cookie é `HttpOnly`, `SameSite=Lax` e `Secure` (`SESSION_COOKIE_SECURE`, padrão `True`; em HTTP puro de desenvolvimento defina `SESSION_COOKIE_SECURE=False` no `.env`). O login tem **rate limit**: após 3 falhas seguidas, bloqueia por 15 minutos. O destino `next` só é aceito se for do próprio sistema (sem redirecionamento aberto).
+- **"Lembrar-me"** (`auth/login/views.py`): marcado, a sessão dura **30 dias** (`SESSION_REMEMBER_AGE`, em segundos, configurável); desmarcado, o cookie some ao **fechar o navegador** e a sessão expira após **1 hora de inatividade** (`SESSION_COOKIE_AGE`). O prazo é **deslizante** (`SESSION_SAVE_EVERY_REQUEST`): cada acesso renova. Nada além do cookie de sessão fica no navegador (nunca senha nem token). **Revogação**: sair (logout) apaga a sessão; trocar a senha invalida todas as sessões antigas (o hash de autenticação da sessão deixa de conferir); desativar a conta derruba as sessões; cada dispositivo tem a sua sessão e sair de um não derruba os outros. Mensagens de erro continuam genéricas ("Nome de usuário ou senha inválidos."), sem revelar se a conta existe.
 - **Cadastro:** `/register/` cria a conta no perfil de menor privilégio (Visualizador), **sem cliente** (ou seja, sem acesso a nenhum módulo) e envia e-mail de verificação. Um administrador vincula o cliente e o perfil depois.
 - **Senhas:** nunca são guardadas em texto puro (hash PBKDF2 nativo do Django) e passam pelos validadores do Django (tamanho mínimo, não ser comum, não ser só números, não parecer com o usuário) no cadastro, na redefinição e na API.
 - **Recuperação de senha:** "Esqueci minha senha" envia um link com token de **uso único** válido por 24 horas. A resposta é igual exista ou não o e-mail (não revela quais contas existem).
@@ -249,26 +262,41 @@ A lógica de cadastro/redefinição fica em `auth/services.py` e é **a mesma** 
 **ACL** (Access Control List) é a lista de quem pode fazer o quê. A cadeia do sistema é:
 
 ```
-Usuário  →  Cliente  →  Perfil  →  Permissões
-(auth_user)  (empresa)   (papel)    (visualizar/criar/editar/excluir por módulo)
+Usuário → Cliente → Segmento de Trabalho → Módulos habilitados → Permissões do Perfil → Dados
+```
+
+```
+Cliente
+ ├── Matriz ── Filial, Filial...      (estrutura: todos enxergam só a própria)
+ └── Segmento ── Módulos              (o segmento pertence ao CLIENTE, não ao usuário)
 ```
 
 | Conceito | O que é | Onde |
 |---|---|---|
 | **Usuário** | Pessoa que loga (`auth_user` do Django + `Profile`) | tela **Usuários** |
-| **Cliente** | Empresa (CPF/CNPJ). Isola os dados: ninguém vê dados de outro cliente | tela **Clientes** |
+| **Cliente** | Empresa (CPF/CNPJ), **Matriz** ou **Filial** de uma matriz. Isola os dados: ninguém vê dados de outra estrutura | tela **Clientes** |
+| **Segmento** | Define o conjunto de módulos do cliente (ex.: Produto, Serviço) | tela **Segmentos** |
+| **Módulo** | Tela do sistema: nome, ícone, rota, ordem e permissão (vira item de menu e linha na matriz de papéis) | tela **Módulos** |
 | **Perfil** | Papel (`Group` do Django): Administrador, Gestor, Operador, Visualizador ou customizado | tela **Papéis** |
 | **Permissão** | Ação em um módulo (`insumo.view_insumo`, `insumo.add_insumo`...) | tela **Permissões** (catálogo) |
 
 Regras importantes:
 
 - Cada **Cliente** tem uma lista de **perfis disponíveis** (tela Clientes). Ao criar um usuário, o perfil escolhido **precisa estar nessa lista** (validado no servidor).
-- Quem **não** é administrador global (superusuário ou perfil "Administrador") só enxerga e gerencia usuários, insumos e auditoria do **próprio cliente**. Isso é filtrado no backend: trocar o `id` na URL devolve 404.
+- Quem **não** é administrador global (superusuário ou perfil "Administrador", o **Admin**) só enxerga clientes, usuários, notificações e auditoria da **própria estrutura** (seu cliente, a matriz e as filiais dela); insumos e demais dados de negócio são do **cliente exato**. Isso é filtrado no backend (`web_project/acesso.py`): trocar o `id` na URL devolve 404.
+- Para um módulo ser usado, ele precisa estar **no segmento do cliente**, **habilitado para o cliente** e **permitido ao perfil**. Módulos de Configurações são *essenciais*: só dependem do perfil.
+- Ao criar um cliente, o sistema cria **automaticamente** o usuário **Gestor** (mesmo nome do cliente; a senha é definida por "Esqueci minha senha"), numa transação.
+- O perfil **Admin** fica oculto para quem não é Admin, só pode ser vinculado ao cliente **SISTEMA FATURANDO CERTO SERVIÇOS LTDA** (`Cliente.sistema`) e só um Admin o administra. Gestor e Operador ficam sempre visíveis.
 - Perfis padrão (criados por `seed_acl`): **Administrador** (tudo, inclusive Clientes, Módulos, Medidas, Usuários, Auditoria, Papéis), **Gestor** (ver/criar/editar), **Operador** (ver/criar), **Visualizador** (só ver).
 - Permissões sensíveis (gerenciar papéis/usuários) **não** podem ser atribuídas pela tela de Papéis — só o grupo Administrador as tem.
 - Usuários **nunca são excluídos**, só inativados (preserva histórico e auditoria).
 
-Detalhes técnicos do desenho original em `Group-ACL.md`.
+Detalhes técnicos do desenho original em `Group-ACL.md`. Cada app tem um `README.md` próprio (objetivo, tabelas, fluxo e manutenção): comece por `web_project/README.md`, `apps/cliente/README.md`, `apps/modulo/README.md` e `apps/notificacao/README.md`.
+
+### Notificações e tours
+
+- **Notificações** (`apps/notificacao`): envio para todos, por segmento ou usuários específicos (com tela de confirmação), histórico com filtros/paginação e o sino da navbar com contador e "Ver todas as notificações". A entrega é feita por *canais* (`canais.py`): hoje Web Push; o FCM (mobile) entra como um novo canal.
+- **Tours** (`apps/tour`): `initTour({page, steps})` em qualquer tela; "Não mostrar novamente" é salvo por usuário.
 
 ---
 
@@ -351,8 +379,32 @@ Permissão = permissão nativa do Django exigida (além de estar autenticado). "
 | GET/PUT/PATCH/DELETE | `/perfis/{id}/` | Consulta / atualiza / exclui | Bearer | `view/change/delete_group` |
 | GET | `/permissoes/` | Catálogo de permissões atribuíveis | Bearer | `auth.view_permission` |
 | GET | `/auditoria/`, `/auditoria/{id}/` | Trilha de auditoria (filtros `q`, `usuario`, `modulo`, `acao`, `de`, `ate`); somente leitura | Bearer | `auditoria.view_registroauditoria` |
+| GET/POST | `/produtos/`, `/produtos/{id}/` | Produtos: lista (`q`, `categoria`, `ativo`, `ordenar`) / cria; consulta / atualiza (PUT, PATCH) / exclui (sem uso apaga; em uso só desativa) | Bearer + módulo `produto` | `produto.view/add/change/delete_produto` |
+| GET/POST | `/canais-venda/`, `/canais-venda/{id}/` | Canais de venda com `taxas` (percentual OU valor fixo em centavos); alterar taxas refaz as precificações | Bearer + módulo `canal-venda` | `canal.*_canalvenda` |
+| GET/POST | `/custos-operacionais/`, `/custos-operacionais/{id}/` | Custos fixos/variáveis mensais (`valor` em centavos; `modelo` = custo comum) | Bearer + módulo `custo-operacional` | `custo.*_custooperacional` |
+| GET/POST | `/processados/`, `/processados/{id}/` | Processados/receitas com `itens` (insumo, medida, quantidade); custo e insumo gerado calculados; DELETE lógico | Bearer + módulo `processado` | `processado.*_processado` |
+| GET/POST | `/fichas-tecnicas/`, `/fichas-tecnicas/{id}/` | Fichas técnicas (nome vem do produto) com `itens`; custo calculado | Bearer + módulo `ficha` | `ficha.*_ficha` |
+| GET/POST | `/precificacoes/`, `/precificacoes/{id}/` | Precificações calculadas pelo servidor; `custo_operacional` omitido = automático (distribuição), outro valor = manual | Bearer + módulo `precificacao` | `precificacao.*_precificacao` |
+| GET | `/estoque/saldos/`, `/estoque/saldos/{insumo}/` | Saldos por insumo (filtros `q`, `situacao`, `ordenar`) e detalhe com lotes | Bearer + módulo `estoque` | `estoque.view_movimentoestoque` |
+| PUT | `/estoque/saldos/{insumo}/minimo/` | Define o estoque mínimo (`{"minimo": "5"}`) | Bearer + módulo | `estoque.change_movimentoestoque` |
+| GET | `/estoque/alertas/` | Estoque baixo e lotes a vencer | Bearer + módulo | `estoque.view_movimentoestoque` |
+| POST | `/estoque/movimentos/` | Registra entrada, saída ou ajuste (validade pode vir sem lote; saída segue o PEPS) | Bearer + módulo | `estoque.add_movimentoestoque` |
+| GET/POST | `/estoque/transferencias/`, `/estoque/transferencias/{id}/` | Transferências matriz ↔ filiais (origem = unidade do usuário) | Bearer + módulo | `estoque.view/add_transferenciaestoque` |
+| GET/POST | `/financeiro/categorias/`, `/financeiro/categorias/{id}/` (+ `ativar/`, `inativar/`) | Categorias de receita/despesa (sem edição de nome; exclusão segura) | Bearer + módulo `financeiro-categorias` | `financeiro.*_categoriafinanceira` |
+| GET/POST | `/financeiro/contas-pagar/`, `/financeiro/contas-receber/` (+ `/{id}/`) | Contas (filtros `q`, `categoria`, `situacao`, `vencimento_de/ate`); DELETE só sem baixas | Bearer + módulos `financeiro-pagar`/`financeiro-receber` | `financeiro.*_contapagar` / `*_contareceber` |
+| POST | `/financeiro/contas-*/{id}/baixas/` e `/{id}/baixas/{baixa}/estorno/` | Registra baixa (total/parcial) e estorno (imutáveis) | Bearer + módulo | `financeiro.change_conta*` |
+| GET | `/financeiro/dre/`, `/financeiro/balanco/` | DRE (`inicio`, `fim`, `regime`) e balanço (`data`) **gerenciais**, em centavos | Bearer + módulo `financeiro-relatorios` | `financeiro.view_relatoriofinanceiro` |
+| GET | `/painel/` | Indicadores do painel (`periodo`, `inicio`, `fim`); cada bloco só com permissão | Bearer | autenticado |
+| GET/POST | `/custos-comuns/` | Custos comuns: padrões do sistema (somente leitura) + os da empresa. Filtros `q`, `tipo`, `origem` (`sistema`/`proprio`), `ativo`, `ordenar` | Bearer + módulo `custo-comum` | `custo.view_customodelo` / `add_customodelo` |
+| GET/PUT/PATCH/DELETE | `/custos-comuns/{id}/` | Consulta / atualiza (só os próprios; padrão do sistema = 404) / exclui (em uso: só desativa) | Bearer + módulo | `view` / `change` / `change` / `delete` |
+| GET | `/estoque/movimentos/`, `/estoque/movimentos/{id}/` | Movimentações do cliente do usuário (filtros `insumo`, `tipo`, `data_de`, `data_ate`, `q`, `ordenar`) | Bearer + módulo `estoque` | `estoque.view_movimentoestoque` |
+| PUT/PATCH | `/estoque/movimentos/{id}/` | **Corrige** a movimentação: `quantidade`, `medida`, `data`, `observacao`, `validade` (omitida = mantém, `null` = remove); recalcula saldos; 422 se o saldo ficaria negativo ou se for transferência | Bearer + módulo | `estoque.change_movimentoestoque` |
+| GET | `/custo-operacional/categorias/` | Distribuição do custo operacional por categoria, em **centavos** (totais + lista; origem `vendas`/`igual`/`manual`/`zero`) | Bearer + módulo `custo-operacional` | `custo.view_custooperacional` |
+| PUT/DELETE | `/custo-operacional/categorias/{id}/ajuste/` | Fixa (`{"valor": 20000}`) ou restaura o valor da categoria | Bearer + módulo | `custo.change_custooperacional` |
 
-**Não existem** endpoints de produtos, processados, fichas técnicas e precificação porque esses módulos ainda não têm dados nem telas (são só "âncoras" de permissão). Quando forem implementados, siga o passo a passo de [Manutenção](#manutenção).
+O recurso `/insumos/` ganhou o campo **`marca`** (texto de até 60 caracteres, opcional; vazio é válido; `<`, `>` e aspas duplas são recusados com 400). Os endpoints de listagem seguem a paginação padrão (`pagina`, `por_pagina`; dados em `data.itens`). Todos os escopos vêm do usuário autenticado (nunca de parâmetro): outra empresa recebe 404.
+
+Todos os módulos de negócio têm API. Os recursos de cadastro (`produtos`, `canais-venda`, `custos-operacionais`, `processados`, `fichas-tecnicas`, `precificacoes`) e o financeiro **validam e gravam com os mesmos formulários e serviços das telas** (`apps/api/negocio.py` explica o adaptador): mesmas regras, mesma auditoria. PUT/PATCH funcionam mesclando o enviado com o valor atual; `itens` e `taxas` enviados **substituem** a lista inteira. O escopo é sempre a empresa do usuário autenticado (nunca um id enviado): registro de outra empresa responde 404. Para saber o formato exato de cada corpo e resposta, use o Swagger (`/api/docs/`). **Limites**: as telas de matriz/filiais (escolher a unidade nos relatórios) não têm equivalente — a API sempre usa a empresa do usuário; exportações Excel/PDF e as telas de gerenciamento de categorias padrão (`financeiro/categorias/padrao`) não foram expostas.
 
 Segurança da API: veja [Segurança](#segurança).
 
@@ -423,6 +475,109 @@ Como o dinheiro é guardado:
 | `preco_unidade` | `4000` | **centavos** por KG/L/UN, recalculado a cada gravação |
 
 A "exclusão" de um insumo é **lógica** (só inativa). Listagem com pesquisa, ordenação, paginação e exportação para Excel/PDF.
+
+No cadastro há **Salvar** e **Salvar e adicionar outro** (volta ao formulário em branco; mixin `SalvarEAdicionarMixin` + `templates/partials/botoes_salvar.html`, reutilizáveis nos próximos módulos). Insumos usados em receitas não podem ser excluídos nem trocar de dimensão (kg → L), e insumos **gerados por processados** só mudam pelo processado. Alterar preço/quantidade/unidade de um insumo recalcula os processados que dependem dele — veja `apps/processado/README.md`.
+
+## Categorias e Canais de venda
+
+- **Categorias** (`apps/categoria/README.md`): ativar/desativar (sem cascata), excluir seguro (em uso → só desativa), quantidade vendida, faturamento, ticket médio e % do faturamento total (valores neutros sem faturamento).
+- **Canal de vendas** (`apps/canal/README.md`, Configurações): nome, descrição e taxas percentuais e/ou fixas; o sistema calcula total de taxas e líquido (ex.: 26,20% + 1,59% = 27,79%, líquido 72,21%).
+
+## Produtos e Fichas técnicas
+
+- **Produtos** (`apps/produto/README.md`): cadastro por unidade com categoria; lista com filtros, ordenação, paginação e exportação Excel/PDF; exclusão segura (em uso → só desativa).
+- **Fichas técnicas** (`apps/ficha/README.md`): itens (insumos/processados) com unidade, quantidade e custo por linha, custo total no topo e no rodapé, busca no seletor de insumos, exportação Excel/PDF. Recalculadas automaticamente quando um insumo ou processado muda.
+- Infraestrutura comum: `web_project/exportacao.py` (Excel/PDF), `web_project/mixins.py` (`ListaPaginadaMixin`, `ExcluirOuDesativarView`, `em_uso`, `SalvarEAdicionarMixin`) e `src/assets/js/form-salvar.js`.
+
+## Precificação
+
+`apps/precificacao` (`apps/precificacao/README.md`): preço de venda = custo da ficha + custo operacional, com taxas do canal (cadastrado ou personalizado) e lucro por **margem** (sobre o preço), **markup** (sobre o custo) ou **valor em reais**, mais lucro e CMV. As fórmulas, a ordem das operações e os casos de borda estão documentados lá. Recalcula sozinha quando um insumo, processado, ficha ou canal muda.
+
+## Financeiro
+
+`apps/financeiro` (`apps/financeiro/README.md`): contas a pagar e a receber com baixas parciais/totais e estornos (histórico imutável), categorias financeiras, **DRE gerencial** (caixa ou vencimento) e **balanço gerencial** simplificado, com aviso de que não são demonstrações contábeis oficiais, e notificações de contas atrasadas/vencendo (`gerar_alertas_financeiro`, uma vez por conta por dia).
+
+## Estoque
+
+`apps/estoque` (`apps/estoque/README.md`): saldos por insumo e lote (com validade), entradas, saídas pelo PEPS (vence antes sai antes), ajustes, **transferências matriz ↔ filiais** (só usuários autorizados), mínimo por insumo e alertas de estoque baixo/vencimento (notificações idempotentes; comando `gerar_alertas_estoque`). Histórico imutável, saldo nunca negativo (transação + bloqueio de linha + `CheckConstraint`) e conferência por `verificar_estoque`.
+
+## Custo operacional
+
+`apps/custo` (`apps/custo/README.md`): custos fixos e variáveis por unidade, catálogo global de custos comuns (água, energia... sem copiar para os clientes) e distribuição por categoria (soma 100 %). Custo por unidade da categoria = custo do mês ÷ quantidade vendida da categoria; é sugerido na Precificação. Fórmulas, validações e tabelas no README do app.
+
+## Processados e receitas
+
+Módulo `apps/processado` (menu **Processados**): ficha técnica com insumos, unidade e quantidade, custo por item e total, rendimento, custo por KG/L e fator de rendimento; o resultado é publicado como insumo. O **recálculo em cascata** (vários níveis, ciclos, tenant, atomicidade, comando `recalcular_custos`) e as tabelas `processado_processado` / `processado_processadoitem` estão documentados em `apps/processado/README.md`.
+
+## Módulos de negócio e como se conectam
+
+```text
+Medida ──► Insumo ──► Processado (insumo gerado) ──┐
+              │   └──► Ficha técnica ◄── Produto ◄─┤── Categoria
+              │            │                       │
+              │            ▼                       │
+Canal de venda ──► Precificação ◄── Custo operacional (sugestão por categoria)
+              ▼
+           Estoque (lotes, validade, transferências)  ──►  Financeiro (contas, DRE, balanço)  ──►  Painel
+```
+
+- **Recálculo em cascata** (`apps/processado/recalculo.py`): alterar um insumo recalcula, numa transação, processados (vários níveis), fichas e precificações (ganchos `GANCHOS_POS_RECALCULO`); alterar um canal reprecifica as precificações dele. `manage.py recalcular_custos` refaz tudo (idempotente).
+- **Escopo matriz/filial** (`web_project/acesso.py`, `web_project/mixins.py`): a unidade vê só os próprios dados; a matriz vê/age nas filiais com `cliente.<ação>_itensfilial` (ver `apps/acl/README.md`).
+- **Histórico imutável** (`web_project/historico.py`): movimentos de estoque, transferências e baixas de contas só crescem; correção = ajuste/estorno.
+- **Notificações do sistema** (`notificacao.services.enviar_para_usuarios`): alertas de estoque e de contas, uma vez por item por dia.
+- **Infraestrutura comum**: `web_project/exportacao.py` (Excel/PDF), `ListaPaginadaMixin`, `ExcluirOuDesativarView`, `SalvarEAdicionarMixin`, `src/assets/js/form-salvar.js`.
+
+| Módulo | Documentação | Tabelas principais |
+|---|---|---|
+| Insumos / Medidas | este README | `insumo_insumo`, `medidas` |
+| Processados | `apps/processado/README.md` | `processado_processado`, `processado_processadoitem` |
+| Categorias | `apps/categoria/README.md` | `categoria_categoria` |
+| Canais de venda | `apps/canal/README.md` | `canal_canalvenda`, `canal_canaltaxa` |
+| Produtos | `apps/produto/README.md` | `produto_produto` |
+| Fichas técnicas | `apps/ficha/README.md` | `ficha_ficha`, `ficha_fichaitem` |
+| Precificação | `apps/precificacao/README.md` | `precificacao_precificacao` |
+| Custo operacional | `apps/custo/README.md` | `custo_customodelo`, `custo_custooperacional`, `custo_custorateio` |
+| Estoque | `apps/estoque/README.md` | `estoque_lote`, `estoque_movimentoestoque`, `estoque_transferenciaestoque`, `estoque_estoqueminimo`, `estoque_alertaenviado` |
+| Financeiro | `apps/financeiro/README.md` | `financeiro_categoriafinanceira`, `financeiro_conta{pagar,receber}`, `financeiro_baixa{pagar,receber}`, `financeiro_alertafinanceiro` |
+| Painel | `apps/dashboard/README.md` | `dashboard_presenca` |
+
+### Atualizando um ambiente existente
+
+```bash
+python manage.py migrate          # aplica todas as migrations novas (várias criam módulos no catálogo)
+python manage.py seed_acl         # permissões padrão por perfil (transferências e relatórios só Administrador/Gestor)
+```
+
+**Esta atualização** (marca do insumo, edição de estoque, custo operacional automático, custos comuns, login e PDFs) acrescenta as migrations abaixo — aplique **na ordem do `migrate`**, que resolve as dependências:
+
+| App | Migration | O que faz | Reversível |
+|---|---|---|---|
+| `insumo` | `0007_insumo_marca` | coluna `marca` (varchar 60, padrão vazio) | sim |
+| `estoque` | `0002_movimento_editado_em` | coluna `editado_em` (nula) | sim |
+| `custo` | `0003_custos_comuns_por_cliente_e_ajuste_manual` | `cliente_id` (nulo) e datas em `custo_customodelo`, novas restrições de nome e a tabela `custo_custoajustecategoria` | sim |
+| `custo` | `0004_rateios_viram_ajustes_manuais` | converte os rateios por percentual em ajustes manuais em R$ (dados) | sim (só apaga os ajustes criados) |
+| `precificacao` | `0004` e `0005` | coluna `custo_operacional_manual`; valores antigos > 0 viram "manuais" | sim |
+| `modulo` | `0009_modulo_custo_comum`, `0010_icones_do_menu` | módulo "Custos comuns" (Configurações) e ícones do menu (só onde ainda é o genérico) | sim |
+
+Depois do `migrate`, um `post_migrate` completa as permissões padrão dos perfis para o módulo novo (só acrescenta) e normaliza insumos gerados por processados. **Rollback**: `python manage.py migrate <app> <migration anterior>`; nenhuma migration apaga dados (a tabela `custo_custorateio` foi mantida, sem uso). Antes de produção, faça backup do banco. Cada tabela/coluna afetada está descrita no README do app (`apps/insumo`, `apps/estoque`, `apps/custo`, `apps/precificacao`, `apps/ficha`).
+
+As migrations de tabelas que antes eram só "âncora" de permissão (produto, ficha, precificação, processado) **param com mensagem** se houver registros antigos sem dono, em vez de inventar dados. Módulos novos de negócio são habilitados para clientes que já têm segmento, sem sobrescrever vínculos existentes; para um ajuste manual use `python manage.py seed_modulos`.
+
+### Rotinas agendáveis (cron) e configurações
+
+| Comando | Para que serve |
+|---|---|
+| `recalcular_custos [--cliente ID]` | refaz processados, fichas e precificações (nova tentativa idempotente) |
+| `gerar_alertas_estoque [--cliente ID]` | notifica estoque baixo e vencimentos (rodar diariamente) |
+| `gerar_alertas_financeiro [--cliente ID]` | notifica contas atrasadas e vencendo (rodar diariamente) |
+| `verificar_estoque [--corrigir]` | confere o saldo dos lotes contra o histórico |
+
+| Configuração (`settings`) | Padrão | Efeito |
+|---|---|---|
+| `ESTOQUE_DIAS_ALERTA_VENCIMENTO` | 7 | prazo do alerta de lote a vencer |
+| `FINANCEIRO_DIAS_ALERTA_VENCIMENTO` | 3 | prazo do alerta de conta vencendo |
+
+---
 
 ## Medidas
 
@@ -547,7 +702,7 @@ Cobrem: regras de negócio (dinheiro, conversão, extenso, validadores, indicado
 2. Crie o model (com `cliente` FK se os dados são por empresa). Dinheiro: `PositiveBigIntegerField` em centavos e `AUDITORIA_MONETARIOS = ("campo",)`. `makemigrations` + `migrate`.
 3. Views: use `ClienteScopedMixin` (isolamento) e `AuditoriaFormMixin` (auditoria de criar/editar) antes de `CreateView`/`UpdateView`. Na exclusão, chame `registrar_exclusao(...)` dentro de `transaction.atomic()`.
 4. URLs com `module_required("slug", "app.permissao")`.
-5. Registre o módulo em `seed_modulos`, a permissão em `seed_acl` (`SCREEN_APPS`) e em `apps/acl/permissions_matrix.py`, e o item de menu em `templates/layout/partials/menu/vertical/json/vertical_menu.json`.
+5. Cadastre o módulo em **Configurações > Módulos > Novo Módulo** (ou em `MODULOS_PADRAO` de `seed_modulos` + `python manage.py seed_modulos`): nome, ícone, rota, permissão, seção do menu e ordem. Isso já cria o item de menu e a linha na matriz de Papéis. Depois inclua o módulo nos **Segmentos** e habilite-o por cliente. Dê as permissões padrão em `seed_acl` (`SCREEN_APPS`). Passo a passo completo em `apps/modulo/README.md`.
 6. Escreva testes (use `apps/insumo/tests.py` como modelo).
 
 ### Adicionar um endpoint na API
@@ -604,9 +759,67 @@ Cada model ganha `view/add/change/delete` automaticamente. Para uma permissão e
 - **Usuários nunca são apagados**, só inativados.
 - **Sem endpoints fictícios:** produtos/processados/fichas/precificação não têm dados, então não têm API.
 
+## Atualização: melhorias de usabilidade, estoque, custos e relatórios
+
+Resumo do que mudou nesta versão (detalhes e tabelas/colunas nos READMEs de cada app):
+
+| Área | Comportamento novo |
+|---|---|
+| **Insumos** | Tabela sem Quantidade/Valor pago e com a coluna **Preço**; filtros (pesquisa com ícone, **status**, unidade) responsivos e compatíveis com paginação; campo opcional **Marca do produto** (validado, auditado e na API). |
+| **Processados / Fichas / Insumos em dropdowns** | Insumo exibido como "Nome (Kg)" e unidade só com a **maior grandeza**; a ficha técnica deixou de ter nome digitado (usa o do produto). |
+| **Estoque** | **Validade sem lote** (lote automático `VAL-AAAAMMDD`) e **edição de movimentação** com recálculo de saldos, sem saldo negativo e com auditoria. |
+| **Custo operacional** | Distribuição **automática em R$ por vendas** (soma exata, centavos pelo maior resto), com **ajuste manual** preservado e "Restaurar". |
+| **Configurações > Custos comuns** | CRUD com filtros, paginação, exportação, auditoria e desativação quando já usado. |
+| **Precificação** | Coluna "Ficha técnica" oculta, visão em **cartões**, e custo operacional **preenchido pela distribuição** (marcado quando ajustado). |
+| **Login** | **Lembrar-me** seguro (sessão de 30 dias, cookie HttpOnly/SameSite, revogação), `next` sem redirecionamento aberto, mensagens em português. |
+| **Interface** | Alertas e confirmações com **SweetAlert2** centralizados (`src/assets/js/alertas.js`); **pesquisa em todos os dropdowns** (`selects-pesquisaveis.js`); ícones do menu coerentes com os módulos. |
+| **PDFs** | Um único padrão (`web_project/exportacao.py::exportar_pdf`): faixa com o sistema e o título, emissão, filtros, cabeçalho de colunas repetido nas páginas, rodapé com a empresa e "Página X de Y". |
+
+### Partes de código mais complexas
+
+- **Distribuição do custo** (`apps/custo/calculos.py::distribuir_por_vendas`): método do maior resto em inteiros (sem float) — a soma das categorias fecha exatamente com o total; ajustes manuais fixam categorias e o resto é repartido entre as demais. Regras, período e limites estão em `apps/custo/README.md`.
+- **Edição de movimentação** (`apps/estoque/services.py::editar_movimento`): `delta = sinal × (nova − antiga)` aplicado ao lote e ao "saldo após" dos movimentos posteriores, tudo bloqueado numa transação; ver `apps/estoque/README.md`. É a **única** porta que altera o histórico (`web_project/historico.py::corrigir_registro`).
+- **Lembrar-me**: ver [Autenticação](#autenticação).
+- **Pesquisa nos dropdowns**: `selects-pesquisaveis.js` inicia o select2 em todo `<select>` (e nos criados depois, via `MutationObserver`); exclua um campo com `data-sem-busca`; listas já chegam completas no HTML (as longas continuam com a busca no servidor que a página já tiver).
+- **Alertas**: as páginas não desenham alertas. O Django entrega `messages` escondidas em `#mensagens-django` (`templates/layout/master.html`); `alertas.js` mostra sucesso/informação como aviso rápido e aviso/erro como caixa. Para confirmar uma ação, use `<form data-confirmar="Pergunta?">`; em scripts, `SFC.confirmar()` e `SFC.alerta()`.
+- **PDF**: `exportar_pdf(nome_arquivo, titulo, usuario, cabecalho, linhas, filtros)` — as colunas de valores (R$, %, quantidades com sinal) alinham à direita, a largura das colunas é proporcional ao conteúdo e a empresa do rodapé é a do usuário que emite (os dados já chegam filtrados pelo escopo dele).
+
+### Regras e fórmulas (resumo)
+
+```text
+custo da categoria = custo operacional total × vendas da categoria ÷ vendas das categorias elegíveis   (maior resto, em centavos)
+custo operacional/unidade = custo da categoria ÷ quantidade vendida
+edição de estoque: delta = sinal × (nova − antiga); saldo do lote e saldos posteriores + delta; recusa se algum < 0
+```
+
+### Segunda rodada: correções pontuais e API completa
+
+| Módulo | Problema | O que mudou |
+|---|---|---|
+| **Processados** | A tabela da ficha técnica não mostrava o custo; faltava "Salvar e adicionar outro" e o valor por extenso; unidades só com sigla | A ficha agora calcula **custo por linha e total em tempo real** (`POST /processado/calcular`, mesma conta da gravação, só insumos do tenant); botão **Salvar e adicionar outro** (volta ao formulário em branco; erro não grava); abaixo do rendimento aparece **"100 gramas"** (`/medidas/calcular`); dropdowns de unidade com **todas** as opções e o **nome completo** ("Quilo (kg)"), mantendo o id como valor |
+| **Ficha técnica** | Dropdown de unidades com sigla e só a maior grandeza | Mesma lista completa com nome completo; escolher o insumo ainda **pré-seleciona** a maior grandeza dele |
+| **Estoque** | Configuração de mínimo difícil de achar | Na lista de saldos, ao lado do valor do mínimo, o atalho **Definir mínimo** (só para quem tem `change_movimentoestoque` e só nas unidades que pode alterar; o servidor revalida) |
+| **Custos comuns** | Editar/Excluir não apareciam | Os botões aparecem onde o servidor aceita: itens da **própria empresa** (conforme a permissão de cada ação) e, para o **administrador do sistema**, também os **padrões do sistema** (que valem para todas as empresas). Outro usuário não altera padrões nem itens de outra empresa (404). O perfil Gestor não tem `delete_customodelo` por padrão, então não vê Excluir |
+| **Login** | "Lembrar-me" não persistia | O cookie de sessão/CSRF deixa de ser `Secure` em desenvolvimento (`DEBUG=True`): navegadores que descartam cookies `Secure` recebidos por HTTP (ex.: IP da rede) perdiam até a sessão de 30 dias. Em produção continua `Secure`; `SESSION_COOKIE_SECURE` e `CSRF_COOKIE_SECURE` no `.env` forçam o valor. Mensagens de erro em português e genéricas |
+| **SweetAlert2** | Sucesso aparecia no canto | Sucesso agora é **caixa centralizada** como o erro (título "Tudo certo!", mesmo texto, 5 s com barra de progresso, botão OK e fechamento por clique/Esc); informação segue no canto |
+| **API/Swagger** | Faltavam módulos | Veja a tabela de endpoints; `spectacular --validate` sem avisos |
+
+### Terceira rodada: unidades, extenso, custo e nome
+
+- **Unidade da linha** (Processados e Ficha técnica): começa em "Unidade..." e **não é mais pré-selecionada** ao escolher o insumo (removido ); sem unidade o custo mostra "Escolha a unidade".
+- **Quantidade por extenso em cada linha** ("2 unidades", "100 gramas"), vinda do servidor junto com o custo; custo = preço × quantidade na unidade escolhida (Abacaxi a R$ 5/un, 2 un = R$ 10).
+- **Custo operacional**: o campo Nome só aparece em "Custo próprio (sem modelo)"; com custo comum, o nome é o do dropdown (também no servidor).
+- **Cache de scripts**:  (, disponível em todos os templates) coloca a data do arquivo na URL; depois de atualizar, o navegador baixa o script novo sozinho, sem Ctrl+F5. **Sem alteração de banco** nesta rodada.
+
+**Atenção ao atualizar:** como `ficha-form.js`, `calculo-medida.js` e `alertas.js` mudaram, faça **Ctrl+F5** (recarga sem cache) nas telas depois de atualizar; o navegador pode reutilizar a versão antiga do arquivo. **Banco de dados: nenhuma tabela ou coluna foi criada ou alterada nesta rodada e não há migration nova** (as migrations da rodada anterior continuam necessárias).
+
+### Verificações executadas
+
+`python manage.py test` (suíte completa), `python manage.py makemigrations --check` (só a diferença do pacote externo `webpush`), `python manage.py spectacular --validate` (sem avisos) e conferência no navegador de login, filtros, dropdowns com pesquisa, alertas SweetAlert2, distribuição por categoria e cartões da precificação. Veja "Pendências" para o que não foi coberto.
+
 ## Pendências e pontos de atenção
 
-1. **Produto, Processado, Ficha Técnica e Precificação** continuam sendo "âncoras" de permissão (model com só `nome`), sem telas, API ou campos monetários. As regras de indicadores, conversão e preço por unidade já estão prontas para elas, mas não foram ligadas porque não há onde usá-las.
+1. **Todos os módulos pedidos foram implementados** (processados, categorias, canais, produtos, fichas, precificação, custo operacional, estoque, financeiro e painel). Limites conhecidos: DRE e balanço são **gerenciais** (não contábeis oficiais); não há módulo de **vendas**, então estoque e financeiro não se movem sozinhos a partir delas e as categorias usam faturamento/quantidade **informados**; "online" é aproximado (janela de 5 minutos); a **API REST** só expõe, entre os módulos novos, custos comuns, a distribuição do custo operacional e as movimentações de estoque (veja [API](#api)); o bloqueio de linha do estoque e das baixas só vale em PostgreSQL e a suíte não exercita transações realmente paralelas.
 2. **PostgreSQL:** a configuração por variáveis de ambiente está pronta, mas a suíte de testes só foi executada em SQLite. Rode `python manage.py test` apontando para um PostgreSQL de teste antes de ir para produção.
 3. **Cache/throttling em memória:** o rate limit e o *throttling* usam o cache do Django (`LocMemCache`, por processo). Com vários processos/servidores em produção, configure um cache compartilhado (Redis) em `CACHES`.
 4. **Um token por usuário:** logar em um segundo aparelho desconecta o primeiro (decisão de simplicidade; evoluir para um token por dispositivo se necessário).

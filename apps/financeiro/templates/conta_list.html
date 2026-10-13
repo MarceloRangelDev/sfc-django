@@ -1,0 +1,159 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ titulo }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{{ titulo }}</h4>
+  <div class="d-flex gap-2">
+    {% if perms.financeiro.view_categoriafinanceira %}
+    <a href="{% url 'financeiro-categorias' %}" class="btn btn-outline-secondary"><i class="icon-base ti tabler-tags me-1"></i>{% translate "Categorias" %}</a>
+    {% endif %}
+    {% if pode_add %}
+    <a href="{% url nomes.create %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova conta" %}</a>
+    {% endif %}
+  </div>
+</div>
+
+
+{% if qtd_atrasadas or qtd_vencendo %}
+<div class="alert alert-warning" role="alert">
+  {% if qtd_atrasadas %}<strong>{{ qtd_atrasadas }}</strong> {% translate "conta(s) atrasada(s)" %}.{% endif %}
+  {% if qtd_vencendo %}<strong>{{ qtd_vencendo }}</strong> {% translate "conta(s) vencendo em até" %} {{ dias_alerta }} {% translate "dia(s)" %}.{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-3">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Descrição, fornecedor/cliente ou categoria...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="categoria">{% translate "Categoria" %}</label>
+        <select id="categoria" name="categoria" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          {% for c in categorias %}<option value="{{ c.pk }}" {% if categoria_selecionada == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="situacao">{% translate "Situação" %}</label>
+        <select id="situacao" name="situacao" class="form-select">
+          <option value="">{% translate "Todas (sem canceladas)" %}</option>
+          {% for valor, rotulo in situacoes %}<option value="{{ valor }}" {% if situacao_selecionada == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="vencimento_de">{% translate "Vencimento de" %}</label>
+        <input type="date" id="vencimento_de" name="vencimento_de" class="form-control" value="{{ vencimento_de }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="vencimento_ate">{% translate "até" %}</label>
+        <input type="date" id="vencimento_ate" name="vencimento_ate" class="form-control" value="{{ vencimento_ate }}">
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
+        <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Vencimento" as label %}{% include "_th_ordenavel.html" with campo="vencimento" label=label %}</th>
+          <th>{% translate "Descrição" as label %}{% include "_th_ordenavel.html" with campo="descricao" label=label %}</th>
+          <th>{{ rotulo_contraparte }}</th>
+          <th>{% translate "Categoria" as label %}{% include "_th_ordenavel.html" with campo="categoria" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Valor" as label %}{% include "_th_ordenavel.html" with campo="valor" label=label %}</th>
+          <th class="text-end">{{ rotulo_baixado }}</th>
+          <th class="text-end">{% translate "Saldo" %}</th>
+          <th>{% translate "Situação" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contas %}
+        <tr>
+          <td class="{% if c.atrasada %}text-danger{% endif %}">{{ c.vencimento|date:"d/m/Y" }}</td>
+          <td><a href="{% url nomes.detail c.pk %}">{{ c.descricao }}</a></td>
+          <td>{{ c.contraparte|default:"—" }}</td>
+          <td>{{ c.categoria.nome }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=c %}</td>{% endif %}
+          <td class="text-end">{{ c.valor_formatado }}</td>
+          <td class="text-end">{{ c.baixado_formatado }}</td>
+          <td class="text-end">{{ c.saldo_formatado }}</td>
+          <td>
+            {% if c.status == "paga" %}<span class="badge bg-label-success">{{ c.situacao }}</span>
+            {% elif c.status == "cancelada" %}<span class="badge bg-label-secondary">{{ c.situacao }}</span>
+            {% elif c.atrasada %}<span class="badge bg-label-danger">{{ c.situacao }}</span>
+            {% elif c.status == "parcial" %}<span class="badge bg-label-info">{{ c.situacao }}</span>
+            {% else %}<span class="badge bg-label-warning">{{ c.situacao }}</span>{% endif %}
+          </td>
+          <td>
+            <a href="{% url nomes.detail c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Detalhes e baixas' %}"><i class="icon-base ti tabler-eye"></i></a>
+            {% if c.pode_editar and c.ativo %}
+            <a href="{% url nomes.edit c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if c.pode_excluir and c.ativo %}
+            <form method="post" action="{% url nomes.excluir c.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir esta conta? Se já teve baixas, ela será apenas cancelada." %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}10{% else %}9{% endif %}" class="text-center py-6">{% translate "Nenhuma conta encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if contas %}
+      <tfoot>
+        <tr>
+          <th colspan="{% if mostrar_unidade %}5{% else %}4{% endif %}" class="text-end">{% translate "Total (filtro atual)" %}</th>
+          <th class="text-end">{{ total_valor }}</th><th class="text-end">{{ total_baixado }}</th><th class="text-end">{{ total_saldo }}</th><th colspan="2"></th>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('contas-{{ chave }}');</script>
+{% endblock page_js %}

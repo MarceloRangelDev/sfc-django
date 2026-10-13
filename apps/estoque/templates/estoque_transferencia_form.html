@@ -1,0 +1,116 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Nova transferência" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block vendor_css %}
+{{ block.super }}
+{% endblock vendor_css %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% translate "Nova transferência de estoque" %}</h4>
+
+
+{% if sem_destinos %}
+<div class="alert alert-warning" role="alert">{% translate "Sua unidade não tem outra unidade (matriz/filial) ativa para receber transferências." %}</div>
+{% else %}
+<form method="post" id="formTransferencia" data-form-salvar novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  {% if formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
+
+  <div class="card mb-6">
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <label class="form-label">{% translate "Origem" %}</label>
+          <input type="text" class="form-control" value="{{ origem.nome_razao_social }} ({{ origem.get_tipo_estabelecimento_display }})" readonly>
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.destino.id_for_label }}" class="form-label">{% translate "Destino" %}</label>
+          {{ form.destino }}
+          {% if form.destino.errors %}<div class="text-danger small mt-1">{{ form.destino.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
+          {{ form.observacao }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header">
+      <h5 class="mb-0">{% translate "Itens" %}</h5>
+      <div class="small text-muted mt-1">{% translate "O destino precisa ter o insumo cadastrado com o mesmo nome. Lote e validade acompanham a mercadoria; sai primeiro o lote que vence antes." %}</div>
+    </div>
+    {{ formset.management_form }}
+    <div class="table-responsive">
+      <table class="table" id="tabelaItens">
+        <thead><tr><th style="min-width: 260px;">{% translate "Insumo" %}</th><th>{% translate "Quantidade" %}</th><th>{% translate "Unidade" %}</th><th>{% translate "Remover" %}</th></tr></thead>
+        <tbody>
+          {% for f in formset %}
+          <tr>
+            <td>{{ f.insumo }}{% if f.insumo.errors %}<div class="text-danger small">{{ f.insumo.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.quantidade }}{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.medida }}{% if f.medida.errors %}<div class="text-danger small">{{ f.medida.errors|striptags }}</div>{% endif %}</td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button>{{ f.DELETE.as_hidden }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body">
+      <button type="button" class="btn btn-outline-primary" id="adicionarLinha"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar insumo" %}</button>
+    </div>
+  </div>
+
+  <template id="modeloLinha">
+    <tr>
+      <td>{{ formset.empty_form.insumo }}</td>
+      <td>{{ formset.empty_form.quantidade }}</td>
+      <td>{{ formset.empty_form.medida }}</td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button></td>
+    </tr>
+  </template>
+
+  {% url 'estoque-transferencias' as url_lista %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista %}
+</form>
+{% endif %}
+{% endblock %}
+
+{% block vendor_js %}
+{{ block.super }}
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-transferencia-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+  (function () {
+    var $ = window.jQuery;
+    var total = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
+    var corpo = document.querySelector('#tabelaItens tbody');
+    if (!total || !corpo) return;
+    function busca(contexto) {
+      if (!$ || !$.fn.select2) return;
+      $(contexto).find('select[name$="-insumo"]').each(function () {
+        if (!$(this).data('select2')) $(this).select2({ width: '100%', placeholder: 'Selecione...', language: { noResults: function () { return 'Nenhum insumo encontrado'; } } });
+      });
+    }
+    busca(corpo);
+    document.getElementById('adicionarLinha').addEventListener('click', function () {
+      corpo.insertAdjacentHTML('beforeend', document.getElementById('modeloLinha').innerHTML.replace(/__prefix__/g, total.value));
+      total.value = parseInt(total.value, 10) + 1;
+      busca(corpo.lastElementChild);
+    });
+    corpo.addEventListener('click', function (e) {
+      var botao = e.target.closest('.remover-linha');
+      if (botao) botao.closest('tr').remove();
+    });
+  })();
+</script>
+{% endblock %}

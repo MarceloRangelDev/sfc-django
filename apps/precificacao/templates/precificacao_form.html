@@ -1,0 +1,175 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar precificação" %}{% else %}{% translate "Nova precificação" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block vendor_css %}
+{{ block.super }}
+{% endblock vendor_css %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar precificação" %}{% else %}{% translate "Nova precificação" %}{% endif %}</h4>
+
+
+<form method="post" id="formPrecificacao" data-form-salvar data-calculo-url="{% url 'precificacao-calcular' %}" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="alert alert-danger d-none" role="alert" id="avisoPrevia"></div>
+
+  <div class="row g-6">
+    <div class="col-lg-7">
+      <div class="card mb-6">
+        <div class="card-header"><h5 class="mb-0">{% translate "Produto e ficha técnica" %}</h5></div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-12">
+              <label for="{{ form.ficha.id_for_label }}" class="form-label">{% translate "Ficha técnica (produto)" %}</label>
+              {{ form.ficha }}
+              {% if form.ficha.errors %}<div class="text-danger small mt-1">{{ form.ficha.errors|striptags }}</div>{% endif %}
+              {% if not form.fields.ficha.queryset.exists %}
+              <div class="form-text text-warning">{% translate "Nenhuma ficha ativa. Cadastre uma ficha técnica antes de precificar." %}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-12">
+              <div class="form-check form-switch">
+                {{ form.ativo }}
+                <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativa" %}</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-header"><h5 class="mb-0">{% translate "Canal de venda" %}</h5></div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-12">
+              <label for="{{ form.canal.id_for_label }}" class="form-label">{% translate "Canal cadastrado" %}</label>
+              {{ form.canal }}
+              {% if form.canal.errors %}<div class="text-danger small mt-1">{{ form.canal.errors|striptags }}</div>{% endif %}
+              <div class="form-text">{% translate "Com um canal cadastrado, as taxas dele são usadas e acompanham futuras alterações." %}</div>
+            </div>
+            <div class="col-12" id="blocoPersonalizado">
+              <div class="row g-4">
+                <div class="col-md-6">
+                  <label for="{{ form.canal_nome.id_for_label }}" class="form-label">{% translate "Nome do canal personalizado" %}</label>
+                  {{ form.canal_nome }}
+                  {% if form.canal_nome.errors %}<div class="text-danger small mt-1">{{ form.canal_nome.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                  <label for="{{ form.canal_descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>
+                  {{ form.canal_descricao }}
+                </div>
+                <div class="col-md-6">
+                  <label for="{{ form.taxa_percentual.id_for_label }}" class="form-label">{% translate "Taxas em porcentagem (%)" %}</label>
+                  {{ form.taxa_percentual }}
+                  {% if form.taxa_percentual.errors %}<div class="text-danger small mt-1">{{ form.taxa_percentual.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                  <label for="{{ form.taxa_fixa.id_for_label }}" class="form-label">{% translate "Taxas em reais (R$)" %}</label>
+                  {{ form.taxa_fixa }}
+                  {% if form.taxa_fixa.errors %}<div class="text-danger small mt-1">{{ form.taxa_fixa.errors|striptags }}</div>{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-header"><h5 class="mb-0">{% translate "Custo operacional e lucro" %}</h5></div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-6">
+              <label for="{{ form.custo_operacional.id_for_label }}" class="form-label">{% translate "Custo operacional da categoria (R$)" %}</label>
+              {{ form.custo_operacional }}
+              {% if form.custo_operacional.errors %}<div class="text-danger small mt-1">{{ form.custo_operacional.errors|striptags }}</div>{% endif %}
+              <div class="form-text" id="origemCusto" data-manual="{{ object.custo_operacional_manual|yesno:'1,0' }}">
+                <span class="badge bg-label-success d-none" id="seloAutomatico">{% translate "Calculado pela distribuição do custo operacional" %}</span>
+                <span class="badge bg-label-warning d-none" id="seloManual">{% translate "Ajustado manualmente" %}</span>
+                <span id="textoSugestao"></span>
+                <button type="button" class="btn btn-sm btn-link p-0 ms-1 d-none" id="usarSugestao">{% translate "Restaurar automático" %}</button>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.metodo_lucro.id_for_label }}" class="form-label">{% translate "Como formar o lucro" %}</label>
+              {{ form.metodo_lucro }}
+            </div>
+            <div class="col-md-6" id="blocoPercentual">
+              <label for="{{ form.percentual_lucro.id_for_label }}" class="form-label" id="rotuloPercentual">{% translate "Margem ou markup (%)" %}</label>
+              {{ form.percentual_lucro }}
+              {% if form.percentual_lucro.errors %}<div class="text-danger small mt-1">{{ form.percentual_lucro.errors|striptags }}</div>{% endif %}
+              <div class="form-text" id="ajudaPercentual"></div>
+            </div>
+            <div class="col-md-6" id="blocoValor">
+              <label for="{{ form.valor_lucro.id_for_label }}" class="form-label">{% translate "Lucro em reais (R$)" %}</label>
+              {{ form.valor_lucro }}
+              {% if form.valor_lucro.errors %}<div class="text-danger small mt-1">{{ form.valor_lucro.errors|striptags }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">{% translate "Itens da ficha técnica" %}</h5>
+          <span aria-live="polite">{% translate "Custo total" %}: <strong class="total-ficha">{% if ficha_atual %}{{ ficha_atual.custo_total_formatado }}{% else %}&mdash;{% endif %}</strong></span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm" id="tabelaItens">
+            <thead><tr><th>{% translate "Insumo" %}</th><th>{% translate "Qtd." %}</th><th class="text-end">{% translate "Custo" %}</th></tr></thead>
+            <tbody>
+              {% for i in itens_ficha %}
+              <tr><td>{{ i.insumo.nome }}</td><td>{{ i.quantidade|floatformat:"-4" }} {{ i.medida.sigla }}</td><td class="text-end">{{ i.custo_formatado }}</td></tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted py-4">{% translate "Selecione uma ficha técnica para ver os itens." %}</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><th colspan="2" class="text-end">{% translate "Custo total da ficha" %}</th><th class="text-end total-ficha">{% if ficha_atual %}{{ ficha_atual.custo_total_formatado }}{% else %}&mdash;{% endif %}</th></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-6" id="resumo" aria-live="polite">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">{% translate "Resumo do cálculo" %}</h5>
+          <span class="small text-muted" id="estadoPrevia"></span>
+        </div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Canal de venda" %}</span><strong data-res="canal">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Custo operacional por categoria" %}</span><strong data-res="custo_operacional">&mdash;</strong></li>
+          <li class="list-group-item small text-muted d-none" id="resumoCategoria"></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Custo da ficha técnica" %}</span><strong data-res="custo_ficha">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Custo total (antes do canal e do lucro)" %}</span><strong data-res="custo_total">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Taxas do canal" %}</span><strong data-res="taxas">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Método e valor do lucro" %}</span><strong data-res="metodo">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "Lucro em reais" %}</span><strong data-res="lucro">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between fs-5"><span>{% translate "Preço de venda" %}</span><strong data-res="preco_venda" class="text-primary">&mdash;</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>{% translate "CMV (custo da ficha ÷ preço)" %}</span><strong><span data-res="cmv_valor">&mdash;</span> &middot; <span data-res="cmv">&mdash;</span></strong></li>
+        </ul>
+        <div class="card-body small text-muted">{% translate "Calculado pelo servidor e confirmado ao salvar. Margem é sobre o preço de venda; markup é sobre o custo." %}</div>
+      </div>
+    </div>
+  </div>
+
+  {% url 'precificacao' as url_lista %}{% translate "Salvar e adicionar outra" as texto_novo %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+</form>
+{% endblock %}
+
+{% block vendor_js %}
+{{ block.super }}
+{% endblock vendor_js %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('precificacao-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script src="{% static_v 'js/precificacao-form.js' %}"></script>
+{% endblock %}

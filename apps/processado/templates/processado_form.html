@@ -1,0 +1,118 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar processado" %}{% else %}{% translate "Novo processado" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar processado" %}{% else %}{% translate "Novo processado" %}{% endif %}</h4>
+
+
+<form method="post" id="formProcessado" data-form-salvar data-calculo-url="{% url 'processado-calcular' %}" data-calc-medida-url="{% url 'medida-calcular' %}" data-prefixo="{{ formset.prefix }}" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  {% if formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
+
+  <div class="card mb-6">
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome da receita/processado" %}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.rendimento_quantidade.id_for_label }}" class="form-label">{% translate "Quantidade de rendimento" %}</label>
+          {{ form.rendimento_quantidade }}
+          <div class="form-text fw-medium text-primary" data-calc-saida="extenso" aria-live="polite"></div>
+          {% if form.rendimento_quantidade.errors %}<div class="text-danger small mt-1">{{ form.rendimento_quantidade.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.rendimento_medida.id_for_label }}" class="form-label">{% translate "Unidade de saída" %}</label>
+          {{ form.rendimento_medida }}
+          {% if form.rendimento_medida.errors %}<div class="text-danger small mt-1">{{ form.rendimento_medida.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <div class="form-check form-switch">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{% translate "Ficha técnica" %}</h5>
+      <span class="text-muted" aria-live="polite">{% translate "Custo total" %}: <strong class="total-ficha">{% if object %}{{ object.custo_total_formatado }}{% else %}&mdash;{% endif %}</strong></span>
+    </div>
+    {{ formset.management_form }}
+    <div class="table-responsive">
+      <table class="table" id="tabelaItens">
+        <thead>
+          <tr>
+            <th>{% translate "Insumo" %}</th>
+            <th>{% translate "Unidade" %}</th>
+            <th>{% translate "Quantidade usada" %}</th>
+            <th>{% translate "Custo" %}</th>
+            <th>{% translate "Remover" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in formset %}
+          <tr class="linha-item">
+            <td>{{ f.id }}{{ f.insumo }}{% if f.insumo.errors %}<div class="text-danger small">{{ f.insumo.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.medida }}{% if f.medida.errors %}<div class="text-danger small">{{ f.medida.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.quantidade }}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div>{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|striptags }}</div>{% endif %}</td>
+            <td class="text-nowrap custo-item">{% if f.instance.pk %}{{ f.instance.custo_formatado }}{% else %}&mdash;{% endif %}</td>
+            <td class="text-center">{% if f.instance.pk %}{{ f.DELETE }}{% else %}<button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">{% translate "Custo total da ficha" %}</th>
+            <th class="text-nowrap total-ficha">{% if object %}{{ object.custo_total_formatado }}{% else %}&mdash;{% endif %}</th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="card-body">
+      <button type="button" class="btn btn-outline-primary" id="adicionarLinha"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar insumo" %}</button>
+      {% if object %}
+      <div class="mt-4 text-muted">
+        {% translate "Custo por KG/L" %}: <strong>{{ object.custo_unitario_formatado }}</strong>
+        {% if object.fator_rendimento is not None %}
+        &middot; {% translate "Fator de rendimento" %}: <strong>{{ object.fator_rendimento|floatformat:"-4" }}</strong>
+        ({% blocktranslate with p=object.reducao_percentual|floatformat:"-2" %}redução de {{ p }}%{% endblocktranslate %})
+        {% endif %}
+        <div class="small">{% translate "Valores calculados na última gravação; são atualizados ao salvar." %}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <template id="modeloLinha">
+    <tr class="linha-item">
+      <td>{{ formset.empty_form.id }}{{ formset.empty_form.insumo }}</td>
+      <td>{{ formset.empty_form.medida }}</td>
+      <td>{{ formset.empty_form.quantidade }}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div></td>
+      <td class="text-nowrap custo-item">&mdash;</td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button></td>
+    </tr>
+  </template>
+
+  {% url 'processado' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+</form>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('processado-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script src="{% static_v 'js/calculo-medida.js' %}"></script>
+<script src="{% static_v 'js/ficha-form.js' %}"></script>
+{% endblock %}

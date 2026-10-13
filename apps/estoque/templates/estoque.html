@@ -1,0 +1,129 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <h4 class="mb-0">{% translate "Estoque" %}</h4>
+  <div class="d-flex gap-2">
+    {% if perms.estoque.add_transferenciaestoque %}
+    <a href="{% url 'estoque-transferencia-nova' %}" class="btn btn-outline-primary"><i class="icon-base ti tabler-transfer me-1"></i>{% translate "Transferir" %}</a>
+    {% endif %}
+    {% if perms.estoque.add_movimentoestoque %}
+    <a href="{% url 'estoque-movimentar' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova movimentação" %}</a>
+    {% endif %}
+  </div>
+</div>
+
+{% include "_estoque_nav.html" with ativa="estoque" %}
+
+{% if qtd_baixo or qtd_vencendo %}
+<div class="alert alert-warning" role="alert">
+  {% if qtd_baixo %}<strong>{{ qtd_baixo }}</strong> {% translate "item(ns) abaixo do mínimo" %}.{% endif %}
+  {% if qtd_vencendo %}<strong>{{ qtd_vencendo }}</strong> {% translate "lote(s) vencido(s) ou vencendo em até" %} {{ dias_vencimento }} {% translate "dias" %}.{% endif %}
+  <a href="{% url 'estoque-alertas' %}" class="alert-link">{% translate "Ver alertas" %}</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-3">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome do insumo...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="situacao">{% translate "Situação" %}</label>
+        <select id="situacao" name="situacao" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          <option value="baixo" {% if situacao_selecionada == "baixo" %}selected{% endif %}>{% translate "Abaixo do mínimo" %}</option>
+          <option value="zerado" {% if situacao_selecionada == "zerado" %}selected{% endif %}>{% translate "Zerado" %}</option>
+          <option value="vencendo" {% if situacao_selecionada == "vencendo" %}selected{% endif %}>{% translate "Vencido / vencendo" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
+        <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Insumo" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Saldo" as label %}{% include "_th_ordenavel.html" with campo="saldo" label=label %}</th>
+          <th class="text-end">{% translate "Mínimo" %}</th>
+          <th>{% translate "Situação" %}</th>
+          <th>{% translate "Próximo vencimento" as label %}{% include "_th_ordenavel.html" with campo="vencimento" label=label %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in insumos %}
+        <tr>
+          <td>{{ i.nome }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=i %}</td>{% endif %}
+          <td class="text-end">{{ i.saldo|floatformat:"-4" }} {{ i.medida.sigla }}</td>
+          <td class="text-end text-nowrap">
+            {% if i.minimo %}{{ i.minimo|floatformat:"-4" }} {{ i.medida.sigla }}{% else %}&mdash;{% endif %}
+            {% if i.pode_definir_minimo %}<a href="{% url 'estoque-minimo' i.pk %}" class="btn btn-icon btn-sm btn-text-secondary rounded-pill ms-1" title="{% translate 'Definir estoque mínimo' %}"><i class="icon-base ti tabler-adjustments"></i></a>{% endif %}
+          </td>
+          <td>
+            {% if i.situacao == "Baixo" %}<span class="badge bg-label-danger">{% translate "Abaixo do mínimo" %}</span>
+            {% elif i.situacao == "Zerado" %}<span class="badge bg-label-secondary">{% translate "Zerado" %}</span>
+            {% else %}<span class="badge bg-label-success">OK</span>{% endif %}
+          </td>
+          <td>{% if i.proximo_vencimento %}<span class="{% if i.vence_logo %}text-danger{% endif %}">{{ i.proximo_vencimento|date:"d/m/Y" }}</span>{% else %}&mdash;{% endif %}</td>
+          <td>
+            <a href="{% url 'estoque-insumo' i.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Lotes e histórico' %}"><i class="icon-base ti tabler-list-details"></i></a>
+            {% if perms.estoque.add_movimentoestoque and i.cliente_id == user.profile.cliente_id %}
+            <a href="{% url 'estoque-movimentar' %}?insumo={{ i.pk }}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Movimentar' %}"><i class="icon-base ti tabler-arrows-exchange"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhum insumo encontrado. Cadastre insumos para controlar o estoque." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque');</script>
+{% endblock page_js %}

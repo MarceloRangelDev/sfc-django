@@ -36,6 +36,11 @@
   {% block layout %}
   {% endblock layout %}
 
+  {# Mensagens do Django (sucesso, aviso, erro): exibidas pelo SweetAlert2 em js/alertas.js — nenhuma página desenha alertas próprios. #}
+  {% if messages %}
+  <div id="mensagens-django" hidden>{% for message in messages %}<div data-tipo="{{ message.level_tag }}">{{ message }}</div>{% endfor %}</div>
+  {% endif %}
+
   {% include is_front|yesno:"./partials/scripts_front.html,./partials/scripts.html" %}
 
   <!--Vendors Javascript-->

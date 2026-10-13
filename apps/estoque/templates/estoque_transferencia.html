@@ -1,0 +1,43 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Transferência" %} #{{ transferencia.pk }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Transferência" %} #{{ transferencia.pk }}</h4>
+  <a href="{% url 'estoque-transferencias' %}" class="btn btn-outline-secondary"><i class="icon-base ti tabler-arrow-left me-1"></i>{% translate "Voltar" %}</a>
+</div>
+
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3"><div class="text-muted">{% translate "Data" %}</div>{{ transferencia.data|date:"d/m/Y H:i" }}</div>
+      <div class="col-md-3"><div class="text-muted">{% translate "Origem" %}</div>{{ transferencia.origem.nome_razao_social }} ({{ transferencia.origem.get_tipo_estabelecimento_display }})</div>
+      <div class="col-md-3"><div class="text-muted">{% translate "Destino" %}</div>{{ transferencia.destino.nome_razao_social }} ({{ transferencia.destino.get_tipo_estabelecimento_display }})</div>
+      <div class="col-md-3"><div class="text-muted">{% translate "Responsável" %}</div>{{ transferencia.responsavel_nome|default:"—" }}</div>
+      {% if transferencia.observacao %}<div class="col-12"><div class="text-muted">{% translate "Observação" %}</div>{{ transferencia.observacao }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h5 class="mb-0">{% translate "Itens movimentados" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Unidade" %}</th><th>{% translate "Movimento" %}</th><th>{% translate "Insumo" %}</th><th>{% translate "Lote" %}</th><th>{% translate "Validade" %}</th><th class="text-end">{% translate "Quantidade" %}</th></tr></thead>
+      <tbody>
+        {% for m in movimentos %}
+        <tr>
+          <td>{{ m.cliente.nome_razao_social }}</td><td>{{ m.get_tipo_display }}</td><td>{{ m.insumo.nome }}</td>
+          <td>{{ m.lote.codigo_exibicao|default:"—" }}</td><td>{% if m.lote.validade %}{{ m.lote.validade|date:"d/m/Y" }}{% else %}&mdash;{% endif %}</td>
+          <td class="text-end">{% if m.sinal > 0 %}+{% else %}-{% endif %}{{ m.quantidade|floatformat:"-4" }} {{ m.insumo.medida.sigla }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

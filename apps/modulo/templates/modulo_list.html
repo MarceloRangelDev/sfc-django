@@ -1,0 +1,70 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Módulos" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Módulos" %}</h4>
+  {% if perms.modulo.add_modulo %}
+  <a href="{% url 'modulo-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo Módulo" %}
+  </a>
+  {% endif %}
+</div>
+
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">{{ message }}</div>
+{% endfor %}
+
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Ordem" %}</th>
+          <th>{% translate "Nome" %}</th>
+          <th>{% translate "Identificador" %}</th>
+          <th>{% translate "Menu" %}</th>
+          <th>{% translate "Rota" %}</th>
+          <th>{% translate "Tipo" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for modulo in modulos %}
+        <tr>
+          <td>{{ modulo.ordem }}</td>
+          <td><i class="icon-base {{ modulo.icone }} me-2"></i>{{ modulo.nome }}</td>
+          <td><code>{{ modulo.slug }}</code></td>
+          <td>{{ modulo.get_secao_display }}</td>
+          <td>{{ modulo.rota|default:"-" }}</td>
+          <td>{% if modulo.essencial %}{% translate "Essencial" %}{% else %}{% translate "Por segmento" %}{% endif %}</td>
+          <td>
+            {% if modulo.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.modulo.change_modulo %}
+            <a href="{% url 'modulo-edit' modulo.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar e ver instruções de uso' %}">
+              <i class="icon-base ti tabler-edit"></i>
+            </a>
+            {% endif %}
+            {% if perms.modulo.delete_modulo %}
+            <form method="post" action="{% url 'modulo-excluir' modulo.pk %}" class="d-inline" data-confirmar="{% translate "Excluir este módulo? Isso também remove as habilitações dos clientes." %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center py-6">{% translate "Nenhum módulo cadastrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

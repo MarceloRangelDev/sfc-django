@@ -21,7 +21,8 @@
   'use strict';
 
   function iniciar(form) {
-    var url = form.getAttribute('data-calculo-url');
+    // data-calc-medida-url: para formulários que já usam data-calculo-url em outra prévia (ex.: processado)
+    var url = form.getAttribute('data-calc-medida-url') || form.getAttribute('data-calculo-url');
     var campo = function (nome) { return form.querySelector('[data-calc="' + nome + '"]'); };
     var saida = function (nome) { return form.querySelector('[data-calc-saida="' + nome + '"]'); };
     var medida = campo('medida'), quantidade = campo('quantidade'), preco = campo('preco');
@@ -63,6 +64,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-calculo-url]').forEach(iniciar);
+    document.querySelectorAll('[data-calc-medida-url], [data-calculo-url]').forEach(iniciar);
   });
 })();

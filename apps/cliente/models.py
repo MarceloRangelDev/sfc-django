@@ -45,6 +45,30 @@ class Cliente(models.Model):
     nome_razao_social = models.CharField(max_length=200, verbose_name="Nome / Razão social")
     nome_fantasia = models.CharField(max_length=200, blank=True, verbose_name="Nome fantasia")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
+
+    # Estrutura Matriz/Filial: só CNPJ (PJ) pode ter filiais. Uma filial
+    # aponta obrigatoriamente para a sua matriz; a matriz é a "raiz" da
+    # estrutura e todos os seus integrantes compartilham a mesma visão de
+    # clientes e usuários (ver web_project/acesso.py).
+    TIPO_MATRIZ = "matriz"
+    TIPO_FILIAL = "filial"
+    TIPO_ESTABELECIMENTO_CHOICES = [(TIPO_MATRIZ, "Matriz"), (TIPO_FILIAL, "Filial")]
+    tipo_estabelecimento = models.CharField(
+        max_length=10, choices=TIPO_ESTABELECIMENTO_CHOICES, default=TIPO_MATRIZ, db_default=TIPO_MATRIZ,
+        verbose_name="Matriz/Filial",
+    )
+    matriz = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="filiais", verbose_name="Matriz",
+    )
+    # Segmento de trabalho do CLIENTE (não do usuário): define os módulos
+    # que a empresa pode usar (ver apps/modulo/models.py::Segmento).
+    segmento = models.ForeignKey(
+        "modulo.Segmento", null=True, blank=True, on_delete=models.PROTECT, related_name="clientes",
+        verbose_name="Segmento de trabalho",
+    )
+    # Marca o cliente dono do sistema ("SISTEMA FATURANDO CERTO SERVIÇOS
+    # LTDA"): único ao qual um usuário Admin pode estar vinculado.
+    sistema = models.BooleanField(default=False, db_default=False, editable=False, verbose_name="Cliente do sistema")
     # Perfis (papéis/Groups do ACL) que podem ser atribuídos aos usuários
     # DESTE cliente. Ao criar um usuário, o perfil escolhido precisa estar
     # nesta lista (ver apps/usuario/forms.py) — assim "Usuário -> Cliente ->
@@ -62,6 +86,20 @@ class Cliente(models.Model):
         verbose_name = "Cliente"
         verbose_name_plural = "Clientes"
         ordering = ["nome_razao_social"]
+        constraints = [
+            # Só um cliente pode ser o "cliente do sistema" (onde o Admin vive).
+            models.UniqueConstraint(fields=["sistema"], condition=models.Q(sistema=True), name="cliente_sistema_unico"),
+        ]
+        # Ações de uma MATRIZ sobre os itens (insumos, categorias...) das suas
+        # filiais. Itens da própria unidade seguem as permissões de cada módulo;
+        # estas são exigidas EM ADIÇÃO para alcançar os itens das filiais (ver
+        # web_project/acesso.py::clientes_dos_itens e apps/acl/README.md).
+        permissions = [
+            ("view_itensfilial", "Visualizar itens das filiais"),
+            ("add_itensfilial", "Criar itens nas filiais"),
+            ("change_itensfilial", "Editar itens das filiais"),
+            ("delete_itensfilial", "Excluir itens das filiais"),
+        ]
 
     def __str__(self):
         return f"{self.nome_razao_social} ({self.cpf_cnpj_formatado})"
@@ -83,6 +121,28 @@ class Cliente(models.Model):
             raise ValidationError({"tipo_pessoa": "Selecione se é Pessoa Física ou Pessoa Jurídica."})
 
         self.cpf_cnpj = documento
+        self._validar_estrutura()
+
+    def _validar_estrutura(self):
+        """Regras de Matriz/Filial (valem para qualquer forma de gravação)."""
+        if self.tipo_estabelecimento == self.TIPO_FILIAL:
+            if self.tipo_pessoa != self.TIPO_PJ:
+                raise ValidationError({"tipo_estabelecimento": "Somente CNPJ pode ser filial."})
+            if not self.matriz_id:
+                raise ValidationError({"matriz": "Informe a matriz da filial."})
+            if self.matriz_id == self.pk:
+                raise ValidationError({"matriz": "Uma filial não pode ser matriz de si mesma."})
+            if self.matriz.tipo_estabelecimento != self.TIPO_MATRIZ or self.matriz.tipo_pessoa != self.TIPO_PJ:
+                raise ValidationError({"matriz": "A matriz precisa ser um CNPJ cadastrado como Matriz."})
+            if self.pk and self.filiais.exists():
+                raise ValidationError({"tipo_estabelecimento": "Este cliente possui filiais e não pode virar filial."})
+        elif self.matriz_id:
+            raise ValidationError({"matriz": "Somente filiais possuem matriz."})
+
+    @property
+    def raiz_id(self):
+        """Id da matriz da estrutura (o próprio id, se for matriz)."""
+        return self.matriz_id or self.pk
 
     @property
     def cpf_cnpj_formatado(self):

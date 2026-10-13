@@ -2,13 +2,189 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}
-Test Page - Precificação
-{% endblock title %}
+{% block title %}{% translate "Precificação" %} - Sistema Faturando Certo{% endblock title %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Precificação" %}</h4>
+  {% if perms.precificacao.add_precificacao %}
+  <a href="{% url 'precificacao-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova precificação" %}
+  </a>
+  {% endif %}
+</div>
 
 
-<h4 class="py-3 mb-6">{% translate "Title: Test Page - Precificação" %}</h4>
-<p>Content: Test page - Precificação.</p>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <input type="hidden" name="visao" value="{{ visao }}">
+      <div class="col-md-3">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Produto, ficha ou canal...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="produto">{% translate "Produto" %}</label>
+        <select id="produto" name="produto" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for p in produtos %}<option value="{{ p.pk }}" {% if produto_selecionado == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="canal">{% translate "Canal" %}</label>
+        <select id="canal" name="canal" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for c in canais %}<option value="{{ c.pk }}" {% if canal_selecionado == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="metodo">{% translate "Método do lucro" %}</label>
+        <select id="metodo" name="metodo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in metodos %}<option value="{{ valor }}" {% if metodo_selecionado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativas" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativas" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todas" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
+        <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
+      </div>
+      <div class="col-md-auto ms-md-auto" data-tour="visao">
+        <div class="btn-group" role="group" aria-label="{% translate 'Formato da lista' %}">
+          <a href="{% querystring visao='tabela' page=None %}" class="btn btn-outline-secondary {% if visao == 'tabela' %}active{% endif %}" data-visao="tabela" {% if visao == 'tabela' %}aria-current="true"{% endif %}><i class="icon-base ti tabler-table me-1"></i>{% translate "Tabela" %}</a>
+          <a href="{% querystring visao='cartoes' page=None %}" class="btn btn-outline-secondary {% if visao == 'cartoes' %}active{% endif %}" data-visao="cartoes" {% if visao == 'cartoes' %}aria-current="true"{% endif %}><i class="icon-base ti tabler-layout-grid me-1"></i>{% translate "Cartões" %}</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {% if visao == "cartoes" %}
+  <div class="card-body pt-0" data-tour="tabela">
+    <div class="row g-4">
+      {% for p in precificacoes %}
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100 border">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+              <h5 class="mb-0">{{ p.produto.nome }}</h5>
+              {% if p.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}
+            </div>
+            <div class="text-muted small mb-3">{{ p.nome_do_canal|default:"—" }}{% if mostrar_unidade %} &middot; {% include "partials/unidade_selo.html" with item=p %}{% endif %}</div>
+            <div class="display-6 text-primary mb-1">{{ p.preco_venda_formatado }}</div>
+            <div class="text-muted small mb-3">{% translate "Preço de venda" %}</div>
+            <dl class="row mb-3 small">
+              <dt class="col-7 fw-normal text-muted">{% translate "Custo total" %}</dt><dd class="col-5 text-end mb-1">{{ p.custo_total_formatado }}</dd>
+              <dt class="col-7 fw-normal text-muted">{% translate "Lucro" %}</dt><dd class="col-5 text-end mb-1">{{ p.lucro_formatado }}</dd>
+              <dt class="col-7 fw-normal text-muted">{% translate "CMV" %}</dt><dd class="col-5 text-end mb-0">{{ p.cmv_percentual|floatformat:2 }}%</dd>
+            </dl>
+            <div class="mt-auto d-flex justify-content-end gap-1">
+              {% if perms.precificacao.change_precificacao and p.cliente_id == user.profile.cliente_id or perms.precificacao.change_precificacao and perms.cliente.change_itensfilial %}
+              <a href="{% url 'precificacao-edit' p.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+              {% endif %}
+              {% if perms.precificacao.delete_precificacao and p.cliente_id == user.profile.cliente_id or perms.precificacao.delete_precificacao and perms.cliente.delete_itensfilial %}
+              <form method="post" action="{% url 'precificacao-excluir' p.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir esta precificação?" %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12 text-center py-6">{% translate "Nenhuma precificação encontrada." %}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="table-responsive text-nowrap" data-tour="tabela">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Produto" as label %}{% include "_th_ordenavel.html" with campo="produto" label=label %}</th>
+          <th>{% translate "Canal" as label %}{% include "_th_ordenavel.html" with campo="canal" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Custo total" %}</th>
+          <th class="text-end">{% translate "Lucro" as label %}{% include "_th_ordenavel.html" with campo="lucro" label=label %}</th>
+          <th class="text-end">{% translate "Preço de venda" as label %}{% include "_th_ordenavel.html" with campo="preco" label=label %}</th>
+          <th class="text-end">{% translate "CMV" as label %}{% include "_th_ordenavel.html" with campo="cmv" label=label %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in precificacoes %}
+        <tr>
+          <td>{{ p.produto.nome }}</td>
+          <td>{{ p.nome_do_canal }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=p %}</td>{% endif %}
+          <td class="text-end">{{ p.custo_total_formatado }}</td>
+          <td class="text-end">{{ p.lucro_formatado }}</td>
+          <td class="text-end"><strong>{{ p.preco_venda_formatado }}</strong></td>
+          <td class="text-end">{{ p.cmv_percentual|floatformat:2 }}%</td>
+          <td>
+            {% if p.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.precificacao.change_precificacao and p.cliente_id == user.profile.cliente_id or perms.precificacao.change_precificacao and perms.cliente.change_itensfilial %}
+            <a href="{% url 'precificacao-edit' p.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if perms.precificacao.delete_precificacao and p.cliente_id == user.profile.cliente_id or perms.precificacao.delete_precificacao and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'precificacao-excluir' p.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir esta precificação?" %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhuma precificação encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('precificacoes');</script>
+<script src="{% static_v 'js/precificacao-lista.js' %}"></script>
+{% endblock page_js %}

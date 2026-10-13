@@ -1,0 +1,17 @@
+{% load i18n %}
+{% for item in notificacoes_recentes %}
+<li class="list-group-item list-group-item-action dropdown-notifications-item {% if item.lida_em %}marked-as-read{% endif %}">
+  <a href="{% url 'notificacao-abrir' item.pk %}" class="d-flex text-reset text-decoration-none">
+    <div class="flex-grow-1">
+      <h6 class="small mb-1">{{ item.notificacao.titulo }}</h6>
+      <small class="mb-1 d-block text-body">{{ item.notificacao.mensagem|truncatechars:70 }}</small>
+      <small class="text-body-secondary">{{ item.criado_em|date:"d/m/Y H:i" }}</small>
+    </div>
+    <div class="flex-shrink-0">
+      {% if not item.lida_em %}<span class="badge badge-dot bg-primary" title="{% translate 'Não lida' %}"></span>{% endif %}
+    </div>
+  </a>
+</li>
+{% empty %}
+<li class="list-group-item text-center text-body-secondary py-4">{% translate "Nenhuma notificação." %}</li>
+{% endfor %}

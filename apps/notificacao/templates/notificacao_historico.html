@@ -1,0 +1,138 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Notificações" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Histórico de notificações" %}</h4>
+  {% if perms.notificacao.add_notificacao %}
+  <a href="{% url 'notificacao-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova notificação" %}
+  </a>
+  {% endif %}
+</div>
+
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">{{ message }}</div>
+{% endfor %}
+
+<ul class="nav nav-pills mb-4">
+  <li class="nav-item"><a class="nav-link {% if not filtros.situacao %}active{% endif %}" href="?">{% translate "Todas" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if filtros.situacao == 'entregues' %}active{% endif %}" href="?situacao=entregues">{% translate "Entregues" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if filtros.situacao == 'nao-entregues' %}active{% endif %}" href="?situacao=nao-entregues">{% translate "Não entregues" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if filtros.situacao == 'lidas' %}active{% endif %}" href="?situacao=lidas">{% translate "Lidas" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if filtros.situacao == 'nao-lidas' %}active{% endif %}" href="?situacao=nao-lidas">{% translate "Não lidas" %}</a></li>
+</ul>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <input type="hidden" name="situacao" value="{{ filtros.situacao }}">
+      <div class="col-md-4">
+        <label for="q" class="form-label">{% translate "Título ou mensagem" %}</label>
+        <input type="text" id="q" name="q" class="form-control" value="{{ filtros.q }}">
+      </div>
+      <div class="col-md-4">
+        <label for="usuario" class="form-label">{% translate "Usuário" %}</label>
+        <select id="usuario" name="usuario" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for u in usuarios %}<option value="{{ u.pk }}" {% if filtros.usuario == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="cliente" class="form-label">{% translate "Cliente" %}</label>
+        <select id="cliente" name="cliente" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for c in clientes %}<option value="{{ c.pk }}" {% if filtros.cliente == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome_razao_social }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="segmento" class="form-label">{% translate "Segmento" %}</label>
+        <select id="segmento" name="segmento" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for s in segmentos %}<option value="{{ s.pk }}" {% if filtros.segmento == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="entrega" class="form-label">{% translate "Entrega" %}</label>
+        <select id="entrega" name="entrega" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          {% for valor, rotulo in entregas %}<option value="{{ valor }}" {% if filtros.entrega == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="leitura" class="form-label">{% translate "Leitura" %}</label>
+        <select id="leitura" name="leitura" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          <option value="lida" {% if filtros.leitura == "lida" %}selected{% endif %}>{% translate "Lidas" %}</option>
+          <option value="nao-lida" {% if filtros.leitura == "nao-lida" %}selected{% endif %}>{% translate "Não lidas" %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="de" class="form-label">{% translate "De" %}</label>
+        <input type="date" id="de" name="de" class="form-control" value="{{ filtros.de }}">
+      </div>
+      <div class="col-md-2">
+        <label for="ate" class="form-label">{% translate "Até" %}</label>
+        <input type="date" id="ate" name="ate" class="form-control" value="{{ filtros.ate }}">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">{% translate "Filtrar" %}</button>
+        <a href="{% url 'notificacao-list' %}" class="btn btn-outline-secondary">{% translate "Limpar" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Notificação" %}</th>
+          <th>{% translate "Usuário" %}</th>
+          <th>{% translate "Cliente" %}</th>
+          <th>{% translate "Enviada em" %}</th>
+          <th>{% translate "Entrega" %}</th>
+          <th>{% translate "Leitura" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in itens %}
+        <tr>
+          <td><strong>{{ item.notificacao.titulo }}</strong><br><small class="text-muted">{{ item.notificacao.mensagem|truncatechars:80 }}</small></td>
+          <td>{{ item.usuario.username }}</td>
+          <td>{{ item.usuario.profile.cliente|default:"-" }}</td>
+          <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>
+            {% if item.status_entrega == "entregue" %}<span class="badge bg-label-success">{% translate "Entregue" %}</span>
+            {% elif item.status_entrega == "falha" %}<span class="badge bg-label-danger" title="{{ item.erro_entrega }}">{% translate "Não entregue" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Pendente" %}</span>{% endif %}
+            {% if item.entregue_em %}<br><small class="text-muted">{{ item.entregue_em|date:"d/m/Y H:i" }}</small>{% endif %}
+            {% if item.erro_entrega and item.status_entrega != "entregue" %}<br><small class="text-danger">{{ item.erro_entrega }}</small>{% endif %}
+          </td>
+          <td>
+            {% if item.lida_em %}<span class="badge bg-label-primary">{% translate "Lida" %}</span><br><small class="text-muted">{{ item.lida_em|date:"d/m/Y H:i" }}</small>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Não lida" %}</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-6">{% translate "Nenhuma notificação encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

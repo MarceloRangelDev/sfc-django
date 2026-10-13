@@ -11,7 +11,7 @@ nunca são aceitos na entrada.
 """
 from decimal import Decimal
 
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -20,14 +20,18 @@ from apps.acl.permissions_matrix import ids_validos_da_matriz
 from apps.acl.services import salvar_papel
 from apps.auditoria.models import RegistroAuditoria
 from apps.cliente.models import Cliente
+from apps.cliente.services import criar_cliente
 from apps.cliente.validators import normalizar_documento
 from apps.categoria.models import Categoria
 from apps.insumo.models import LIMITE_CENTAVOS, Insumo
 from apps.medida.models import Medida
 from apps.modulo.models import Modulo
+from apps.estoque.services import insumo_tem_estoque
+from apps.processado.services import mensagem_insumo_em_uso
 from apps.usuario.forms import UsuarioForm
 from apps.usuario.services import foto_usuario, salvar_usuario
 from auth.models import Profile
+from web_project.acesso import GRUPO_ADMINISTRADOR, administrador_global, clientes_acessiveis, perfis_visiveis
 from web_project.regras import RegraNegocioError
 from web_project.regras.dinheiro import DinheiroService
 
@@ -184,7 +188,7 @@ class InsumoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Insumo
         fields = [
-            "id", "codigo", "nome", "medida", "medida_detalhe", "quantidade", "quantidade_por_extenso",
+            "id", "codigo", "nome", "marca", "medida", "medida_detalhe", "quantidade", "quantidade_por_extenso",
             "preco_pago", "preco_pago_decimal", "preco_pago_formatado",
             "preco_unidade", "preco_unidade_decimal", "preco_unidade_formatado", "rotulo_preco",
             "ativo", "criado_em", "atualizado_em",
@@ -228,6 +232,15 @@ class InsumoSerializer(serializers.ModelSerializer):
 
     def validate(self, dados):
         base = self.instance
+        if base is not None:
+            if Insumo.objects.filter(pk=base.pk, processado_origem__isnull=False).exists():
+                raise serializers.ValidationError("Este insumo é gerado por um processado e só muda pelo processado.")
+            nova = dados.get("medida")
+            if nova is not None and nova.pk != base.medida_id and insumo_tem_estoque(base):
+                raise serializers.ValidationError({"medida": "Este insumo tem movimentações de estoque; a unidade de medida não pode ser alterada."})
+            if nova is not None and nova.dimensao != base.medida.dimensao and mensagem_insumo_em_uso(base):
+                # Receitas que usam o insumo guardam unidades da dimensão antiga.
+                raise serializers.ValidationError({"medida": "Este insumo é usado em receitas; a unidade deve continuar na mesma dimensão."})
         tentativa = Insumo(
             medida=dados.get("medida", getattr(base, "medida", None)),
             quantidade=dados.get("quantidade", getattr(base, "quantidade", None)),
@@ -248,23 +261,53 @@ class InsumoSerializer(serializers.ModelSerializer):
 class ClienteSerializer(serializers.ModelSerializer):
     perfis = serializers.PrimaryKeyRelatedField(many=True, queryset=Group.objects.all(), required=False)
     cpf_cnpj_formatado = serializers.CharField(read_only=True)
+    email_gestor = serializers.EmailField(
+        write_only=True, required=False, help_text="Obrigatório ao criar: e-mail do usuário Gestor criado automaticamente.",
+    )
 
     class Meta:
         model = Cliente
         fields = [
             "id", "tipo_pessoa", "cpf_cnpj", "cpf_cnpj_formatado", "nome_razao_social", "nome_fantasia",
-            "ativo", "perfis", "criado_em", "atualizado_em",
+            "ativo", "tipo_estabelecimento", "matriz", "segmento", "perfis", "email_gestor", "criado_em", "atualizado_em",
         ]
         read_only_fields = ["criado_em", "atualizado_em"]
         extra_kwargs = {"cpf_cnpj": {"validators": []}}  # unicidade checada no documento normalizado (abaixo)
 
+    # Escopo (igual ao das telas): matriz só da própria estrutura, perfil Admin
+    # só para Admin e segmento só definido por Admin (filial herda o da matriz).
+    def validate_matriz(self, matriz):
+        if matriz is not None and not clientes_acessiveis(self.context["request"].user).filter(pk=matriz.pk).exists():
+            raise serializers.ValidationError("Matriz inválida.")
+        return matriz
+
+    def validate_perfis(self, perfis):
+        permitidos = set(perfis_visiveis(self.context["request"].user).values_list("pk", flat=True))
+        if any(p.pk not in permitidos for p in perfis):
+            raise serializers.ValidationError("Perfil inválido.")
+        return perfis
+
     def validate(self, dados):
         base = self.instance
+        solicitante = self.context["request"].user
+        if not administrador_global(solicitante):
+            dados.pop("segmento", None)
+            matriz = dados.get("matriz")
+            if base is None:
+                dados["segmento"] = matriz.segmento if matriz else None
+        if base is None and not dados.get("email_gestor"):
+            raise serializers.ValidationError({"email_gestor": ["Informe o e-mail do usuário Gestor."]})
+        email = dados.get("email_gestor")
+        if email and (User.objects.filter(email__iexact=email).exists() or Profile.objects.filter(email__iexact=email).exists()):
+            raise serializers.ValidationError({"email_gestor": ["Este e-mail já está cadastrado."]})
         documento = normalizar_documento(dados.get("cpf_cnpj", getattr(base, "cpf_cnpj", "")))
         tentativa = Cliente(
+            pk=getattr(base, "pk", None),
             tipo_pessoa=dados.get("tipo_pessoa", getattr(base, "tipo_pessoa", "")),
             cpf_cnpj=documento,
             nome_razao_social=dados.get("nome_razao_social", getattr(base, "nome_razao_social", "")),
+            tipo_estabelecimento=dados.get("tipo_estabelecimento", getattr(base, "tipo_estabelecimento", Cliente.TIPO_MATRIZ)),
+            matriz=dados.get("matriz", getattr(base, "matriz", None)),
         )
         try:
             tentativa.clean()  # valida CPF/CNPJ de verdade (dígitos verificadores)
@@ -277,6 +320,18 @@ class ClienteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"cpf_cnpj": [serializers.ErrorDetail("Já existe um cliente com este CPF/CNPJ.", code="unique")]})
         dados["cpf_cnpj"] = tentativa.cpf_cnpj  # sempre gravado só com dígitos
         return dados
+
+    def create(self, dados):
+        perfis = dados.pop("perfis", [])
+        email_gestor = dados.pop("email_gestor")
+        try:
+            return criar_cliente(self.context["request"], Cliente(**dados), perfis, email_gestor)  # cliente + Gestor + auditoria
+        except DjangoValidationError as erro:
+            raise serializers.ValidationError({"non_field_errors": erro.messages}) from None
+
+    def update(self, cliente, dados):
+        dados.pop("email_gestor", None)
+        return super().update(cliente, dados)
 
 
 class ModuloSerializer(serializers.ModelSerializer):
@@ -310,6 +365,8 @@ class PerfilSerializer(serializers.Serializer):
 
     def validate_name(self, nome):
         nome = nome.strip()
+        if self.instance and self.instance.name == GRUPO_ADMINISTRADOR and nome != GRUPO_ADMINISTRADOR:
+            raise serializers.ValidationError("O perfil Admin não pode ser renomeado.")
         duplicados = Group.objects.filter(name__iexact=nome)
         if self.instance:
             duplicados = duplicados.exclude(pk=self.instance.pk)
@@ -354,7 +411,6 @@ class UsuarioSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(required=False, default=True)
     cliente = serializers.IntegerField(help_text="Id do cliente (ver /clientes/).")
     perfil = serializers.IntegerField(help_text="Id do perfil, que deve estar liberado para o cliente (ver /perfis/).")
-    segmento_trabalho = serializers.ChoiceField(choices=Profile.SEGMENTO_CHOICES, required=False, default=Profile.SEGMENTO_PRODUTO)
     senha = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
     confirmar_senha = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
 
@@ -371,7 +427,6 @@ class UsuarioSerializer(serializers.Serializer):
             "is_active": usuario.is_active,
             "cliente": {"id": profile.cliente_id, "nome": profile.cliente.nome_razao_social} if profile.cliente_id else None,
             "perfil": {"id": grupo.pk, "nome": grupo.name} if grupo else None,
-            "segmento_trabalho": profile.segmento_trabalho,
         }
 
     def validate(self, dados):
@@ -386,7 +441,7 @@ class UsuarioSerializer(serializers.Serializer):
             base = {
                 "username": usuario.username, "first_name": usuario.first_name, "last_name": usuario.last_name,
                 "email": usuario.email, "is_active": usuario.is_active, "cliente": usuario.profile.cliente_id,
-                "perfil": grupo.pk if grupo else None, "segmento_trabalho": usuario.profile.segmento_trabalho,
+                "perfil": grupo.pk if grupo else None,
             }
         base.update(dados)
 

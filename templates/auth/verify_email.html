@@ -12,7 +12,7 @@
 
 {% block page_js %}
 {{ block.super }}
-<script src="{% static 'js/auth-click-loader.js' %}"></script>
+<script src="{% static_v 'js/auth-click-loader.js' %}"></script>
 {% endblock page_js %}
 
 
@@ -46,13 +46,6 @@
         <p class="text-start">
           {% translate "Enviamos um link de verificação para o seu endereço de e-mail." %}
         </p>
-        {% endif %}
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-          {{ message }}
-        </div>
-        {% endfor %}
         {% endif %}
         {% if request.user.is_authenticated %}
         <a id="btnSubmit" class="btn btn-primary w-100 my-2" href="{% url 'send-verification' %}">

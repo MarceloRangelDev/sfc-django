@@ -7,31 +7,97 @@
 {% block content %}
 <h4 class="py-4 mb-6">{% if object %}{% translate "Editar categoria" %}{% else %}{% translate "Nova categoria" %}{% endif %}</h4>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
   <div class="card-body">
-    <form method="post">
+    <form method="post" id="formCategoria" data-calculo-url="{% url 'categoria-calcular' %}" data-pk="{{ object.pk|default:'' }}">
       {% csrf_token %}
       {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
       {% endif %}
-      <div class="mb-6 col-md-6">
-        <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome" %}</label>
-        {{ form.nome }}
-        {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+      <div class="row g-4">
+        {% if form.fields.cliente %}
+        <div class="col-md-6">
+          <label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.cliente }}
+          {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="col-md-6">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome" %}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.quantidade_vendida.id_for_label }}" class="form-label">{% translate "Quantidade vendida" %}</label>
+          {{ form.quantidade_vendida }}
+          {% if form.quantidade_vendida.errors %}<div class="text-danger small mt-1">{{ form.quantidade_vendida.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.faturamento.id_for_label }}" class="form-label">{% translate "Faturamento (R$)" %}</label>
+          {{ form.faturamento }}
+          {% if form.faturamento.errors %}<div class="text-danger small mt-1">{{ form.faturamento.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{% translate "Ticket médio" %}</label>
+          <input type="text" class="form-control" id="previaTicket" value="R$ 0,00" readonly aria-live="polite">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{% translate "% do faturamento" %}</label>
+          <input type="text" class="form-control" id="previaPercentual" value="0,00%" readonly aria-live="polite">
+        </div>
+        <div class="col-md-12">
+          <div class="form-check form-switch">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativa" %}</label>
+          </div>
+        </div>
       </div>
       <div class="mt-6">
-        <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
-        <a href="{% url 'categoria' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+        {% url 'categoria' as url_lista %}{% translate "Salvar e adicionar outra" as texto_novo %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
       </div>
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('categoria-form');</script>
+<script>
+  (function () {
+    var form = document.getElementById('formCategoria');
+    var qtd = form.querySelector('[data-prev="quantidade"]');
+    var fat = form.querySelector('[data-prev="faturamento"]');
+    var temporizador = null, ultima = 0;
+
+    // A prévia vem do servidor (mesmas funções que gravam o valor): nada é calculado aqui.
+    function atualizar() {
+      var id = ++ultima;
+      var params = new URLSearchParams({ quantidade: qtd.value, faturamento: fat.value, pk: form.dataset.pk });
+      fetch(form.dataset.calculoUrl + '?' + params, { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (d) {
+          if (id !== ultima) return;
+          document.getElementById('previaTicket').value = d.ticket_medio;
+          document.getElementById('previaPercentual').value = d.percentual + '%';
+        })
+        .catch(function () { /* mantém o último valor; o servidor recalcula ao salvar */ });
+    }
+    function agendar() { clearTimeout(temporizador); temporizador = setTimeout(atualizar, 250); }
+    qtd.addEventListener('input', agendar);
+    fat.addEventListener('input', agendar);
+    atualizar();
+
+    form.addEventListener('submit', function (e) {
+      if (e.submitter && e.submitter.name) {
+        var oculto = document.createElement('input');
+        oculto.type = 'hidden'; oculto.name = e.submitter.name; oculto.value = e.submitter.value;
+        this.appendChild(oculto);
+      }
+      this.querySelectorAll('[data-botao-salvar]').forEach(function (b) { b.disabled = true; });
+    });
+  })();
+</script>
 {% endblock %}

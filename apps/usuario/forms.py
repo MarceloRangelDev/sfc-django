@@ -3,9 +3,10 @@ from django.contrib.auth.models import Group, User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from apps.acl.services import ler_efeitos, validar_concessoes
 from apps.cliente.models import Cliente
 from auth.models import Profile
-from web_project.acesso import administrador_global, cliente_do_usuario
+from web_project.acesso import GRUPO_ADMINISTRADOR, administrador_global, clientes_acessiveis, perfis_visiveis, validar_vinculo_admin
 from web_project.regras.validadores import validar_email
 
 
@@ -23,8 +24,6 @@ class UsuarioForm(forms.ModelForm):
                                      widget=forms.Select(attrs={"class": "form-select"}))
     perfil = forms.ModelChoiceField(queryset=Group.objects.none(), label="Perfil", empty_label="Selecione...",
                                     widget=forms.Select(attrs={"class": "form-select"}))
-    segmento_trabalho = forms.ChoiceField(choices=Profile.SEGMENTO_CHOICES, label="Segmento de trabalho",
-                                          widget=forms.Select(attrs={"class": "form-select"}))
     senha = forms.CharField(required=False, label="Senha", strip=False,
                             widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"}))
     confirmar_senha = forms.CharField(required=False, label="Confirmar senha", strip=False,
@@ -45,21 +44,23 @@ class UsuarioForm(forms.ModelForm):
     def __init__(self, *args, solicitante, **kwargs):
         super().__init__(*args, **kwargs)
         self.solicitante = solicitante
+        self.excecoes = None  # permissões individuais enviadas ({id: efeito}); None = não enviadas
         self.fields["email"].required = True
-        if administrador_global(solicitante):
-            clientes = Cliente.objects.filter(ativo=True)
-        else:
-            clientes = Cliente.objects.filter(pk=getattr(cliente_do_usuario(solicitante), "pk", None))
+        # Clientes da própria estrutura matriz/filiais (todos, para o Admin).
+        clientes = clientes_acessiveis(solicitante).filter(ativo=True)
         if self.instance.pk and getattr(self.instance.profile, "cliente_id", None):
             clientes = clientes | Cliente.objects.filter(pk=self.instance.profile.cliente_id)
         self.fields["cliente"].queryset = clientes.order_by("nome_razao_social").distinct()
-        self.fields["perfil"].queryset = Group.objects.filter(clientes__in=self.fields["cliente"].queryset).distinct().order_by("name")
+        # O perfil Admin só aparece para quem é Admin.
+        self.fields["perfil"].queryset = (
+            perfis_visiveis(solicitante).filter(clientes__in=self.fields["cliente"].queryset).distinct().order_by("name")
+        )
 
         if self.instance.pk:
             profile = self.instance.profile
             grupo = self.instance.groups.first()
             self.initial.update(
-                cliente=profile.cliente_id, segmento_trabalho=profile.segmento_trabalho, perfil=grupo.pk if grupo else None
+                cliente=profile.cliente_id, perfil=grupo.pk if grupo else None
             )
 
     # Tabela cliente -> perfis liberados, usada pelo JavaScript da tela para
@@ -67,7 +68,7 @@ class UsuarioForm(forms.ModelForm):
     @property
     def perfis_por_cliente(self):
         return {
-            str(c.pk): [{"id": g.pk, "nome": g.name} for g in c.perfis.order_by("name")]
+            str(c.pk): [{"id": g.pk, "nome": g.name} for g in c.perfis.filter(pk__in=self.fields["perfil"].queryset).order_by("name")]
             for c in self.fields["cliente"].queryset
         }
 
@@ -95,6 +96,18 @@ class UsuarioForm(forms.ModelForm):
         cliente, perfil = dados.get("cliente"), dados.get("perfil")
         if cliente and perfil and not cliente.perfis.filter(pk=perfil.pk).exists():
             self.add_error("perfil", "Este perfil não está disponível para o cliente selecionado.")
+        # Regra de backend: Admin só no cliente do sistema (a tela apenas esconde).
+        erro_admin = validar_vinculo_admin(perfil, cliente)
+        if erro_admin:
+            self.add_error("perfil", erro_admin)
+
+        # Permissões individuais (permitir/negar): validadas aqui, no servidor.
+        try:
+            self.excecoes = ler_efeitos(self.data)
+            if self.excecoes is not None:
+                validar_concessoes(self.solicitante, self.instance if self.instance.pk else None, self.excecoes)
+        except ValidationError as erro:
+            self.add_error(None, erro)
 
         senha, confirmar = dados.get("senha") or "", dados.get("confirmar_senha") or ""
         if not self.instance.pk and not senha:
@@ -112,6 +125,8 @@ class UsuarioForm(forms.ModelForm):
         if self.instance.pk:
             if self.instance.is_superuser and not self.solicitante.is_superuser:
                 raise ValidationError("Somente um superusuário pode alterar outro superusuário.")
+            if self.instance.groups.filter(name=GRUPO_ADMINISTRADOR).exists() and not administrador_global(self.solicitante):
+                raise ValidationError("Somente um Admin pode alterar outro Admin.")
             if self.instance.pk == self.solicitante.pk and dados.get("is_active") is False:
                 self.add_error("is_active", "Você não pode inativar a sua própria conta.")
         return dados

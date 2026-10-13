@@ -31,6 +31,11 @@
     {% include './partials/menu_item_template.html' with item=item %}
     {% endif %}
     {% endfor %}
+
+    {% comment %} Módulos vindos do banco (web_project/menu.py via context processor) {% endcomment %}
+    {% for item in menu_modulos %}
+    {% include './partials/menu_item_template.html' with item=item %}
+    {% endfor %}
   </ul>
 
 

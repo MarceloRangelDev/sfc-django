@@ -1,0 +1,74 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Categorias financeiras" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Financeiro" %}</h4></div>
+
+{% include "_fin_nav.html" with ativa="categorias" %}
+
+{% if pode_add %}
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="post" class="row g-3 align-items-end" id="formCategoriaFinanceira">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="col-12"><div class="alert alert-danger mb-0">{{ form.non_field_errors }}</div></div>{% endif %}
+      <div class="col-md-5">
+        <label class="form-label" for="{{ form.nome.id_for_label }}">{% translate "Nome da categoria" %}</label>
+        {{ form.nome }}
+        {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="{{ form.tipo.id_for_label }}">{% translate "Tipo" %}</label>
+        {{ form.tipo }}
+      </div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar" %}</button></div>
+    </form>
+    <form method="post" action="{% url 'financeiro-categorias-padrao' %}" class="mt-3">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-secondary">{% translate "Criar categorias padrão" %}</button>
+      <span class="form-text ms-2">{% translate "Cria as que ainda não existem (vendas, fornecedores, aluguel...). Nada é criado sem você pedir." %}</span>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Nome" %}</th><th>{% translate "Tipo" %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Status" %}</th><th>{% translate "Ações" %}</th></tr></thead>
+      <tbody>
+        {% for c in categorias %}
+        <tr>
+          <td>{{ c.nome }}</td>
+          <td><span class="badge {% if c.tipo == 'receita' %}bg-label-success{% else %}bg-label-warning{% endif %}">{{ c.get_tipo_display }}</span></td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=c %}</td>{% endif %}
+          <td>{% if c.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}</td>
+          <td>
+            {% if pode_change and c.cliente_id == user.profile.cliente_id or pode_change and perms.cliente.change_itensfilial %}
+            <form method="post" action="{% url 'financeiro-categoria-alternar' c.pk %}" class="d-inline">{% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-secondary rounded-pill" title="{% if c.ativo %}{% translate 'Desativar' %}{% else %}{% translate 'Ativar' %}{% endif %}"><i class="icon-base ti {% if c.ativo %}tabler-toggle-right{% else %}tabler-toggle-left{% endif %}"></i></button>
+            </form>
+            {% endif %}
+            {% if pode_delete and c.cliente_id == user.profile.cliente_id or pode_delete and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'financeiro-categoria-excluir' c.pk %}" class="d-inline" data-confirmar="{% translate "Excluir esta categoria? Se estiver em uso por contas, será apenas desativada." %}">{% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}5{% else %}4{% endif %}" class="text-center py-6">{% translate "Nenhuma categoria cadastrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('financeiro-categorias');</script>
+{% endblock page_js %}

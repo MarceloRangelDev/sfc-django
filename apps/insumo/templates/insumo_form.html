@@ -7,13 +7,6 @@
 {% block content %}
 <h4 class="py-4 mb-6">{% if object %}{% translate "Editar insumo" %}{% else %}{% translate "Novo insumo" %}{% endif %}</h4>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
   <div class="card-body">
@@ -23,10 +16,22 @@
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
       {% endif %}
       <div class="row g-4">
+        {% if form.fields.cliente %}
         <div class="col-md-12">
+          <label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.cliente }}
+          {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="col-md-8">
           <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
           {{ form.nome }}
           {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.marca.id_for_label }}" class="form-label">{% translate "Marca do produto" %} <small class="text-muted">({% translate "opcional" %})</small></label>
+          {{ form.marca }}
+          {% if form.marca.errors %}<div class="text-danger small mt-1">{{ form.marca.errors|striptags }}</div>{% endif %}
         </div>
         <div class="col-md-4">
           <label for="{{ form.medida.id_for_label }}" class="form-label">{% translate "Unidade de medida comprada" %}</label>
@@ -58,10 +63,8 @@
         </div>
       </div>
       <div class="mt-6">
-        <button type="submit" class="btn btn-primary" id="btnSalvarInsumo">
-          <span id="btnSalvarInsumoTexto">{% translate "Salvar" %}</span>
-        </button>
-        <a href="{% url 'insumo' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+        {% url 'insumo' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
       </div>
     </form>
   </div>
@@ -70,16 +73,20 @@
 
 {% block page_js %}
 {{ block.super }}
-<script src="{% static 'js/calculo-medida.js' %}"></script>
+<script src="{% static_v 'js/calculo-medida.js' %}"></script>
 <script>
   // Evita duplo clique/duplo envio enquanto a requisição de salvar está em
   // andamento (o formulário grava dados financeiros, então um duplo POST
   // acidental não deve criar dois insumos).
-  document.getElementById('formInsumo').addEventListener('submit', function () {
-    var botao = document.getElementById('btnSalvarInsumo');
-    var texto = document.getElementById('btnSalvarInsumoTexto');
-    botao.disabled = true;
-    texto.textContent = '{% translate "Salvando..." %}';
+  document.getElementById('formInsumo').addEventListener('submit', function (e) {
+    // O botão clicado (ex.: "Salvar e adicionar outro") é desabilitado logo
+    // abaixo e deixaria de ser enviado: guardamos a escolha num campo oculto.
+    if (e.submitter && e.submitter.name) {
+      var oculto = document.createElement('input');
+      oculto.type = 'hidden'; oculto.name = e.submitter.name; oculto.value = e.submitter.value;
+      this.appendChild(oculto);
+    }
+    this.querySelectorAll('[data-botao-salvar]').forEach(function (b) { b.disabled = true; });
   });
 </script>
 {% endblock %}

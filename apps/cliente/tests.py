@@ -96,6 +96,9 @@ class ListagensSemN1Tests(TestCase):
         admin = User.objects.create_user(username="adm", email="adm@teste.local", password="SenhaForte123!")
         admin.groups.add(Group.objects.get(name="Administrador"))
         self.client.login(username="adm", password="SenhaForte123!")
+        # A 1ª requisição da sessão grava a presença do usuário (1x por minuto, apps/dashboard):
+        # "aquece" antes de contar para que a comparação seja só sobre o efeito das linhas.
+        self.client.get(reverse("cliente-list"))
         Cliente.objects.create(tipo_pessoa="PJ", cpf_cnpj="11222333000181", nome_razao_social="C0")
         antes = (self._consultas("cliente-list"), self._consultas("acl-papel-list"))
         for i, doc in enumerate(["52998224725", "11144477735", "39053344705"]):

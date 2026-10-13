@@ -16,7 +16,7 @@ SENHA_NOVA = "Outra#Senha2026x"
 def dados_usuario(cliente, perfil, **extra):
     dados = {
         "username": "maria", "first_name": "Maria", "last_name": "Silva", "email": "maria@teste.local",
-        "is_active": "on", "cliente": cliente.pk, "perfil": perfil.pk, "segmento_trabalho": "produto",
+        "is_active": "on", "cliente": cliente.pk, "perfil": perfil.pk,
         "senha": SENHA_NOVA, "confirmar_senha": SENHA_NOVA,
     }
     dados.update(extra)

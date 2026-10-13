@@ -1,0 +1,198 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Painel" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{% translate "Painel" %}</h4>
+    {% if unidade_atual %}<div class="text-muted">{{ unidade_atual.nome_razao_social }} &middot; {{ rotulo_periodo }} ({{ inicio|date:"d/m/Y" }} {% translate "a" %} {{ fim|date:"d/m/Y" }})</div>{% endif %}
+  </div>
+  {% if pode_ver_online %}
+  <button type="button" class="btn btn-outline-success" id="btnOnline" data-url="{% url 'dashboard-online' %}">
+    <span class="badge bg-success rounded-pill me-1" id="contadorOnline">{{ online_total }}</span>{% translate "usuários online" %}
+  </button>
+  {% endif %}
+</div>
+
+{% if sem_unidade %}
+<div class="alert alert-warning" role="alert">{% translate "Seu usuário não está vinculado a um cliente; não há indicadores para mostrar." %}</div>
+{% else %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end" id="filtroPainel">
+      <div class="col-md-auto">
+        <label class="form-label" for="periodo">{% translate "Período" %}</label>
+        <select id="periodo" name="periodo" class="form-select">
+          {% for valor, rotulo in presets %}<option value="{{ valor }}" {% if preset == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto" data-personalizado><label class="form-label" for="inicio">{% translate "De" %}</label><input type="date" id="inicio" name="inicio" class="form-control" value="{{ inicio|date:'Y-m-d' }}"></div>
+      <div class="col-md-auto" data-personalizado><label class="form-label" for="fim">{% translate "Até" %}</label><input type="date" id="fim" name="fim" class="form-control" value="{{ fim|date:'Y-m-d' }}"></div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label" for="unidade">{% translate "Unidade" %}</label>
+        <select name="unidade" id="unidade" class="form-select">
+          {% for u in unidades %}<option value="{{ u.pk }}" {% if unidade_selecionada == u.pk|stringformat:"s" %}selected{% endif %}>{% if u.tipo_estabelecimento == "filial" %}{% translate "Filial" %}{% else %}{% translate "Matriz" %}{% endif %} &mdash; {{ u.nome_razao_social }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-refresh me-1"></i>{% translate "Atualizar" %}</button></div>
+    </form>
+    <div class="form-text mt-2">{% translate "O período vale para o resultado e para os vencimentos; saldos, estoque e cadastros mostram a posição de hoje. Cada unidade é mostrada separadamente." %}</div>
+  </div>
+</div>
+
+{% if not tem_blocos %}
+<div class="alert alert-info" role="alert">{% translate "Você ainda não tem permissão para ver indicadores. Fale com o administrador do seu cliente." %}</div>
+{% endif %}
+
+{% if ind.resultado %}
+<h5 class="mb-3">{% translate "Resultado do período" %} <small class="text-muted">({% translate "caixa" %})</small></h5>
+<div class="row g-4 mb-4">
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Receitas" %}</div><div class="fs-3 fw-bold text-success">{{ ind.resultado.receitas }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Despesas" %}</div><div class="fs-3 fw-bold text-warning">{{ ind.resultado.despesas }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Resultado" %}</div><div class="fs-3 fw-bold {% if ind.resultado.negativo %}text-danger{% else %}text-primary{% endif %}">{{ ind.resultado.resultado }}</div></div></div></div>
+</div>
+<div class="small text-muted mb-4">{% translate "Indicador gerencial (não é demonstração contábil oficial)." %} <a href="{% url 'financeiro-dre' %}">{% translate "Ver DRE" %}</a></div>
+{% endif %}
+
+{% if ind.contas %}
+<h5 class="mb-3">{% translate "Contas" %}</h5>
+<div class="row g-4 mb-4">
+  {% for chave, c in ind.contas.items %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between"><h6 class="mb-0">{% if chave == "pagar" %}{% translate "A pagar" %}{% else %}{% translate "A receber" %}{% endif %}</h6>
+        <a href="{% if chave == 'pagar' %}{% url 'conta-pagar-list' %}{% else %}{% url 'conta-receber-list' %}{% endif %}">{% translate "Ver contas" %}</a></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Em aberto" %} ({{ c.aberto_qtd }})</span><strong>{{ c.aberto }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between {% if c.atrasadas_qtd %}text-danger{% endif %}"><span>{% translate "Atrasadas" %} ({{ c.atrasadas_qtd }})</span><strong>{{ c.atrasadas }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Vencem no período" %} ({{ c.periodo_qtd }})</span><strong>{{ c.periodo }}</strong></li>
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if ind.estoque %}
+<h5 class="mb-3">{% translate "Estoque" %}</h5>
+<div class="row g-4 mb-4">
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Valor em estoque (a custo)" %}</div><div class="fs-3 fw-bold">{{ ind.estoque.valor }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Itens abaixo do mínimo" %}</div><div class="fs-3 fw-bold {% if ind.estoque.baixos %}text-danger{% endif %}">{{ ind.estoque.baixos }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Lotes vencidos ou vencendo" %}</div><div class="fs-3 fw-bold {% if ind.estoque.vencendo %}text-danger{% endif %}">{{ ind.estoque.vencendo }}</div></div></div></div>
+</div>
+<div class="small text-muted mb-4"><a href="{% url 'estoque-alertas' %}">{% translate "Ver alertas de estoque" %}</a></div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+  {% if ind.precificacao %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between"><h6 class="mb-0">{% translate "Precificações ativas" %}</h6><a href="{% url 'precificacao' %}">{% translate "Ver" %}</a></div>
+      <ul class="list-group list-group-flush">
+        {% if ind.precificacao.tem_dados %}
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Preço de venda médio" %}</span><strong>{{ ind.precificacao.preco_medio }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "CMV médio (custo da ficha ÷ preço)" %}</span><strong>{{ ind.precificacao.cmv_medio }}</strong></li>
+        {% else %}
+        <li class="list-group-item text-muted">{% translate "Nenhuma precificação com preço calculado." %}</li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+  {% if ind.cadastros %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h6 class="mb-0">{% translate "Cadastros ativos" %}</h6></div>
+      <ul class="list-group list-group-flush">
+        {% if "insumos" in ind.cadastros %}<li class="list-group-item d-flex justify-content-between"><a href="{% url 'insumo' %}">{% translate "Insumos" %}</a><strong>{{ ind.cadastros.insumos }}</strong></li>{% endif %}
+        {% if "produtos" in ind.cadastros %}<li class="list-group-item d-flex justify-content-between"><a href="{% url 'produto' %}">{% translate "Produtos" %}</a><strong>{{ ind.cadastros.produtos }}</strong></li>{% endif %}
+        {% if "precificacoes" in ind.cadastros %}<li class="list-group-item d-flex justify-content-between"><a href="{% url 'precificacao' %}">{% translate "Precificações" %}</a><strong>{{ ind.cadastros.precificacoes }}</strong></li>{% endif %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if "categorias" in ind %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between"><h6 class="mb-0">{% translate "Categorias com maior faturamento" %}</h6><a href="{% url 'categoria' %}">{% translate "Ver categorias" %}</a></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Categoria" %}</th><th class="text-end">{% translate "Faturamento" %}</th><th class="text-end">{% translate "Ticket médio" %}</th><th style="min-width: 180px;">{% translate "% do faturamento" %}</th></tr></thead>
+      <tbody>
+        {% for c in ind.categorias %}
+        <tr>
+          <td>{{ c.nome }}</td><td class="text-end">{{ c.faturamento }}</td><td class="text-end">{{ c.ticket }}</td>
+          <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height: 8px;" role="progressbar" aria-valuenow="{{ c.percentual }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ c.percentual|stringformat:'s' }}%"></div></div><small>{{ c.percentual|floatformat:2 }}%</small></div></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center py-4">{% translate "Sem faturamento informado nas categorias." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% if pode_ver_online %}
+<div class="modal fade" id="modalOnline" tabindex="-1" aria-labelledby="tituloOnline" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="tituloOnline">{% translate "Usuários online" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Fechar' %}"></button></div>
+      <div class="modal-body">
+        <div class="small text-muted mb-2">{% blocktranslate with m=minutos_online %}Atividade nos últimos {{ m }} minutos. Só aparecem usuários que você pode visualizar.{% endblocktranslate %}</div>
+        <div id="estadoOnline" class="text-muted">{% translate "Carregando..." %}</div>
+        <ul class="list-group" id="listaOnline"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('painel');</script>
+<script>
+  (function () {
+    // Campos de data só no período personalizado (o servidor valida o período de qualquer forma).
+    var periodo = document.getElementById('periodo');
+    function ajustar() {
+      document.querySelectorAll('[data-personalizado]').forEach(function (e) { e.classList.toggle('d-none', periodo.value !== 'personalizado'); });
+    }
+    if (periodo) { periodo.addEventListener('change', ajustar); ajustar(); }
+
+    // Lista de usuários online: o servidor devolve só o que o usuário pode ver; textContent evita HTML injetado.
+    var botao = document.getElementById('btnOnline');
+    if (!botao) return;
+    var estado = document.getElementById('estadoOnline'), lista = document.getElementById('listaOnline');
+    botao.addEventListener('click', function () {
+      var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalOnline'));
+      estado.textContent = 'Carregando...'; estado.classList.remove('d-none'); lista.innerHTML = '';
+      modal.show();
+      fetch(botao.dataset.url, { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (d) {
+          document.getElementById('contadorOnline').textContent = d.total;
+          estado.classList.toggle('d-none', d.usuarios.length > 0);
+          estado.textContent = 'Ninguém online no momento.';
+          d.usuarios.forEach(function (u) {
+            var li = document.createElement('li'); li.className = 'list-group-item d-flex justify-content-between';
+            var a = document.createElement('span'); a.textContent = u.nome + ' · ' + u.unidade;
+            var b = document.createElement('small'); b.className = 'text-muted'; b.textContent = u.minutos < 1 ? 'agora' : 'há ' + u.minutos + ' min';
+            li.appendChild(a); li.appendChild(b); lista.appendChild(li);
+          });
+        })
+        .catch(function () { estado.classList.remove('d-none'); estado.textContent = 'Não foi possível carregar a lista agora.'; });
+    });
+  })();
+</script>
+{% endblock %}

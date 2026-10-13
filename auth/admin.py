@@ -6,12 +6,11 @@ class Member(admin.ModelAdmin):
     list_display = (
         "user",
         "email",
-        "segmento_trabalho",
+        "cliente",
         "is_verified",
         "created_at",
     )
     list_filter = (
-        "segmento_trabalho",
         "is_verified",
     )
     search_fields = (

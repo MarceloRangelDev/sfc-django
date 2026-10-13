@@ -24,8 +24,8 @@
 
 {% block page_js %}
 {{ block.super }}
-<script src="{% static 'js/authentication.js' %}"></script>
-<script src="{% static 'js/ui-popover.js' %}"></script>
+<script src="{% static_v 'js/authentication.js' %}"></script>
+<script src="{% static_v 'js/ui-popover.js' %}"></script>
 {% endblock page_js %}
 
 {% block content %}
@@ -51,13 +51,6 @@
       <div class="w-px-400 mx-auto mt-12 pt-5">
         <h4 class="mb-1">{% translate "Bem-vindo(a) ao" %} {% get_theme_variables 'template_name' %}! 👋</h4>
         <p class="mb-6">{% translate "Faça login na sua conta para começar" %}</p>
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-          {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
 
         <form id="formAuthentication" class="mb-6" action="{% url 'login' %}" method="post">
           {% csrf_token %}
@@ -75,10 +68,11 @@
           <div class="my-8">
             <div class="d-flex justify-content-between">
               <div class="form-check mb-0 ms-2">
-                <input class="form-check-input" type="checkbox" id="remember-me">
+                <input class="form-check-input" type="checkbox" id="remember-me" name="remember-me" value="1">
                 <label class="form-check-label" for="remember-me">
                   {% translate "Lembrar-me" %}
                 </label>
+                <div class="form-text small">{% translate "Mantém você conectado(a) por 30 dias neste dispositivo. Não use em computadores compartilhados." %}</div>
               </div>
               <a href="{% url 'forgot-password' %}">
                 <p class="mb-0">{% translate "Esqueceu a senha?" %}</p>

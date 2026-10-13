@@ -1,0 +1,146 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Custo operacional" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Custo operacional" %}</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'custo-categorias' %}" class="btn btn-outline-secondary"><i class="icon-base ti tabler-chart-pie me-1"></i>{% translate "Por categoria" %}</a>
+    {% if perms.custo.add_custooperacional %}
+    <a href="{% url 'custo-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo custo" %}</a>
+    {% endif %}
+  </div>
+</div>
+
+
+{% if perms.custo.add_custooperacional and modelos_disponiveis %}
+<div class="card mb-4">
+  <div class="card-body">
+    <h6 class="mb-3">{% translate "Custos comuns disponíveis" %}</h6>
+    <div class="d-flex flex-wrap gap-2">
+      {% for m in modelos_disponiveis %}
+      <a href="{% url 'custo-create' %}?modelo={{ m.pk }}" class="btn btn-sm btn-outline-primary" title="{{ m.descricao }}">
+        <i class="icon-base ti tabler-plus me-1"></i>{{ m.nome }} <span class="badge bg-label-secondary ms-1">{{ m.get_tipo_display }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    <div class="form-text mt-2">{% translate "São modelos do sistema: nada é criado até você adicionar e informar o seu valor." %}</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-3">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome ou descrição...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="tipo">{% translate "Tipo" %}</label>
+        <select id="tipo" name="tipo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if tipo_selecionado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
+        <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Custo" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          <th>{% translate "Tipo" as label %}{% include "_th_ordenavel.html" with campo="tipo" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Valor mensal" as label %}{% include "_th_ordenavel.html" with campo="valor" label=label %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for custo in custos %}
+        <tr>
+          <td>{{ custo.nome }}{% if custo.modelo_id %} <span class="badge bg-label-info" title="{% translate 'Custo comum do sistema' %}">{% translate "comum" %}</span>{% endif %}</td>
+          <td><span class="badge {% if custo.tipo == 'fixo' %}bg-label-primary{% else %}bg-label-warning{% endif %}">{{ custo.get_tipo_display }}</span></td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=custo %}</td>{% endif %}
+          <td class="text-end">{{ custo.valor_formatado }}</td>
+          <td>
+            {% if custo.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.custo.change_custooperacional and custo.cliente_id == user.profile.cliente_id or perms.custo.change_custooperacional and perms.cliente.change_itensfilial %}
+            <a href="{% url 'custo-edit' custo.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if perms.custo.delete_custooperacional and custo.cliente_id == user.profile.cliente_id or perms.custo.delete_custooperacional and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'custo-excluir' custo.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir este custo?" %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}6{% else %}5{% endif %}" class="text-center py-6">{% translate "Nenhum custo operacional encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if custos %}
+      <tfoot>
+        <tr><th colspan="{% if mostrar_unidade %}3{% else %}2{% endif %}" class="text-end">{% translate "Total de custos fixos" %}</th><th class="text-end">{{ total_fixo }}</th><th colspan="2"></th></tr>
+        <tr><th colspan="{% if mostrar_unidade %}3{% else %}2{% endif %}" class="text-end">{% translate "Total de custos variáveis" %}</th><th class="text-end">{{ total_variavel }}</th><th colspan="2"></th></tr>
+        <tr><th colspan="{% if mostrar_unidade %}3{% else %}2{% endif %}" class="text-end">{% translate "Total geral (filtro atual)" %}</th><th class="text-end">{{ total_geral }}</th><th colspan="2"></th></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('custos');</script>
+{% endblock page_js %}

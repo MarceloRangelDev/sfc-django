@@ -2,7 +2,14 @@ from django.urls import path
 
 from web_project.decorators import module_required
 
-from .views import CategoriaCreateView, CategoriaListView, CategoriaUpdateView
+from .views import (
+    CategoriaAlternarAtivoView,
+    CategoriaCalcularView,
+    CategoriaCreateView,
+    CategoriaExcluirView,
+    CategoriaListView,
+    CategoriaUpdateView,
+)
 
 urlpatterns = [
     path(
@@ -16,8 +23,23 @@ urlpatterns = [
         name="categoria-create",
     ),
     path(
+        "categoria/calcular",
+        module_required("categoria", "categoria.view_categoria")(CategoriaCalcularView.as_view()),
+        name="categoria-calcular",
+    ),
+    path(
         "categoria/<int:pk>/editar",
         module_required("categoria", "categoria.change_categoria")(CategoriaUpdateView.as_view()),
         name="categoria-edit",
+    ),
+    path(
+        "categoria/<int:pk>/alternar-ativo",
+        module_required("categoria", "categoria.change_categoria")(CategoriaAlternarAtivoView.as_view()),
+        name="categoria-alternar-ativo",
+    ),
+    path(
+        "categoria/<int:pk>/excluir",
+        module_required("categoria", "categoria.delete_categoria")(CategoriaExcluirView.as_view()),
+        name="categoria-excluir",
     ),
 ]

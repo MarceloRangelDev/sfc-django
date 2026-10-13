@@ -9,6 +9,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import Group, User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
@@ -30,15 +31,15 @@ from apps.cliente.models import Cliente
 from apps.insumo.models import Insumo
 from apps.medida.models import Medida
 from apps.modulo.models import ClienteModulo, Modulo
-from apps.modulo.services import atualizar_modulos_do_cliente
+from apps.modulo.services import atualizar_modulos_do_cliente, modulos_do_cliente
+from apps.processado.services import mensagem_insumo_em_uso
 from apps.usuario.services import foto_usuario
-from apps.usuario.views import usuarios_gerenciaveis
 from auth import ratelimit
 from auth.services import (
     ErroDeAutenticacao, cadastrar_usuario_publico, iniciar_redefinicao_de_senha,
     redefinir_senha, validar_forca_da_senha,
 )
-from web_project.acesso import cliente_do_usuario
+from web_project.acesso import cliente_do_usuario, clientes_acessiveis, modulos_habilitados, perfis_visiveis, usuarios_acessiveis
 
 from .permissions import PermissaoDoSistema
 from .serializers import (
@@ -72,11 +73,6 @@ def dados_do_usuario(usuario):
     cliente pertence, quais permissões tem e quais módulos estão habilitados
     (para montar o menu)."""
     cliente = cliente_do_usuario(usuario)
-    modulos = []
-    if cliente:
-        modulos = sorted(
-            ClienteModulo.objects.filter(cliente=cliente, ativo=True, modulo__ativo=True).values_list("modulo__slug", flat=True)
-        )
     return {
         "id": usuario.pk,
         "username": usuario.username,
@@ -85,8 +81,8 @@ def dados_do_usuario(usuario):
         "cliente": {"id": cliente.pk, "nome": cliente.nome_razao_social} if cliente else None,
         "perfis": sorted(usuario.groups.values_list("name", flat=True)),
         "permissoes": sorted(usuario.get_all_permissions()),
-        "modulos": modulos,
-        "segmento_trabalho": usuario.profile.segmento_trabalho,
+        "modulos": sorted(modulos_habilitados(usuario)),
+        "segmento": {"id": cliente.segmento_id, "nome": cliente.segmento.nome, "tipo_precificacao": cliente.segmento.tipo_precificacao} if cliente and cliente.segmento_id else None,
     }
 
 
@@ -366,6 +362,11 @@ class InsumoViewSet(AuditoriaViewSetMixin, viewsets.ModelViewSet):
         return {"cliente": cliente_do_usuario(self.request.user)}  # nunca vem do corpo da requisição
 
     def perform_destroy(self, insumo):
+        if Insumo.objects.filter(pk=insumo.pk, processado_origem__isnull=False).exists():
+            raise ValidationError("Este insumo é gerado por um processado; exclua o processado.")
+        uso = mensagem_insumo_em_uso(insumo)  # em uso por receitas: não deixa referência inválida
+        if uso:
+            raise ValidationError(uso)
         with transaction.atomic():
             registrar_exclusao(self.request, insumo, logica=True)
             insumo.ativo = False
@@ -466,7 +467,7 @@ class UsuarioViewSet(
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return User.objects.none()
-        queryset = usuarios_gerenciaveis(self.request.user)
+        queryset = usuarios_acessiveis(self.request.user)
         params = self.request.query_params
         if self.action == "list":
             queryset = _filtro_ativo(queryset, params, campo="is_active", padrao="todos")
@@ -506,8 +507,14 @@ class ClienteViewSet(
     permissao_app, permissao_model = "cliente", "cliente"
     permissoes_por_acao = {"ativar": "change", "inativar": "change", "modulos": "change"}
 
+    def perform_create(self, serializer):
+        serializer.save()  # ClienteSerializer.create já cria o Gestor e audita
+
     def get_queryset(self):
-        queryset = Cliente.objects.prefetch_related("perfis")
+        if getattr(self, "swagger_fake_view", False):
+            return Cliente.objects.none()
+        # Mesmo escopo da tela: própria estrutura matriz/filiais (Admin: todos).
+        queryset = clientes_acessiveis(self.request.user).select_related("matriz", "segmento").prefetch_related("perfis")
         params = self.request.query_params
         if self.action == "list":
             queryset = _filtro_ativo(queryset, params, padrao="todos")
@@ -529,7 +536,7 @@ class ClienteViewSet(
             serializer.is_valid(raise_exception=True)
             atualizar_modulos_do_cliente(request, cliente, [m.pk for m in serializer.validated_data["modulos"]])
         habilitados = set(ClienteModulo.objects.filter(cliente=cliente, ativo=True).values_list("modulo_id", flat=True))
-        itens = [{**ModuloSerializer(m).data, "habilitado": m.pk in habilitados} for m in Modulo.objects.order_by("nome")]
+        itens = [{**ModuloSerializer(m).data, "habilitado": m.pk in habilitados} for m in modulos_do_cliente(cliente)]
         return resposta({"modulos": itens}, "Módulos atualizados." if request.method == "PUT" else None)
 
     @extend_schema(parameters=[*PARAMETROS_BUSCA, PARAMETRO_ATIVO])
@@ -557,10 +564,15 @@ class PerfilViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return Group.objects.prefetch_related("permissions__content_type").order_by("name")
+        if getattr(self, "swagger_fake_view", False):
+            return Group.objects.none()
+        return perfis_visiveis(self.request.user).prefetch_related("permissions__content_type").order_by("name")
 
     def perform_destroy(self, grupo):
-        excluir_papel(self.request, grupo)
+        try:
+            excluir_papel(self.request, grupo)
+        except DjangoValidationError as erro:
+            raise ValidationError({"detail": erro.messages}) from None
 
 
 @extend_schema(tags=["perfis"])

@@ -1,0 +1,65 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}DRE - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Financeiro" %}</h4></div>
+
+{% include "_fin_nav.html" with ativa="dre" %}
+{% include "_aviso_gerencial.html" %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-auto"><label class="form-label" for="inicio">{% translate "De" %}</label><input type="date" id="inicio" name="inicio" class="form-control" value="{{ inicio|date:'Y-m-d' }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="fim">{% translate "Até" %}</label><input type="date" id="fim" name="fim" class="form-control" value="{{ fim|date:'Y-m-d' }}"></div>
+      <div class="col-md-auto">
+        <label class="form-label" for="regime">{% translate "Regime" %}</label>
+        <select id="regime" name="regime" class="form-select">
+          <option value="caixa" {% if regime == "caixa" %}selected{% endif %}>{% translate "Caixa (pagamentos e recebimentos)" %}</option>
+          <option value="vencimento" {% if regime == "vencimento" %}selected{% endif %}>{% translate "Vencimento (contas)" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label" for="unidade">{% translate "Unidade" %}</label>
+        <select name="unidade" id="unidade" class="form-select">
+          {% for u in unidades %}<option value="{{ u.pk }}" {% if unidade_selecionada == u.pk|stringformat:"s" %}selected{% endif %}>{% if u.tipo_estabelecimento == "filial" %}{% translate "Filial" %}{% else %}{% translate "Matriz" %}{% endif %} &mdash; {{ u.nome_razao_social }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Gerar" %}</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card" id="quadroDre">
+  <div class="card-header">
+    <h5 class="mb-0">DRE &mdash; {{ unidade_atual.nome_razao_social }}</h5>
+    <div class="small text-muted">{{ inicio|date:"d/m/Y" }} {% translate "a" %} {{ fim|date:"d/m/Y" }} &middot;
+      {% if regime == "caixa" %}{% translate "regime de caixa: o que foi efetivamente recebido e pago no período" %}{% else %}{% translate "por vencimento: contas ativas que vencem no período (pagas ou não)" %}{% endif %}</div>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <tbody>
+        <tr class="table-light"><th colspan="2">{% translate "Receitas" %}</th></tr>
+        {% for nome, valor in receitas %}<tr><td class="ps-5">{{ nome }}</td><td class="text-end">{{ valor }}</td></tr>
+        {% empty %}<tr><td class="ps-5 text-muted" colspan="2">{% translate "Sem receitas no período." %}</td></tr>{% endfor %}
+        <tr><th>{% translate "Total de receitas" %}</th><th class="text-end">{{ total_receitas }}</th></tr>
+        <tr class="table-light"><th colspan="2">{% translate "(–) Despesas" %}</th></tr>
+        {% for nome, valor in despesas %}<tr><td class="ps-5">{{ nome }}</td><td class="text-end">{{ valor }}</td></tr>
+        {% empty %}<tr><td class="ps-5 text-muted" colspan="2">{% translate "Sem despesas no período." %}</td></tr>{% endfor %}
+        <tr><th>{% translate "Total de despesas" %}</th><th class="text-end">{{ total_despesas }}</th></tr>
+        <tr class="{% if resultado_negativo %}table-danger{% else %}table-success{% endif %}"><th class="fs-5">{% translate "Resultado do período" %}</th><th class="text-end fs-5">{{ resultado }}</th></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('financeiro-dre');</script>
+{% endblock page_js %}

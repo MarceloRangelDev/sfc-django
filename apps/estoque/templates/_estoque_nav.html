@@ -1,0 +1,10 @@
+{% load i18n %}
+{% comment %}Abas do módulo de estoque. Parâmetro: ativa (estoque, movimentos, transferencias, alertas).{% endcomment %}
+<ul class="nav nav-pills mb-4 flex-wrap">
+  <li class="nav-item"><a class="nav-link {% if ativa == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">{% translate "Saldos" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if ativa == 'movimentos' %}active{% endif %}" href="{% url 'estoque-movimentos' %}">{% translate "Movimentações" %}</a></li>
+  {% if perms.estoque.view_transferenciaestoque %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'transferencias' %}active{% endif %}" href="{% url 'estoque-transferencias' %}">{% translate "Transferências" %}</a></li>
+  {% endif %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'alertas' %}active{% endif %}" href="{% url 'estoque-alertas' %}">{% translate "Alertas" %}</a></li>
+</ul>

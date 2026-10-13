@@ -7,13 +7,6 @@
 {% block content %}
 <h4 class="py-4 mb-6">{% if object %}{% translate "Editar cliente" %}{% else %}{% translate "Novo cliente" %}{% endif %}</h4>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card mb-6">
   <div class="card-body">
@@ -49,6 +42,31 @@
           <label for="{{ form.nome_fantasia.id_for_label }}" class="form-label">{% translate "Nome fantasia" %} ({% translate "opcional" %})</label>
           {{ form.nome_fantasia }}
         </div>
+        <div class="col-md-4">
+          <label for="{{ form.tipo_estabelecimento.id_for_label }}" class="form-label">{% translate "Matriz / Filial" %}</label>
+          {{ form.tipo_estabelecimento }}
+          {% if form.tipo_estabelecimento.errors %}<div class="text-danger small mt-1">{{ form.tipo_estabelecimento.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.matriz.id_for_label }}" class="form-label">{% translate "Matriz (somente para filial)" %}</label>
+          {{ form.matriz }}
+          {% if form.matriz.errors %}<div class="text-danger small mt-1">{{ form.matriz.errors|striptags }}</div>{% endif %}
+        </div>
+        {% if form.segmento %}
+        <div class="col-md-4">
+          <label for="{{ form.segmento.id_for_label }}" class="form-label">{% translate "Segmento de trabalho" %}</label>
+          {{ form.segmento }}
+          {% if form.segmento.errors %}<div class="text-danger small mt-1">{{ form.segmento.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if form.email_gestor %}
+        <div class="col-md-6">
+          <label for="{{ form.email_gestor.id_for_label }}" class="form-label">{{ form.email_gestor.label }}</label>
+          {{ form.email_gestor }}
+          {% if form.email_gestor.errors %}<div class="text-danger small mt-1">{{ form.email_gestor.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{{ form.email_gestor.help_text }}</div>
+        </div>
+        {% endif %}
         <div class="col-12">
           <label class="form-label d-block">{% translate "Perfis disponíveis para os usuários deste cliente" %}</label>
           <div class="d-flex flex-wrap gap-4">
@@ -92,7 +110,7 @@
           <td>{{ usuario.user.username }}</td>
           <td>{{ usuario.email }}</td>
           <td class="text-end">
-            <form method="post" action="{% url 'cliente-desvincular-usuario' object.pk usuario.user.pk %}" onsubmit="return confirm('{% translate "Remover este usuário do cliente?" %}');">
+            <form method="post" action="{% url 'cliente-desvincular-usuario' object.pk usuario.user.pk %}" data-confirmar="{% translate "Remover este usuário do cliente?" %}">
               {% csrf_token %}
               <button type="submit" class="btn btn-sm btn-outline-danger">{% translate "Remover" %}</button>
             </form>
@@ -104,6 +122,7 @@
       </tbody>
     </table>
   </div>
+  {% if pode_vincular %}
   <div class="card-body">
     <form method="post" action="{% url 'cliente-vincular-usuario' object.pk %}" class="d-flex gap-2">
       {% csrf_token %}
@@ -116,6 +135,7 @@
       <button type="submit" class="btn btn-outline-primary text-nowrap">{% translate "Vincular" %}</button>
     </form>
   </div>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

@@ -6,6 +6,7 @@ usuário "pela metade" (ex.: criado sem cliente ou sem perfil).
 """
 from django.db import transaction
 
+from apps.acl.services import efeitos_do_usuario, salvar_excecoes, texto_das_excecoes
 from apps.auditoria.utils import comparar, registrar_alteracoes, registrar_criacao, tirar_foto
 from auth.models import Profile
 
@@ -16,8 +17,8 @@ CAMPOS_IGNORADOS = {"password", "last_login", "date_joined", "is_superuser", "is
 
 
 def foto_usuario(usuario):
-    """Foto de auditoria do usuário: campos do auth_user + cliente, perfil e
-    segmento (que moram em outras tabelas)."""
+    """Foto de auditoria do usuário: campos do auth_user + cliente e perfil
+    (que moram em outras tabelas)."""
     foto = tirar_foto(usuario, ignorar=CAMPOS_IGNORADOS)
     profile = usuario.profile
     grupo = usuario.groups.first()
@@ -26,10 +27,8 @@ def foto_usuario(usuario):
         "texto": str(profile.cliente) if profile.cliente_id else None,
     }
     foto["perfil"] = {"rotulo": "Perfil", "valor": grupo.pk if grupo else None, "texto": grupo.name if grupo else None}
-    foto["segmento_trabalho"] = {
-        "rotulo": "Segmento de trabalho", "valor": profile.segmento_trabalho,
-        "texto": profile.get_segmento_trabalho_display(),
-    }
+    texto = texto_das_excecoes(efeitos_do_usuario(usuario))
+    foto["permissoes_individuais"] = {"rotulo": "Permissões individuais", "valor": texto, "texto": texto}
     return foto
 
 
@@ -57,15 +56,23 @@ def salvar_usuario(request, form, antes=None):
         # O Profile é criado automaticamente por um sinal ao criar o User.
         profile = usuario.profile if not criando else Profile.objects.get(user=usuario)
         profile.cliente = dados["cliente"]
-        profile.segmento_trabalho = dados["segmento_trabalho"]
         profile.email = usuario.email  # mantém os dois e-mails iguais (Profile.email é único)
         profile.save()
 
         usuario.groups.set([dados["perfil"]])  # um usuário = um perfil
+        if form.excecoes is not None:
+            salvar_excecoes(usuario, form.excecoes)
         usuario.refresh_from_db()
 
         if criando:
             registrar_criacao(request, usuario, modulo="usuario")
+            texto = texto_das_excecoes(efeitos_do_usuario(usuario))
+            if texto:
+                registrar_alteracoes(
+                    request, usuario,
+                    [{"campo": "permissoes_individuais", "rotulo": "Permissões individuais", "antes": None, "depois": texto}],
+                    modulo="usuario",
+                )
         else:
             alteracoes = comparar(antes, foto_usuario(usuario))
             if senha:

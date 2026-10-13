@@ -1,0 +1,85 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar custo" %}{% else %}{% translate "Novo custo" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar custo operacional" %}{% else %}{% translate "Novo custo operacional" %}{% endif %}</h4>
+
+
+<form method="post" id="formCusto" data-form-salvar novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="card mb-6">
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-12">
+          <label for="{{ form.modelo.id_for_label }}" class="form-label">{% translate "Custo comum (opcional)" %}</label>
+          {{ form.modelo }}
+          {% if form.modelo.errors %}<div class="text-danger small mt-1">{{ form.modelo.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Escolher um custo comum usa o tipo dele; o nome fica o do catálogo se você deixar em branco. O valor é sempre o seu. Cadastre os seus em Configurações > Custos comuns." %}</div>
+        </div>
+        <div class="col-md-6" id="blocoNome">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome" %}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.tipo.id_for_label }}" class="form-label">{% translate "Tipo" %}</label>
+          {{ form.tipo }}
+          {% if form.tipo.errors %}<div class="text-danger small mt-1">{{ form.tipo.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.valor.id_for_label }}" class="form-label">{% translate "Valor mensal (R$)" %}</label>
+          {{ form.valor }}
+          {% if form.valor.errors %}<div class="text-danger small mt-1">{{ form.valor.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>
+          {{ form.descricao }}
+        </div>
+        <div class="col-md-12">
+          <div class="form-check form-switch">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info" role="note">
+    {% translate "A distribuição por categoria é calculada sozinha, em R$, proporcional às vendas de cada categoria. Veja e ajuste em Custo operacional por categoria." %}
+  </div>
+
+  {% url 'custo-list' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+</form>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('custo-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+  // Nome: só aparece (e vale) quando o custo é PRÓPRIO ("sem modelo"); com um custo comum o nome é o do dropdown.
+  (function () {
+    var modelo = document.getElementById('{{ form.modelo.id_for_label }}');
+    var bloco = document.getElementById('blocoNome');
+    var nome = document.getElementById('{{ form.nome.id_for_label }}');
+    var ultimo = modelo.value;
+    function ajustar() {
+      var proprio = modelo.value === '';
+      bloco.classList.toggle('d-none', !proprio);
+      if (!proprio) nome.value = '';        // o servidor usa o nome do custo comum escolhido
+      else if (ultimo !== '') nome.focus();  // acabou de voltar para "Custo próprio": pede o nome
+      ultimo = modelo.value;
+    }
+    // jQuery: o select2 dispara o "change" por ele (e também chama ouvintes nativos que existirem)
+    if (window.jQuery) { window.jQuery(modelo).on('change', ajustar); } else { modelo.addEventListener('change', ajustar); }
+    ajustar();
+  })();
+</script>
+{% endblock %}

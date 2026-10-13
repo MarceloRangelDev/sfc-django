@@ -1,0 +1,111 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Canal de vendas" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Canal de vendas" %}</h4>
+  {% if perms.canal.add_canalvenda %}
+  <a href="{% url 'canal-create' %}" class="btn btn-primary">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo canal" %}
+  </a>
+  {% endif %}
+</div>
+
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-4">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome ou descrição...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Canal" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          <th>{% translate "Descrição" %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Total de taxas" as label %}{% include "_th_ordenavel.html" with campo="taxas" label=label %}</th>
+          <th class="text-end">{% translate "Líquido após taxas" %}</th>
+          <th>{% translate "Taxas" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for canal in canais %}
+        <tr>
+          <td>{{ canal.nome }}</td>
+          <td>{{ canal.descricao|default:"—" }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=canal %}</td>{% endif %}
+          <td class="text-end">{{ canal.taxa_percentual_formatada }}{% if canal.taxa_fixa_total %} + {{ canal.taxa_fixa_formatada }}{% endif %}</td>
+          <td class="text-end">{{ canal.liquido_formatado }}</td>
+          <td>{{ canal.descricao_das_taxas }}</td>
+          <td>
+            {% if canal.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.canal.change_canalvenda and canal.cliente_id == user.profile.cliente_id or perms.canal.change_canalvenda and perms.cliente.change_itensfilial %}
+            <a href="{% url 'canal-edit' canal.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhum canal de venda encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('canais-venda');</script>
+{% endblock page_js %}

@@ -1,0 +1,61 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Alertas" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Estoque" %}</h4></div>
+
+{% include "_estoque_nav.html" with ativa="alertas" %}
+
+<div class="card mb-4" id="cartaoBaixo">
+  <div class="card-header"><h5 class="mb-0">{% translate "Estoque baixo" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Insumo" %}</th><th>{% translate "Unidade" %}</th><th class="text-end">{% translate "Saldo" %}</th><th class="text-end">{% translate "Mínimo" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for i in baixos %}
+        <tr>
+          <td>{{ i.nome }}</td><td>{% include "partials/unidade_selo.html" with item=i %}</td>
+          <td class="text-end text-danger">{{ i.saldo|floatformat:"-4" }} {{ i.medida.sigla }}</td>
+          <td class="text-end">{{ i.minimo|floatformat:"-4" }} {{ i.medida.sigla }}</td>
+          <td><a href="{% url 'estoque-insumo' i.pk %}">{% translate "Ver" %}</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center py-4">{% translate "Nenhum insumo abaixo do mínimo." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="cartaoVencimento">
+  <div class="card-header">
+    <h5 class="mb-0">{% translate "Vencidos e próximos do vencimento" %}</h5>
+    <div class="small text-muted mt-1">{% translate "Lotes com saldo que vencem em até" %} {{ dias_vencimento }} {% translate "dias ou já vencidos." %}</div>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Insumo" %}</th><th>{% translate "Unidade" %}</th><th>{% translate "Lote" %}</th><th>{% translate "Validade" %}</th><th>{% translate "Situação" %}</th><th class="text-end">{% translate "Saldo" %}</th></tr></thead>
+      <tbody>
+        {% for l in lotes %}
+        <tr>
+          <td>{{ l.insumo.nome }}</td><td>{% include "partials/unidade_selo.html" with item=l %}</td>
+          <td>{{ l.codigo_exibicao|default:"—" }}</td><td>{{ l.validade|date:"d/m/Y" }}</td>
+          <td>{% if l.vencido %}<span class="badge bg-label-danger">{% translate "Vencido" %}</span>{% else %}<span class="badge bg-label-warning">{% blocktranslate with d=l.dias %}Vence em {{ d }} dia(s){% endblocktranslate %}</span>{% endif %}</td>
+          <td class="text-end">{{ l.saldo|floatformat:"-4" }} {{ l.insumo.medida.sigla }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-4">{% translate "Nenhum lote vencido ou próximo do vencimento." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-alertas');</script>
+{% endblock page_js %}

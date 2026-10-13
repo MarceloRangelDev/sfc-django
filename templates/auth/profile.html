@@ -13,33 +13,11 @@
     <div class="card mb-6">
       <h5 class="card-header">{% translate "Segmento de trabalho" %}</h5>
       <div class="card-body">
-        <p class="text-body-secondary">
-          {% translate "Escolha como você usa o Faturando Certo: para precificar serviços, produtos, ou ambos. Isso define quais regras de precificação são aplicadas para você." %}
+        <p class="mb-2"><strong>{% translate "Cliente" %}:</strong> {{ profile.cliente|default:"-" }}</p>
+        <p class="mb-0"><strong>{% translate "Segmento" %}:</strong> {{ profile.segmento|default:"-" }}</p>
+        <p class="text-body-secondary mt-3 mb-0">
+          {% translate "O segmento de trabalho é definido para o seu cliente por um administrador." %}
         </p>
-
-        <form method="post" action="{% url 'profile' %}">
-          {% csrf_token %}
-
-          {% for value, label in segmento_choices %}
-          <div class="form-check mb-3">
-            <input
-              class="form-check-input"
-              type="radio"
-              name="segmento_trabalho"
-              id="segmento-{{ value }}"
-              value="{{ value }}"
-              {% if profile.segmento_trabalho == value %}checked{% endif %}
-            />
-            <label class="form-check-label" for="segmento-{{ value }}">
-              {{ label }}
-            </label>
-          </div>
-          {% endfor %}
-
-          <button type="submit" class="btn btn-primary mt-3">
-            {% translate "Salvar" %}
-          </button>
-        </form>
       </div>
     </div>
 

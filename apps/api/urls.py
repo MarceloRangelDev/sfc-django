@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import views
+from . import cadastros, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -18,6 +18,24 @@ router.register("modulos", views.ModuloViewSet, basename="api-modulo")
 router.register("perfis", views.PerfilViewSet, basename="api-perfil")
 router.register("permissoes", views.PermissaoViewSet, basename="api-permissao")
 router.register("auditoria", views.AuditoriaViewSet, basename="api-auditoria")
+router.register("custos-comuns", views_operacao.CustoComumViewSet, basename="api-custo-comum")
+router.register("estoque/saldos", estoque_financeiro.EstoqueSaldoViewSet, basename="api-estoque-saldo")
+router.register("estoque/alertas", estoque_financeiro.EstoqueAlertasViewSet, basename="api-estoque-alertas")
+router.register("estoque/transferencias", estoque_financeiro.EstoqueTransferenciaViewSet, basename="api-estoque-transferencia")
+router.register("financeiro/categorias", estoque_financeiro.CategoriaFinanceiraViewSet, basename="api-financeiro-categoria")
+router.register("financeiro/contas-pagar", estoque_financeiro.ContaPagarViewSet, basename="api-conta-pagar")
+router.register("financeiro/contas-receber", estoque_financeiro.ContaReceberViewSet, basename="api-conta-receber")
+router.register("financeiro/dre", estoque_financeiro.DreViewSet, basename="api-financeiro-dre")
+router.register("financeiro/balanco", estoque_financeiro.BalancoViewSet, basename="api-financeiro-balanco")
+router.register("painel", estoque_financeiro.PainelViewSet, basename="api-painel")
+router.register("produtos", cadastros.ProdutoViewSet, basename="api-produto")
+router.register("canais-venda", cadastros.CanalViewSet, basename="api-canal")
+router.register("custos-operacionais", cadastros.CustoViewSet, basename="api-custo")
+router.register("processados", cadastros.ProcessadoViewSet, basename="api-processado")
+router.register("fichas-tecnicas", cadastros.FichaViewSet, basename="api-ficha")
+router.register("precificacoes", cadastros.PrecificacaoViewSet, basename="api-precificacao")
+router.register("estoque/movimentos", views_operacao.MovimentoEstoqueViewSet, basename="api-estoque-movimento")
+router.register("custo-operacional/categorias", views_operacao.CustoCategoriaViewSet, basename="api-custo-categoria")
 
 
 def somente_administrador(view):

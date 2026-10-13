@@ -1,0 +1,7 @@
+{% load i18n %}
+{% comment %}Selo Matriz/Filial de um item (`item.cliente`); o nome da unidade aparece ao passar o mouse.{% endcomment %}
+{% if item.cliente.tipo_estabelecimento == "filial" %}
+<span class="badge bg-label-info" tabindex="0" title="{% translate 'Filial' %}: {{ item.cliente.nome_razao_social }}" aria-label="{% translate 'Filial' %}: {{ item.cliente.nome_razao_social }}">{% translate "Filial" %}</span>
+{% else %}
+<span class="badge bg-label-primary" tabindex="0" title="{% translate 'Matriz' %}: {{ item.cliente.nome_razao_social }}" aria-label="{% translate 'Matriz' %}: {{ item.cliente.nome_razao_social }}">{% translate "Matriz" %}</span>
+{% endif %}

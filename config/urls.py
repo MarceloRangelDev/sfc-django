@@ -36,6 +36,16 @@ urlpatterns = [
     path("", include("apps.processado.urls")),
     # categoria urls
     path("", include("apps.categoria.urls")),
+    # dashboard urls (usuários online do painel; o painel em si é a rota "index")
+    path("", include("apps.dashboard.urls")),
+    # financeiro urls (contas a pagar/receber, categorias, DRE e balanço)
+    path("", include("apps.financeiro.urls")),
+    # estoque urls (saldos, lotes, movimentações, transferências e alertas)
+    path("", include("apps.estoque.urls")),
+    # custo urls (custo operacional fixo/variável e distribuição por categoria)
+    path("", include("apps.custo.urls")),
+    # canal urls (canais de venda e taxas - Configurações)
+    path("", include("apps.canal.urls")),
     # ficha urls
     path("", include("apps.ficha.urls")),
     # precificacao urls
@@ -50,6 +60,10 @@ urlpatterns = [
     path("", include("apps.api.urls")),
     # usuario urls (cadastro de usuários vinculados a cliente e perfil)
     path("", include("apps.usuario.urls")),
+    # notificacao urls (envio, histórico e caixa de entrada do usuário)
+    path("", include("apps.notificacao.urls")),
+    # tour urls (preferência "não mostrar novamente" dos tours de página)
+    path("", include("apps.tour.urls")),
     # auditoria urls (consulta administrativa do log de auditoria)
     path("", include("apps.auditoria.urls")),
     # medida urls (cadastro global de unidades de medida - administradores)

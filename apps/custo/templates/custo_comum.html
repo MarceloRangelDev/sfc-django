@@ -1,0 +1,126 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Custos comuns" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Custos comuns" %}</h4>
+  {% if perms.custo.add_customodelo %}
+  <a href="{% url 'custo-comum-create' %}" class="btn btn-primary" data-tour="novo"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo custo comum" %}</a>
+  {% endif %}
+</div>
+
+
+<div class="alert alert-info" role="note">
+  {% translate "Custos comuns são atalhos para o Custo operacional (água, energia, aluguel...). Você edita e exclui os da sua empresa; os padrões do sistema valem para todas as empresas e só o administrador do sistema os altera. Um custo comum já usado é apenas desativado ao excluir." %}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end" data-tour="filtros">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-12 col-md">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="icon-base ti tabler-search"></i></span>
+          <input type="search" id="q" name="q" class="form-control" placeholder="{% translate 'Nome ou descrição...' %}" value="{{ termo_pesquisa }}">
+        </div>
+      </div>
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="tipo">{% translate "Tipo" %}</label>
+        <select id="tipo" name="tipo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if tipo_selecionado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="origem">{% translate "Origem" %}</label>
+        <select id="origem" name="origem" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          <option value="sistema" {% if origem_selecionada == "sistema" %}selected{% endif %}>{% translate "Padrão do sistema" %}</option>
+          <option value="proprio" {% if origem_selecionada == "proprio" %}selected{% endif %}>{% translate "Próprios" %}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
+        <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap" data-tour="tabela">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Custo comum" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          <th>{% translate "Tipo" as label %}{% include "_th_ordenavel.html" with campo="tipo" label=label %}</th>
+          <th>{% translate "Descrição" %}</th>
+          <th>{% translate "Origem" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in comuns %}
+        <tr>
+          <td>{{ c.nome }}</td>
+          <td><span class="badge {% if c.tipo == 'fixo' %}bg-label-primary{% else %}bg-label-info{% endif %}">{{ c.get_tipo_display }}</span></td>
+          <td>{{ c.descricao|default:"—" }}</td>
+          <td>{% if c.padrao_do_sistema %}<span class="badge bg-label-secondary">{% translate "Padrão do sistema" %}</span>{% else %}{% include "partials/unidade_selo.html" with item=c %}{% endif %}</td>
+          <td>{% if c.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}</td>
+          <td>
+            {% if c.pode_editar and perms.custo.change_customodelo %}
+            <a href="{% url 'custo-comum-edit' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if c.pode_excluir and perms.custo.delete_customodelo %}
+            <form method="post" action="{% url 'custo-comum-excluir' c.pk %}" class="d-inline" data-confirmar="{% translate "Excluir este custo comum? Se já foi usado em algum custo, ele será apenas desativado." %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-6">{% translate "Nenhum custo comum encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('custos-comuns');</script>
+{% endblock page_js %}

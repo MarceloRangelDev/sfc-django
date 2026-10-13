@@ -2,13 +2,121 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}
-Test Page - Processados
-{% endblock title %}
+{% block title %}{% translate "Processados e receitas" %} - Sistema Faturando Certo{% endblock title %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Processados e receitas" %}</h4>
+  {% if perms.processado.add_processado %}
+  <a href="{% url 'processado-create' %}" class="btn btn-primary" data-tour="novo">
+    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo processado" %}
+  </a>
+  {% endif %}
+</div>
 
 
-<h4 class="py-3 mb-6">{% translate "Title: Test Page - Processados" %}</h4>
-<p>Content: Test page - Processados.</p>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end" data-tour="pesquisa">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-4">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome do processado...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap" data-tour="tabela">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Nome" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th>{% translate "Rendimento" %}</th>
+          <th>{% translate "Custo total" as label %}{% include "_th_ordenavel.html" with campo="custo" label=label %}</th>
+          <th>{% translate "Custo por KG/L" %}</th>
+          <th>{% translate "Fator de rendimento" %}</th>
+          <th>{% translate "Status" %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for processado in processados %}
+        <tr>
+          <td>{{ processado.nome }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=processado %}</td>{% endif %}
+          <td>{{ processado.rendimento_quantidade|floatformat:"-4" }} {{ processado.rendimento_medida.sigla }}</td>
+          <td>{{ processado.custo_total_formatado }}</td>
+          <td>{{ processado.custo_unitario_formatado }} <small class="text-muted">/ {{ processado.rendimento_medida.sigla_preco }}</small></td>
+          <td>
+            {% if processado.fator_rendimento is not None %}
+            {{ processado.fator_rendimento|floatformat:"-4" }}
+            <small class="text-muted">({% blocktranslate with p=processado.reducao_percentual|floatformat:"-2" %}redução de {{ p }}%{% endblocktranslate %})</small>
+            {% else %}&mdash;{% endif %}
+          </td>
+          <td>
+            {% if processado.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.processado.change_processado and processado.cliente_id == user.profile.cliente_id or perms.processado.change_processado and perms.cliente.change_itensfilial %}
+            <a href="{% url 'processado-edit' processado.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if processado.ativo and perms.processado.delete_processado and processado.cliente_id == user.profile.cliente_id or processado.ativo and perms.processado.delete_processado and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'processado-excluir' processado.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir este processado? O insumo gerado por ele também será removido da lista." %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhum processado encontrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('processados');</script>
+{% endblock page_js %}

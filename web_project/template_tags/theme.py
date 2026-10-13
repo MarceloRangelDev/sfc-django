@@ -19,20 +19,31 @@ def get_theme_config(scope):
     return mark_safe(TemplateHelper.get_theme_config(scope))
 
 
+def _item_ativo(item, request):
+    """Item do menu que corresponde à página atual. Itens do catálogo de
+    módulos têm `slug` e são casados com o módulo da rota (request.modulo_slug,
+    definido por module_required), então telas internas (novo/editar) também
+    marcam o item. Itens estáticos do JSON casam pelo nome da URL."""
+    modulo_atual = getattr(request, "modulo_slug", None)
+    if modulo_atual and item.get("slug") == modulo_atual:
+        return True
+    destino = item.get("url")
+    rota_atual = getattr(getattr(request, "resolver_match", None), "url_name", None)  # None em páginas de erro
+    return bool(destino) and (destino == request.path or destino == rota_atual)
+
+
 @register.filter
-def filter_by_url(submenu, url):
-    if submenu:
-        for subitem in submenu:
-            subitem_url = subitem.get("url")
-            if subitem_url == url.path or subitem_url == url.resolver_match.url_name:
-                return True
+def menu_item_ativo(item, request):
+    return _item_ativo(item, request)
 
-            # Recursively check for submenus
-            elif subitem.get("submenu"):
-                if filter_by_url(subitem["submenu"], url):
-                    return True
 
-    return False
+@register.filter
+def filter_by_url(submenu, request):
+    """True se algum item (em qualquer nível) do submenu é a página atual."""
+    return any(
+        _item_ativo(subitem, request) or filter_by_url(subitem.get("submenu"), request)
+        for subitem in submenu or []
+    )
 
 
 # Check if the user has the group

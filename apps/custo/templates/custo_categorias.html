@@ -1,0 +1,96 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Custo operacional por categoria" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Custo operacional por categoria" %}</h4>
+  <a href="{% url 'custo-list' %}" class="btn btn-outline-secondary"><i class="icon-base ti tabler-arrow-left me-1"></i>{% translate "Voltar aos custos" %}</a>
+</div>
+
+
+{% if mostrar_unidade %}
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0" for="unidade">{% translate "Unidade" %}</label>
+      <select name="unidade" id="unidade" class="form-select" style="width: auto;" onchange="this.form.submit()">
+        {% for u in unidades %}<option value="{{ u.pk }}" {% if unidade_selecionada == u.pk|stringformat:"s" %}selected{% endif %}>{% if u.tipo_estabelecimento == "filial" %}{% translate "Filial" %}{% else %}{% translate "Matriz" %}{% endif %} &mdash; {{ u.nome_razao_social }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="alert alert-info" role="note" data-tour="criterio">
+  <strong>{% translate "Como é calculado:" %}</strong>
+  {% translate "o custo operacional total do mês (soma dos custos ativos) é dividido entre as categorias na proporção das vendas de cada uma. Ex.: R$ 300 de água, luz e gás com 3 categorias que vendem 100 itens cada = R$ 100 por categoria (R$ 1 por item). Custo por unidade = valor da categoria ÷ quantidade vendida. Você pode ajustar o valor de uma categoria; as demais se recalculam para a soma continuar fechando com o total. O ajuste só muda quando você o altera ou restaura." %}
+</div>
+
+{% if sem_historico %}
+<div class="alert alert-warning" role="alert">{% translate "Nenhuma categoria tem quantidade vendida informada: o custo foi dividido igualmente entre as categorias ativas. Informe as vendas em Categorias para um rateio proporcional." %}</div>
+{% endif %}
+{% if tem_nao_distribuido %}
+<div class="alert alert-warning" role="alert">{% blocktranslate with valor=total_nao_distribuido %}Há {{ valor }} sem categoria para receber (todas as categorias estão ajustadas ou não há categorias ativas).{% endblocktranslate %}</div>
+{% endif %}
+{% if tem_excedente %}
+<div class="alert alert-danger" role="alert">{% blocktranslate with valor=excedente_manual %}Os ajustes manuais passam do custo total em {{ valor }}. Revise os valores ajustados.{% endblocktranslate %}</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th>{% translate "Categoria" %}</th>
+          <th class="text-end">{% translate "Qtd. vendida" %}</th>
+          <th class="text-end" style="min-width: 15rem;">{% translate "Custo no mês (R$)" %}</th>
+          <th class="text-end">{% translate "Custo por unidade" %}</th>
+          <th>{% translate "Origem" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in linhas %}
+        <tr>
+          <td>{{ l.categoria.nome }}{% if not l.categoria.ativo %} <span class="badge bg-label-secondary">{% translate "inativa" %}</span>{% endif %}</td>
+          <td class="text-end">{{ l.quantidade }}</td>
+          <td class="text-end">
+            {% if pode_ajustar %}
+            <form method="post" action="{% url 'custo-categoria-ajustar' l.categoria.pk %}" class="d-flex justify-content-end gap-1">
+              {% csrf_token %}
+              <input type="text" name="valor" value="{{ l.valor_campo }}" class="form-control form-control-sm text-end" style="max-width: 8rem;" data-mask="moeda" aria-label="{% translate 'Valor da categoria' %}">
+              <button type="submit" class="btn btn-sm btn-outline-primary" title="{% translate 'Salvar ajuste manual' %}">{% translate "Ajustar" %}</button>
+              {% if l.manual %}<button type="submit" name="restaurar" value="1" class="btn btn-sm btn-outline-secondary" title="{% translate 'Voltar ao cálculo automático' %}">{% translate "Restaurar" %}</button>{% endif %}
+            </form>
+            {% else %}{{ l.valor_fmt }}{% endif %}
+          </td>
+          <td class="text-end">
+            {% if l.sem_vendas and l.valor %}<span class="text-warning" title="{% translate 'Informe a quantidade vendida da categoria para calcular o custo por unidade.' %}">&mdash; {% translate "sem vendas informadas" %}</span>
+            {% else %}<strong>{{ l.por_unidade_fmt }}</strong>{% endif %}
+          </td>
+          <td>
+            {% if l.manual %}<span class="badge bg-label-warning">{% translate "Ajuste manual" %}</span>
+            {% elif l.origem == "igual" %}<span class="badge bg-label-secondary">{% translate "Divisão igual (sem vendas)" %}</span>
+            {% elif l.origem == "vendas" %}<span class="badge bg-label-success">{% translate "Calculado pelas vendas" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Sem vendas" %}</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center py-6">{% translate "Nenhuma categoria cadastrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><th>{% translate "Custo operacional total do mês" %}</th><th></th><th class="text-end">{{ total_mensal }}</th><th colspan="2"></th></tr>
+        <tr><th>{% translate "Distribuído nas categorias" %}</th><th></th><th class="text-end">{{ total_distribuido }}</th><th colspan="2"></th></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('custo-categorias');</script>
+{% endblock page_js %}

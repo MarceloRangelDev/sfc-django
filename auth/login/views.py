@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -64,14 +65,22 @@ class LoginView(AuthView):
                 # Login bem-sucedido: limpa o contador de tentativas
                 ratelimit.reset("login", rl_key)
 
-                # Login the user if authentication is successful
-                login(request, authenticated_user)
+                login(request, authenticated_user)  # troca a chave da sessão (evita fixação de sessão)
 
-                # Redirect to the page the user was trying to access before logging in
-                if "next" in request.POST:
-                    return redirect(request.POST["next"])
-                else: # Redirect to the home page or another appropriate page
-                    return redirect("index")
+                # "Lembrar-me": a sessão continua por SESSION_REMEMBER_AGE (renovada a cada acesso);
+                # sem marcar, o cookie expira ao fechar o navegador. Nenhuma senha ou token é guardado
+                # no navegador: só o cookie de sessão (HttpOnly, SameSite e Secure — ver settings.py).
+                if request.POST.get("remember-me"):
+                    request.session.set_expiry(settings.SESSION_REMEMBER_AGE)
+                else:
+                    request.session.set_expiry(0)
+
+                # Volta para a página que o usuário queria, mas só se ela for do próprio sistema
+                # (um "next" externo seria um redirecionamento aberto para phishing).
+                destino = request.POST.get("next", "")
+                if destino and url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                    return redirect(destino)
+                return redirect("index")
             else:
                 ratelimit.hit("login", rl_key, settings.LOGIN_RATE_LIMIT_WINDOW)
                 messages.error(request, "Nome de usuário ou senha inválidos.")

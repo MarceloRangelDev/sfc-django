@@ -1,0 +1,11 @@
+{% load i18n %}
+{% comment %}Abas dos relatórios/categorias. Parâmetro: ativa (dre, balanco, categorias).{% endcomment %}
+<ul class="nav nav-pills mb-4 flex-wrap">
+  {% if perms.financeiro.view_relatoriofinanceiro %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'dre' %}active{% endif %}" href="{% url 'financeiro-dre' %}">DRE</a></li>
+  <li class="nav-item"><a class="nav-link {% if ativa == 'balanco' %}active{% endif %}" href="{% url 'financeiro-balanco' %}">{% translate "Balanço" %}</a></li>
+  {% endif %}
+  {% if perms.financeiro.view_categoriafinanceira %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'categorias' %}active{% endif %}" href="{% url 'financeiro-categorias' %}">{% translate "Categorias financeiras" %}</a></li>
+  {% endif %}
+</ul>

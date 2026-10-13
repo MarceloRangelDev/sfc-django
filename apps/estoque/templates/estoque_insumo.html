@@ -1,0 +1,63 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ insumo.nome }} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <h4 class="mb-0">{{ insumo.nome }} {% include "partials/unidade_selo.html" with item=insumo %}</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'estoque' %}" class="btn btn-outline-secondary"><i class="icon-base ti tabler-arrow-left me-1"></i>{% translate "Voltar ao estoque" %}</a>
+    {% if perms.estoque.change_movimentoestoque and pode_editar_minimo %}
+    <a href="{% url 'estoque-minimo' insumo.pk %}" class="btn btn-outline-primary">{% translate "Definir mínimo" %}</a>
+    {% endif %}
+    {% if perms.estoque.add_movimentoestoque and insumo.cliente_id == user.profile.cliente_id %}
+    <a href="{% url 'estoque-movimentar' %}?insumo={{ insumo.pk }}" class="btn btn-primary">{% translate "Movimentar" %}</a>
+    {% endif %}
+  </div>
+</div>
+
+
+<div class="row g-4 mb-4">
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted">{% translate "Saldo total" %}</div><div class="fs-4 fw-bold">{{ insumo.saldo|floatformat:"-4" }} {{ insumo.medida.sigla }}</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted">{% translate "Estoque mínimo" %}</div><div class="fs-4 fw-bold">{% if insumo.minimo %}{{ insumo.minimo|floatformat:"-4" }} {{ insumo.medida.sigla }}{% else %}&mdash;{% endif %}</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted">{% translate "Próximo vencimento" %}</div><div class="fs-4 fw-bold">{% if insumo.proximo_vencimento %}{{ insumo.proximo_vencimento|date:"d/m/Y" }}{% else %}&mdash;{% endif %}</div></div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h5 class="mb-0">{% translate "Lotes" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Lote" %}</th><th>{% translate "Validade" %}</th><th class="text-end">{% translate "Saldo" %}</th></tr></thead>
+      <tbody>
+        {% for l in lotes %}
+        <tr><td>{{ l.codigo_exibicao|default:"Sem lote" }}</td><td>{% if l.validade %}{{ l.validade|date:"d/m/Y" }}{% else %}&mdash;{% endif %}</td><td class="text-end">{{ l.saldo|floatformat:"-4" }} {{ insumo.medida.sigla }}</td></tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center py-4">{% translate "Sem movimentações ainda." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h5 class="mb-0">{% translate "Últimas movimentações" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>{% translate "Data" %}</th><th>{% translate "Tipo" %}</th><th class="text-end">{% translate "Quantidade" %}</th><th>{% translate "Lote" %}</th><th>{% translate "Responsável" %}</th><th>{% translate "Observação" %}</th></tr></thead>
+      <tbody>
+        {% for m in movimentos %}
+        <tr>
+          <td>{{ m.data|date:"d/m/Y H:i" }}</td><td>{{ m.get_tipo_display }}</td>
+          <td class="text-end">{% if m.sinal > 0 %}+{% else %}-{% endif %}{{ m.quantidade|floatformat:"-4" }} {{ insumo.medida.sigla }}</td>
+          <td>{{ m.lote.codigo_exibicao|default:"—" }}</td><td>{{ m.responsavel_nome|default:"—" }}</td><td>{{ m.observacao }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-4">{% translate "Nenhuma movimentação." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

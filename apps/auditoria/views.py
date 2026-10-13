@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.views.generic import DetailView, ListView
 
 from web_project import TemplateLayout
-from web_project.acesso import administrador_global, cliente_do_usuario
+from web_project.acesso import administrador_global, clientes_acessiveis
 
 from .filtros import filtrar_registros
 from .models import ACOES, RegistroAuditoria
@@ -16,14 +16,13 @@ def registros_visiveis(user):
 
     Administrador global (superusuário ou grupo "Administrador", que também
     gerencia Clientes) vê tudo. Qualquer outro usuário com a permissão
-    `view_registroauditoria` só enxerga os registros do PRÓPRIO Cliente —
-    a auditoria de um cliente nunca vaza para outro.
+    `view_registroauditoria` só enxerga os registros da PRÓPRIA estrutura
+    (cliente, matriz e filiais) — a auditoria nunca vaza para outra estrutura.
     """
     queryset = RegistroAuditoria.objects.select_related("usuario", "cliente")
     if administrador_global(user):
         return queryset
-    cliente = cliente_do_usuario(user)
-    return queryset.filter(cliente=cliente) if cliente else queryset.none()
+    return queryset.filter(cliente__in=clientes_acessiveis(user))
 
 
 class AuditoriaListView(ListView):

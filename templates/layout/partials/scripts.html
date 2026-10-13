@@ -14,5 +14,13 @@
 <script src="{% static 'vendor/libs/node-waves/node-waves.js' %}"></script>
 <script src="{% static 'vendor/libs/hammer/hammer.js' %}"></script>
 <script src="{% static 'vendor/js/menu.js' %}"></script>
-<script src="{% static 'js/main.js' %}"></script>
-<script src="{% static 'js/mascaras.js' %}"></script>
+<script src="{% static_v 'js/main.js' %}"></script>
+<script src="{% static 'vendor/libs/sweetalert2/sweetalert2.js' %}"></script>
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+<script src="{% static_v 'js/alertas.js' %}"></script>
+<script src="{% static_v 'js/selects-pesquisaveis.js' %}"></script>
+<script src="{% static_v 'js/mascaras.js' %}"></script>
+<script src="{% static_v 'js/tour.js' %}"></script>
+<script src="{% static_v 'js/tours-modulos.js' %}"></script>
+{% if user.is_authenticated %}<script src="{% static_v 'js/notificacoes-sino.js' %}"></script>{% endif %}
+{% if push_habilitado %}<script src="{% static_v 'js/notificacoes.js' %}"></script>{% endif %}

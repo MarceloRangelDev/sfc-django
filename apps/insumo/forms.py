@@ -4,13 +4,15 @@ from django import forms
 from django.db.models import Q
 
 from apps.medida.models import Medida
-from web_project.forms import DecimalBRField, MoedaCentavosField
+from apps.estoque.services import insumo_tem_estoque
+from apps.processado.services import mensagem_insumo_em_uso
+from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMixin
 from web_project.regras import RegraNegocioError
 
 from .models import LIMITE_CENTAVOS, Insumo
 
 
-class InsumoForm(forms.ModelForm):
+class InsumoForm(UnidadeFormMixin, forms.ModelForm):
     """Cadastro/edição de insumo.
 
     O usuário informa: nome, unidade comprada, quantidade comprada e valor
@@ -38,16 +40,17 @@ class InsumoForm(forms.ModelForm):
 
     class Meta:
         model = Insumo
-        fields = ["nome", "medida", "quantidade", "preco_pago", "ativo"]
+        fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control"}),
+            "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60}),
             "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, cliente=None, **kwargs):
+    def __init__(self, *args, cliente=None, unidades=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.cliente = cliente
+        self.configurar_unidade(cliente, unidades)
         # Só medidas ativas aparecem para novos cadastros; ao editar, a
         # medida atual do insumo continua selecionável mesmo se inativada.
         filtro = Q(ativo=True)
@@ -60,12 +63,16 @@ class InsumoForm(forms.ModelForm):
         nome = (self.cleaned_data.get("nome") or "").strip()
         if not nome:
             raise forms.ValidationError("O nome do insumo é obrigatório.")
-        queryset = Insumo.objects.filter(cliente=self.cliente, nome__iexact=nome)
+        queryset = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=nome)
         if self.instance.pk:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
             raise forms.ValidationError("Este insumo já está cadastrado.")
         return nome
+
+    def clean_marca(self):
+        # Opcional: espaços nas pontas e repetidos são normalizados; vazio continua válido.
+        return " ".join((self.cleaned_data.get("marca") or "").split())
 
     def clean_preco_pago(self):
         valor = self.cleaned_data.get("preco_pago")
@@ -75,6 +82,16 @@ class InsumoForm(forms.ModelForm):
 
     def clean(self):
         dados = super().clean()
+        medida_nova = dados.get("medida")
+        if self.instance.pk and medida_nova and medida_nova.pk != self.instance.medida_id and insumo_tem_estoque(self.instance):
+            # O saldo do estoque está guardado na unidade atual: trocá-la mudaria o significado dele.
+            self.add_error("medida", "Este insumo tem movimentações de estoque; a unidade de medida não pode ser alterada.")
+        if self.instance.pk and medida_nova and medida_nova.dimensao != self.instance.medida.dimensao:
+            # As receitas que usam este insumo guardam unidades da dimensão antiga;
+            # trocar (ex.: kg -> L) tornaria o custo delas incalculável.
+            erro = mensagem_insumo_em_uso(self.instance)
+            if erro:
+                self.add_error("medida", "Este insumo é usado em receitas; a unidade deve continuar na mesma dimensão.")
         # Antecipa o erro de cálculo (ex.: preço por unidade gigante) com
         # mensagem amigável em vez de falhar só ao gravar.
         if all(dados.get(campo) is not None for campo in ("medida", "quantidade", "preco_pago")):

@@ -68,6 +68,11 @@ INSTALLED_APPS = [
     "apps.produto",
     "apps.processado",
     "apps.categoria",
+    "apps.canal",
+    "apps.custo",
+    "apps.estoque",
+    "apps.financeiro",
+    "apps.dashboard",
     "apps.ficha",
     "apps.precificacao",
     "apps.cliente",
@@ -76,6 +81,9 @@ INSTALLED_APPS = [
     "apps.auditoria",
     "apps.medida",
     "apps.usuario",
+    "webpush",  # notificações push no navegador (apps/notificacao/canais.py)
+    "apps.notificacao",
+    "apps.tour",
     # API REST (Fase 7)
     "rest_framework",
     "rest_framework.authtoken",
@@ -92,6 +100,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.dashboard.middleware.PresencaMiddleware",  # marca a atividade do usuário (usuários online do painel)
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -114,6 +123,8 @@ TEMPLATES = [
                 "config.context_processors.get_cookie",
                 "config.context_processors.environment",
                 "config.context_processors.cliente_atual",
+                "config.context_processors.menu_modulos",
+                "config.context_processors.notificacoes_navbar",
             ],
             "libraries": {
                 "theme": "web_project.template_tags.theme",
@@ -121,6 +132,7 @@ TEMPLATES = [
             "builtins": [
                 "django.templatetags.static",
                 "web_project.template_tags.theme",
+                "web_project.template_tags.versao",  # {% static_v %}: scripts próprios com a data do arquivo na URL
             ],
         },
     },
@@ -157,6 +169,9 @@ else:
         }
     }
 
+
+# ModelBackend + exceções individuais por usuário (permitir/negar), ver apps/acl/backends.py.
+AUTHENTICATION_BACKENDS = ["apps.acl.backends.PermissaoIndividualBackend"]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -280,13 +295,17 @@ PASSWORD_RESET_RATE_LIMIT_WINDOW = int(os.environ.get("PASSWORD_RESET_RATE_LIMIT
 
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db" # Uso do banco de dados para armazenar sessões
-SESSION_COOKIE_SECURE = True # Garantir que o cookie de sessão seja enviado apenas em conexões HTTPS
+# Cookie de sessão só por HTTPS em produção. Em desenvolvimento (DEBUG=True, HTTP) ele NÃO é "Secure": alguns
+# navegadores descartam cookies Secure recebidos por HTTP (ex.: 127.0.0.1, IP da rede), e então nem a sessão de
+# 30 dias do "Lembrar-me" sobrevive. Para forçar, defina SESSION_COOKIE_SECURE=True/False no .env.
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", str(not DEBUG)).lower() in ["true", "yes", "1"]
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # o "Lembrar-me" decide por sessão (auth/login/views.py)
 SESSION_COOKIE_HTTPONLY = True # Garantir que o cookie de sessão não seja acessado pelo JavaScript
 SESSION_COOKIE_SAMESITE = "Lax" # Controlar o comportamento do cookie em requisições cross-site
 
 # HTTPS em produção (DEBUG desligado): redireciona HTTP -> HTTPS, HSTS, cookies só por
 # HTTPS. Atrás do nginx, ele precisa enviar "X-Forwarded-Proto: https".
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", str(not DEBUG)).lower() in ["true", "yes", "1"]  # igual à sessão
 CSRF_COOKIE_HTTPONLY = False  # o JavaScript do tema lê o token CSRF em alguns fluxos
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
@@ -297,7 +316,12 @@ if not DEBUG and not TESTING:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_REFERRER_POLICY = "same-origin"
 
-SESSION_COOKIE_AGE = 3600 # Tempo de expiração do cookie de sessão em segundos (1 hora)
+# Sessão SEM "Lembrar-me": o cookie some ao fechar o navegador e, no servidor, a sessão expira após
+# SESSION_COOKIE_AGE de inatividade (1 hora). Sessão COM "Lembrar-me": dura SESSION_REMEMBER_AGE (30 dias).
+# SESSION_SAVE_EVERY_REQUEST renova o prazo a cada requisição (expiração deslizante: só cai quem fica inativo).
+SESSION_COOKIE_AGE = 3600
+SESSION_REMEMBER_AGE = int(os.environ.get("SESSION_REMEMBER_AGE", default=60 * 60 * 24 * 30))
+SESSION_SAVE_EVERY_REQUEST = True
 
 # LOGIN_URL = "/login/"             # login url for login required pages
 # LOGOUT_REDIRECT_URL = "/login/"  # logout url for when user logout
@@ -361,4 +385,15 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": ["apps.api.schema.envelopar_respostas"],
     "ENUM_NAME_OVERRIDES": {},
     "SORT_OPERATIONS": False,
+}
+
+
+# Notificações push (django-webpush)
+# ------------------------------------------------------------------------------
+# Gere as chaves VAPID com `python manage.py gerar_chaves_vapid` e coloque no .env.
+# Sem as chaves o sistema funciona normalmente; só o push no navegador fica desligado.
+WEBPUSH_SETTINGS = {
+    "VAPID_PUBLIC_KEY": os.environ.get("VAPID_PUBLIC_KEY", ""),
+    "VAPID_PRIVATE_KEY": os.environ.get("VAPID_PRIVATE_KEY", ""),
+    "VAPID_ADMIN_EMAIL": os.environ.get("VAPID_ADMIN_EMAIL", MAIL_FROM_EMAIL or "admin@example.com"),
 }

@@ -42,9 +42,47 @@
 
       <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
 
-        <!-- Style Switcher -->
-        <div class="navbar-nav align-items-center">
-          <div class="nav-item dropdown-style-switcher dropdown me-2 me-xl-0">
+        <ul class="navbar-nav flex-row align-items-center ms-auto">
+          <!-- Notification: [Notificações] [Tema] [Avatar], alinhados à direita -->
+          <li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2" id="sino-notificacoes" data-url="{% url 'notificacao-resumo' %}">
+            <a class="nav-link dropdown-toggle hide-arrow btn btn-icon btn-text-secondary rounded-pill" href="javascript:void(0);" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+              <span class="position-relative">
+                <i class="icon-base ti tabler-bell icon-22px text-heading"></i>
+                <span class="badge rounded-pill bg-danger badge-dot badge-notifications border" id="sino-ponto" {% if not notificacoes_nao_lidas %}hidden{% endif %}></span>
+              </span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end p-0">
+              <li class="dropdown-menu-header border-bottom">
+                <div class="dropdown-header d-flex align-items-center py-3">
+                  <h6 class="mb-0 me-auto">{% translate "Notificações" %}</h6>
+                  <div class="d-flex align-items-center h6 mb-0">
+                    <span class="badge bg-label-primary"><span id="sino-contador">{{ notificacoes_nao_lidas|default:0 }}</span> {% translate "não lida(s)" %}</span>
+                  </div>
+                </div>
+              </li>
+              <li class="dropdown-notifications-list scrollable-container">
+                <ul class="list-group list-group-flush" id="sino-lista" aria-live="polite">
+                  {% include 'layout/partials/navbar/notificacoes_itens.html' %}
+                </ul>
+              </li>
+              <li class="border-top">
+                <div class="d-grid p-4">
+                  {% if push_habilitado %}
+                  <button type="button" class="btn btn-outline-secondary btn-sm mb-2" id="btn-ativar-push" data-vapid-key="{{ vapid_public_key }}" hidden>
+                    <small>{% translate "Ativar notificações no navegador" %}</small>
+                  </button>
+                  {% endif %}
+                  <a class="btn btn-primary btn-sm d-flex" href="{% url 'notificacao-minhas' %}">
+                    <small class="align-middle">{% translate "Ver todas as notificações" %}</small>
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </li>
+          <!--/ Notification -->
+
+          <!-- Style Switcher -->
+          <li class="nav-item dropdown-style-switcher dropdown me-2 me-xl-0">
             <a class="nav-link dropdown-toggle hide-arrow btn btn-icon btn-text-secondary rounded-pill" id="nav-theme" href="javascript:void(0);" data-bs-toggle="dropdown">
               <i class="icon-base ti tabler-sun icon-22px theme-icon-active text-heading"></i>
               <span class="d-none ms-2" id="nav-theme-text">{% translate "Alternar tema" %}</span>
@@ -66,11 +104,8 @@
                 </button>
               </li>
             </ul>
-          </div>
-        </div>
-        <!-- / Style Switcher-->
-
-        <ul class="navbar-nav flex-row align-items-center ms-auto">
+          </li>
+          <!--/ Style Switcher-->
           <!-- User -->
           <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">

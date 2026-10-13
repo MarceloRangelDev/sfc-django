@@ -7,11 +7,6 @@
 {% block content %}
 <h4 class="py-4 mb-6">{% if usuario %}{% translate "Editar usuário" %}{% else %}{% translate "Novo usuário" %}{% endif %}</h4>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">{{ message }}</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
   <div class="card-body">
@@ -36,6 +31,43 @@
         {% endif %}
         {% endfor %}
       </div>
+
+      <h6 class="mt-8 mb-1">{% translate "Permissões especiais" %}</h6>
+      <p class="text-muted small mb-4">{% translate "Exceções individuais ao papel do usuário. “Herdar” mantém o que o papel concede; “Permitir” libera e “Negar” bloqueia a ação para este usuário, mesmo que o papel diga o contrário." %}</p>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>{% translate "Módulo" %}</th>
+              <th class="text-center">{% translate "Visualizar" %}</th>
+              <th class="text-center">{% translate "Criar" %}</th>
+              <th class="text-center">{% translate "Editar" %}</th>
+              <th class="text-center">{% translate "Excluir" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for linha in matriz %}
+            <tr>
+              <td>{{ linha.nome }}</td>
+              {% for acao in linha.acoes %}
+              <td class="text-center">
+                {% if acao.permissao_id %}
+                <select name="perm_{{ acao.permissao_id }}" class="form-select form-select-sm" aria-label="{{ linha.nome }} - {{ acao.label }}">
+                  <option value="">{% translate "Herdar" %}</option>
+                  <option value="permitir" {% if acao.efeito == "permitir" %}selected{% endif %}>{% translate "Permitir" %}</option>
+                  <option value="negar" {% if acao.efeito == "negar" %}selected{% endif %}>{% translate "Negar" %}</option>
+                </select>
+                {% else %}
+                <span class="text-muted">&mdash;</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
       <div class="mt-6">
         <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
         <a href="{% url 'usuario-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>

@@ -179,10 +179,21 @@ def _identificacao(objeto):
 
 
 def registrar_criacao(request, objeto, modulo=None):
+    """CREATE. Se o model declara `AUDITORIA_NA_CRIACAO = ("campo", ...)`, os campos
+    opcionais que vieram preenchidos (ex.: a marca de um insumo) entram no registro
+    como "(vazio) → valor"; os vazios ficam de fora."""
     nome_modelo, app, tabela, pk, nome = _identificacao(objeto)
+    alteracoes = []
+    for nome_campo in getattr(objeto, "AUDITORIA_NA_CRIACAO", ()):
+        campo = objeto._meta.get_field(nome_campo)
+        texto = _texto_do_valor(objeto, campo, campo.value_from_object(objeto))
+        if texto:
+            rotulo = str(campo.verbose_name)
+            alteracoes.append({"campo": nome_campo, "rotulo": rotulo[:1].upper() + rotulo[1:], "antes": None, "depois": texto})
     return registrar(
         request, acao=ACAO_CRIAR, modulo=modulo or app, tabela=tabela, registro_id=pk, registro_nome=nome,
-        descricao=f"Criado {nome_modelo} ID {pk} - {nome}.", silencioso=False,
+        descricao=_descricao_com_alteracoes(f"Criado {nome_modelo} ID {pk} - {nome}.", alteracoes),
+        alteracoes=alteracoes, silencioso=False,
     )
 
 

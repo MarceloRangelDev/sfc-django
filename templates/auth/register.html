@@ -24,7 +24,7 @@
 
 {% block page_js %}
 {{ block.super }}
-<script src="{% static 'js/authentication.js' %}"></script>
+<script src="{% static_v 'js/authentication.js' %}"></script>
 {% endblock page_js %}
 
 {% block content %}
@@ -50,13 +50,6 @@
       <div class="w-px-400 mx-auto mt-12 pt-5">
         <h4 class="mb-1">{% translate "Comece sua jornada 🚀" %}</h4>
         <p class="mb-6">{% translate "Crie sua conta para começar a usar o sistema" %}</p>
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-          {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
 
         <form id="formAuthentication" class="mb-6" action="{% url 'register' %}" method="post">
           {% csrf_token %}

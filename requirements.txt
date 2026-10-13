@@ -16,3 +16,6 @@ reportlab==5.0.1
 djangorestframework==3.16.1
 drf-spectacular==0.30.0
 drf-spectacular-sidecar==2026.10.1
+
+# Notificações push no navegador (Web Push)
+django-webpush==0.3.6

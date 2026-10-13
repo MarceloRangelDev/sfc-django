@@ -8,27 +8,51 @@
 <div class="d-flex justify-content-between align-items-center py-4 mb-2">
   <h4 class="mb-0">{% translate "Categorias" %}</h4>
   {% if perms.categoria.add_categoria %}
-  <a href="{% url 'categoria-create' %}" class="btn btn-primary">
+  <a href="{% url 'categoria-create' %}" class="btn btn-primary" data-tour="novo">
     <i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova categoria" %}
   </a>
   {% endif %}
 </div>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
-  <div class="table-responsive text-nowrap">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome da categoria...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          <option value="ativo" {% if status == "ativo" %}selected{% endif %}>{% translate "Ativas" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativas" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap" data-tour="tabela">
     <table class="table">
       <thead>
         <tr>
           <th>{% translate "Nome" %}</th>
-          <th>{% translate "Cadastrada em" %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Qtd. vendida" %}</th>
+          <th class="text-end">{% translate "Faturamento" %}</th>
+          <th class="text-end">{% translate "Ticket médio" %}</th>
+          <th class="text-end">{% translate "% do faturamento" %}</th>
+          <th>{% translate "Status" %}</th>
           <th>{% translate "Ações" %}</th>
         </tr>
       </thead>
@@ -36,21 +60,55 @@
         {% for categoria in categorias %}
         <tr>
           <td>{{ categoria.nome }}</td>
-          <td>{{ categoria.criado_em|date:"d/m/Y H:i" }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=categoria %}</td>{% endif %}
+          <td class="text-end">{{ categoria.quantidade_vendida }}</td>
+          <td class="text-end">{{ categoria.faturamento_formatado }}</td>
+          <td class="text-end">{{ categoria.ticket_medio }}</td>
+          <td class="text-end">{{ categoria.percentual|floatformat:2 }}%</td>
           <td>
-            {% if perms.categoria.change_categoria %}
+            {% if categoria.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>
+            {% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}
+          </td>
+          <td>
+            {% if perms.categoria.change_categoria and categoria.cliente_id == user.profile.cliente_id or perms.categoria.change_categoria and perms.cliente.change_itensfilial %}
             <a href="{% url 'categoria-edit' categoria.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
               <i class="icon-base ti tabler-edit"></i>
             </a>
+            <form method="post" action="{% url 'categoria-alternar-ativo' categoria.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-secondary rounded-pill" title="{% if categoria.ativo %}{% translate 'Desativar' %}{% else %}{% translate 'Ativar' %}{% endif %}">
+                <i class="icon-base ti {% if categoria.ativo %}tabler-toggle-right{% else %}tabler-toggle-left{% endif %}"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if perms.categoria.delete_categoria and categoria.cliente_id == user.profile.cliente_id or perms.categoria.delete_categoria and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'categoria-excluir' categoria.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir esta categoria? Se estiver em uso, ela será apenas desativada." %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}">
+                <i class="icon-base ti tabler-trash"></i>
+              </button>
+            </form>
             {% endif %}
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="3" class="text-center py-6">{% translate "Nenhuma categoria cadastrada até o momento." %}</td>
+          <td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhuma categoria encontrada." %}</td>
         </tr>
         {% endfor %}
       </tbody>
+      {% if categorias %}
+      <tfoot>
+        <tr>
+          <th>{% translate "Total" %}</th>
+          {% if mostrar_unidade %}<th></th>{% endif %}
+          <th class="text-end">{{ total_quantidade }}</th>
+          <th class="text-end">{{ total_faturamento }}</th>
+          <th class="text-end">{{ total_ticket }}</th>
+          <th></th><th></th><th></th>
+        </tr>
+      </tfoot>
+      {% endif %}
     </table>
   </div>
 </div>
@@ -69,3 +127,8 @@
 </nav>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('categorias');</script>
+{% endblock page_js %}

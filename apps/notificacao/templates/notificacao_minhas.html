@@ -1,0 +1,50 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Minhas notificações" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Minhas notificações" %}</h4>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-mail-opened me-1"></i>{% translate "Marcar todas como lidas" %}</button>
+  </form>
+</div>
+
+<ul class="nav nav-pills mb-4">
+  <li class="nav-item"><a class="nav-link {% if not situacao %}active{% endif %}" href="?">{% translate "Todas" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if situacao == 'nao-lidas' %}active{% endif %}" href="?situacao=nao-lidas">{% translate "Não lidas" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if situacao == 'lidas' %}active{% endif %}" href="?situacao=lidas">{% translate "Lidas" %}</a></li>
+</ul>
+
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for item in itens %}
+    <li class="list-group-item list-group-item-action {% if item.lida_em %}text-muted{% endif %}">
+      <a href="{% url 'notificacao-abrir' item.pk %}" class="d-flex justify-content-between text-reset text-decoration-none">
+        <span>
+          <strong>{{ item.notificacao.titulo }}</strong>
+          {% if not item.lida_em %}<span class="badge badge-dot bg-primary ms-2"></span>{% endif %}
+          <br>{{ item.notificacao.mensagem }}
+        </span>
+        <small class="text-nowrap ms-4">{{ item.criado_em|date:"d/m/Y H:i" }}</small>
+      </a>
+    </li>
+    {% empty %}
+    <li class="list-group-item text-center py-6">{% translate "Você não tem notificações." %}</li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?situacao={{ situacao }}&page={{ page_obj.previous_page_number }}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?situacao={{ situacao }}&page={{ page_obj.next_page_number }}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

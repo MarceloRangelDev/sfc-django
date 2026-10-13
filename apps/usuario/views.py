@@ -1,14 +1,13 @@
 from django.contrib import messages
-from django.contrib.auth.models import Group, User
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import FormView, ListView
 
-from apps.cliente.models import Cliente
+from apps.acl.services import efeitos_do_usuario, matriz_do_usuario
 from web_project import TemplateLayout
-from web_project.acesso import administrador_global, cliente_do_usuario
+from web_project.acesso import clientes_acessiveis, perfis_visiveis, usuarios_acessiveis
 
 from .forms import UsuarioForm
 from .services import alternar_ativo, foto_usuario, salvar_usuario
@@ -16,28 +15,12 @@ from .services import alternar_ativo, foto_usuario, salvar_usuario
 OPCOES_POR_PAGINA = [10, 25, 50, 100]
 
 
-def usuarios_gerenciaveis(solicitante):
-    """Usuários que o solicitante pode ver/editar.
-
-    Administrador global: todos. Os demais: só os do próprio Cliente (o
-    filtro é aplicado no backend — trocar o id na URL resulta em 404).
-    Superusuários só aparecem para outros superusuários.
-    """
-    queryset = User.objects.select_related("profile", "profile__cliente").prefetch_related("groups")
-    if not administrador_global(solicitante):
-        cliente = cliente_do_usuario(solicitante)
-        queryset = queryset.filter(profile__cliente=cliente) if cliente else queryset.none()
-    if not solicitante.is_superuser:
-        queryset = queryset.filter(is_superuser=False)
-    return queryset
-
-
 class UsuarioListView(ListView):
     template_name = "usuario_list.html"
     context_object_name = "usuarios"
 
     def get_queryset(self):
-        queryset = usuarios_gerenciaveis(self.request.user)
+        queryset = usuarios_acessiveis(self.request.user)
         params = self.request.GET
         termo = params.get("q", "").strip()
         if termo:
@@ -65,13 +48,10 @@ class UsuarioListView(ListView):
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         solicitante = self.request.user
-        clientes = Cliente.objects.all() if administrador_global(solicitante) else Cliente.objects.filter(
-            pk=getattr(cliente_do_usuario(solicitante), "pk", None)
-        )
         context.update(
             filtros=self.request.GET,
-            clientes=clientes.order_by("nome_razao_social"),
-            perfis=Group.objects.order_by("name"),
+            clientes=clientes_acessiveis(solicitante).order_by("nome_razao_social"),
+            perfis=perfis_visiveis(solicitante).order_by("name"),
             per_page=self.get_paginate_by(None),
             opcoes_por_pagina=OPCOES_POR_PAGINA,
         )
@@ -87,7 +67,7 @@ class UsuarioFormView(FormView):
 
     def dispatch(self, request, *args, **kwargs):
         pk = kwargs.get("pk")
-        self.usuario = get_object_or_404(usuarios_gerenciaveis(request.user), pk=pk) if pk else None
+        self.usuario = get_object_or_404(usuarios_acessiveis(request.user), pk=pk) if pk else None
         # Foto "antes" para a auditoria (o formulário altera o objeto ao validar).
         self.foto_antes = foto_usuario(self.usuario) if self.usuario else None
         return super().dispatch(request, *args, **kwargs)
@@ -100,6 +80,11 @@ class UsuarioFormView(FormView):
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context["usuario"] = self.usuario
+        # Mesma matriz da edição de papéis; num POST inválido mantém o que foi marcado.
+        efeitos = efeitos_do_usuario(self.usuario)
+        if context["form"].is_bound:
+            efeitos.update(context["form"].excecoes or {})
+        context["matriz"] = matriz_do_usuario(efeitos)
         return context
 
     def form_valid(self, form):
@@ -110,7 +95,7 @@ class UsuarioFormView(FormView):
 
 class UsuarioAlternarAtivoView(View):
     def post(self, request, pk):
-        usuario = get_object_or_404(usuarios_gerenciaveis(request.user), pk=pk)
+        usuario = get_object_or_404(usuarios_acessiveis(request.user), pk=pk)
         if usuario.pk == request.user.pk:
             messages.error(request, "Você não pode inativar a sua própria conta.")
             return redirect("usuario-list")

@@ -1,0 +1,10 @@
+{% load i18n %}
+{% comment %}
+Botões do formulário. Parâmetros: cancelar (URL), novo (texto de "Salvar e adicionar outro(a)";
+só aparece ao criar, isto é, quando não há `object`).
+{% endcomment %}
+<button type="submit" class="btn btn-primary" data-botao-salvar>{% translate "Salvar" %}</button>
+{% if not object and novo %}
+<button type="submit" name="salvar_e_novo" value="1" class="btn btn-outline-primary" data-botao-salvar>{{ novo }}</button>
+{% endif %}
+<a href="{{ cancelar }}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>

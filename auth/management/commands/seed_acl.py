@@ -2,111 +2,36 @@
 Cria/atualiza os grupos padrão de ACL (Access Control List) do sistema,
 aplicando as permissões nativas do Django (view/add/change/delete) sobre
 as telas de negócio (Insumo, Produto, Processado, Categoria, Ficha,
-Precificação).
+Precificação, Custo operacional, Estoque, Financeiro...).
 
-Rodar sempre que uma nova tela/model for adicionada ao ACL:
+As regras do que cada perfil recebe ficam em apps/acl/padroes.py (fonte única,
+também usada quando um módulo é habilitado para um cliente). Este comando
+REDEFINE as permissões dos quatro perfis padrão para o padrão do sistema:
 
     python manage.py seed_acl
 
-É idempotente: pode ser rodado várias vezes sem duplicar nada.
+É idempotente: pode ser rodado várias vezes sem duplicar nada. Atenção: ajustes
+manuais feitos na tela de Papéis nos perfis Administrador/Gestor/Operador/
+Visualizador são sobrescritos por este comando (para só completar o que falta
+em módulos novos, basta habilitar o módulo para o cliente ou rodar `migrate`).
 """
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 
-# Apps (app_label) que compõem as telas de negócio protegidas pelo ACL.
-SCREEN_APPS = [
-    "insumo",
-    "produto",
-    "processado",
-    "categoria",
-    "ficha",
-    "precificacao",
-]
-
-# Apps de administração do sistema (não são "telas de negócio" do dia a
-# dia): só o grupo Administrador recebe permissão por padrão. Cadastrar
-# Clientes (tenants) e vincular usuários a eles é uma ação sensível, então
-# fica de fora do acesso automático de Gestor/Operador/Visualizador.
-ADMIN_APPS = [
-    "cliente",
-    "modulo",
-    "medida",
-    "auditoria",
-]
-
-# Permissões nativas do próprio Django (app_label "auth", de
-# django.contrib.auth.models.Group/Permission) usadas para proteger as
-# telas de Papéis/Permissões (Fase 4). Concedidas só ao Administrador —
-# de propósito FORA da matriz de permissões atribuível pela tela de
-# Papéis (ver apps/acl/permissions_matrix.py), para que um papel comum
-# nunca possa se autoconceder a capacidade de gerenciar outros papéis.
-AUTH_APP_LABEL = "auth"
-AUTH_CODENAMES_ADMINISTRADOR = [
-    "view_group",
-    "add_group",
-    "change_group",
-    "delete_group",
-    "view_permission",
-    # Usuários (Fase 6). Sem "delete_user" de propósito: usuários só são inativados.
-    "view_user",
-    "add_user",
-    "change_user",
-]
-
-# name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
-# aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.
-GROUPS = {
-    "Administrador": ["view", "add", "change", "delete"],
-    "Gestor": ["view", "add", "change"],
-    "Operador": ["view", "add"],
-    "Visualizador": ["view"],
-}
+from apps.acl.padroes import GROUPS, permissoes_padrao
 
 
 class Command(BaseCommand):
     help = "Cria/atualiza os grupos padrão de ACL (Administrador, Gestor, Operador, Visualizador)."
 
-    def _permissions_by_action(self, app_labels):
-        permissions_by_action = {"view": [], "add": [], "change": [], "delete": []}
-        for app_label in app_labels:
-            for perm in Permission.objects.filter(content_type__app_label=app_label):
-                for action in permissions_by_action:
-                    if perm.codename.startswith(f"{action}_"):
-                        permissions_by_action[action].append(perm)
-        return permissions_by_action
-
     def handle(self, *args, **options):
-        screen_perms = self._permissions_by_action(SCREEN_APPS)
-        admin_perms = self._permissions_by_action(ADMIN_APPS)
-
-        for group_name, actions in GROUPS.items():
+        padroes = permissoes_padrao()
+        for group_name in GROUPS:
             group, created = Group.objects.get_or_create(name=group_name)
-
-            perms_for_group = []
-            for action in actions:
-                perms_for_group.extend(screen_perms[action])
-
-            # Apps administrativos (ex: Cliente) só entram para o
-            # Administrador, mesmo que o grupo tenha outras ações liberadas
-            # nas telas de negócio comuns.
-            if group_name == "Administrador":
-                for action in actions:
-                    perms_for_group.extend(admin_perms[action])
-
-                perms_for_group.extend(
-                    Permission.objects.filter(
-                        content_type__app_label=AUTH_APP_LABEL,
-                        codename__in=AUTH_CODENAMES_ADMINISTRADOR,
-                    )
-                )
-
-            group.permissions.set(perms_for_group)
-
+            group.permissions.set(padroes[group_name])
             status = "criado" if created else "atualizado"
             self.stdout.write(
-                self.style.SUCCESS(
-                    f"Grupo '{group_name}' {status} com {len(perms_for_group)} permissões."
-                )
+                self.style.SUCCESS(f"Grupo '{group_name}' {status} com {len(padroes[group_name])} permissões.")
             )
 
         self.stdout.write(self.style.SUCCESS("ACL padrão aplicada com sucesso."))

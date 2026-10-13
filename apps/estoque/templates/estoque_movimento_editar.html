@@ -1,0 +1,64 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Editar movimentação" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% translate "Editar movimentação de estoque" %}</h4>
+
+
+<div class="card">
+  <div class="card-body">
+    {# Insumo, tipo e lote não mudam: corrigir um deles é registrar outra movimentação #}
+    <dl class="row mb-6">
+      <dt class="col-sm-2">{% translate "Insumo" %}</dt><dd class="col-sm-4">{{ movimento.insumo.nome }}</dd>
+      <dt class="col-sm-2">{% translate "Tipo" %}</dt><dd class="col-sm-4">{{ movimento.get_tipo_display }}</dd>
+      <dt class="col-sm-2">{% translate "Lote" %}</dt><dd class="col-sm-4">{{ movimento.lote.codigo_exibicao|default:"—" }}</dd>
+      <dt class="col-sm-2">{% translate "Unidade do insumo" %}</dt><dd class="col-sm-4">{{ movimento.insumo.medida.medida }}</dd>
+    </dl>
+    <form method="post" id="formMovimentoEditar" data-form-salvar novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        <div class="col-md-3">
+          <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade" %}</label>
+          {{ form.quantidade }}
+          {% if form.quantidade.errors %}<div class="text-danger small mt-1">{{ form.quantidade.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.medida.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.medida }}
+          {% if form.medida.errors %}<div class="text-danger small mt-1">{{ form.medida.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.data.id_for_label }}" class="form-label">{% translate "Data" %}</label>
+          {{ form.data }}
+          {% if form.data.errors %}<div class="text-danger small mt-1">{{ form.data.errors|striptags }}</div>{% endif %}
+        </div>
+        {% if form.validade %}
+        <div class="col-md-3">
+          <label for="{{ form.validade.id_for_label }}" class="form-label">{% translate "Validade (opcional)" %}</label>
+          {{ form.validade }}
+          {% if form.validade.errors %}<div class="text-danger small mt-1">{{ form.validade.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="col-md-12">
+          <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
+          {{ form.observacao }}
+        </div>
+      </div>
+      <div class="form-text mt-3">{% translate "Ao salvar, o saldo do lote e o histórico posterior são recalculados. Se a alteração deixar o saldo negativo em algum ponto, ela é recusada. A alteração fica registrada na auditoria." %}</div>
+      <div class="mt-6">
+        {% url 'estoque-movimentos' as url_lista %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

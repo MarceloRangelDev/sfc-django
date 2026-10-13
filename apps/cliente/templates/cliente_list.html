@@ -8,28 +8,71 @@
 <div class="d-flex justify-content-between align-items-center py-4 mb-2">
   <h4 class="mb-0">{% translate "Clientes" %}</h4>
   {% if perms.cliente.add_cliente %}
-  <a href="{% url 'cliente-create' %}" class="btn btn-primary">
+  <a href="{% url 'cliente-create' %}" class="btn btn-primary" data-tour="novo">
     <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo cliente" %}
   </a>
   {% endif %}
 </div>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
-  <div class="table-responsive text-nowrap">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end" data-tour="filtros">
+      <div class="col-md-4">
+        <label for="q" class="form-label">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Nome, razão social ou CPF/CNPJ...' %}" value="{{ filtros.q }}">
+      </div>
+      <div class="col-md-2">
+        <label for="tipo_pessoa" class="form-label">{% translate "Tipo" %}</label>
+        <select id="tipo_pessoa" name="tipo_pessoa" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos_pessoa %}<option value="{{ valor }}" {% if filtros.tipo_pessoa == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="tipo_estabelecimento" class="form-label">{% translate "Matriz / Filial" %}</label>
+        <select id="tipo_estabelecimento" name="tipo_estabelecimento" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos_estabelecimento %}<option value="{{ valor }}" {% if filtros.tipo_estabelecimento == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="segmento" class="form-label">{% translate "Segmento" %}</label>
+        <select id="segmento" name="segmento" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for s in segmentos %}<option value="{{ s.pk }}" {% if filtros.segmento == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="status" class="form-label">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          <option value="ativo" {% if filtros.status == "ativo" %}selected{% endif %}>{% translate "Ativos" %}</option>
+          <option value="inativo" {% if filtros.status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="per_page" class="form-label">{% translate "Por página" %}</label>
+        <select id="per_page" name="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-10">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% url 'cliente-list' %}" class="btn btn-outline-secondary">{% translate "Limpar" %}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap" data-tour="tabela">
     <table class="table">
       <thead>
         <tr>
           <th>{% translate "Tipo" %}</th>
           <th>{% translate "CPF/CNPJ" %}</th>
           <th>{% translate "Nome / Razão social" %}</th>
+          <th>{% translate "Matriz / Filial" %}</th>
+          <th>{% translate "Segmento" %}</th>
           <th>{% translate "Usuários" %}</th>
           <th>{% translate "Status" %}</th>
           <th>{% translate "Ações" %}</th>
@@ -41,6 +84,8 @@
           <td>{{ cliente.get_tipo_pessoa_display }}</td>
           <td>{{ cliente.cpf_cnpj_formatado }}</td>
           <td>{{ cliente.nome_razao_social }}</td>
+          <td>{{ cliente.get_tipo_estabelecimento_display }}{% if cliente.matriz %} de {{ cliente.matriz.nome_razao_social }}{% endif %}</td>
+          <td>{{ cliente.segmento|default:"-" }}</td>
           <td>{{ cliente.qtd_usuarios }}</td>
           <td>
             {% if cliente.ativo %}
@@ -59,25 +104,48 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center py-6">{% translate "Nenhum cliente cadastrado até o momento." %}</td>
+          <td colspan="8" class="text-center py-6">{% if request.GET.urlencode %}{% translate "Nenhum cliente encontrado para os filtros informados." %}{% else %}{% translate "Nenhum cliente cadastrado até o momento." %}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {% if page_obj and page_obj.paginator.count %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">
+      {% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if is_paginated %}
+  <div class="card-body pt-0">
+    <nav aria-label="{% translate 'Paginação' %}">
+      <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>
+        {% else %}<li class="page-item disabled"><span class="page-link">{% translate "Anterior" %}</span></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>
+        {% else %}<li class="page-item disabled"><span class="page-link">{% translate "Próxima" %}</span></li>{% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
 </div>
 
-{% if is_paginated %}
-<nav class="mt-4">
-  <ul class="pagination justify-content-center">
-    {% if page_obj.has_previous %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% translate "Anterior" %}</a></li>
-    {% endif %}
-    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
-    {% if page_obj.has_next %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% translate "Próxima" %}</a></li>
-    {% endif %}
-  </ul>
-</nav>
-{% endif %}
 {% endblock %}
+
+{% block page_js %}
+<script>
+  initTour({
+    page: 'clientes',
+    steps: [
+      { element: '[data-tour="novo"]', title: 'Novo cliente', text: 'Cadastre matrizes e filiais. O usuário Gestor é criado automaticamente.' },
+      { element: '[data-tour="tabela"]', title: 'Clientes da sua estrutura', text: 'Você vê a sua matriz e as filiais dela. Use o lápis para editar.', position: 'top' }
+    ]
+  });
+</script>
+{% endblock page_js %}

@@ -1,0 +1,71 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar módulo" %}{% else %}{% translate "Novo módulo" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar módulo" %}{% else %}{% translate "Novo Módulo" %}{% endif %}</h4>
+
+{% for message in messages %}
+<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">{{ message }}</div>
+{% endfor %}
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card mb-6">
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+          <div class="row g-4">
+            {% for campo in form %}
+            {% if campo.name == "essencial" or campo.name == "delegavel" or campo.name == "ativo" %}
+            <div class="col-md-4">
+              <div class="form-check form-switch mt-2">
+                {{ campo }}
+                <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+              </div>
+              {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+            </div>
+            {% else %}
+            <div class="{% if campo.name == 'instrucoes' %}col-12{% else %}col-md-6{% endif %}">
+              <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+              {{ campo }}
+              {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+              {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          <div class="mt-6">
+            <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+            <a href="{% url 'modulo-catalogo' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card" id="instrucoes-de-uso">
+      <h5 class="card-header">{% translate "Instruções de uso" %}</h5>
+      <div class="card-body">
+        {% if object and object.instrucoes %}
+        <pre class="small mb-4" style="white-space: pre-wrap;">{{ object.instrucoes }}</pre>
+        {% endif %}
+        <p class="fw-medium mb-2">{% translate "Como adicionar um módulo ao sistema" %}</p>
+        <ol class="small ps-3 mb-0">
+          <li>{% translate "Crie o app/tela no Django (views, urls) e proteja a URL com module_required('slug', 'app.view_modelo')." %}</li>
+          <li>{% translate "Cadastre o módulo aqui: nome, ícone (classe Tabler, ex.: ti tabler-app-window), rota (nome da URL) e permissão." %}</li>
+          <li>{% translate "Escolha a seção do menu: Menu principal ou Configurações (vira um submenu). A ordem define a posição." %}</li>
+          <li>{% translate "Módulo de negócio: inclua-o nos Segmentos que podem usá-lo e habilite-o por cliente em Módulos do cliente." %}</li>
+          <li>{% translate "Módulo essencial (Configurações): depende só da permissão; não precisa de segmento." %}</li>
+          <li>{% translate "Se 'Aparece na edição dos papéis' estiver marcado, ele já surge na matriz de permissões dos Papéis." %}</li>
+          <li>{% translate "Atualize o README do app com as regras do módulo." %}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

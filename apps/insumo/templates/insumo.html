@@ -8,49 +8,52 @@
 <div class="d-flex justify-content-between align-items-center py-4 mb-2">
   <h4 class="mb-0">{% translate "Insumos" %}</h4>
   {% if perms.insumo.add_insumo %}
-  <a href="{% url 'insumo-create' %}" class="btn btn-primary">
+  <a href="{% url 'insumo-create' %}" class="btn btn-primary" data-tour="novo">
     <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo insumo" %}
   </a>
   {% endif %}
 </div>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="card">
   <div class="card-body">
-    <div class="row g-3 align-items-end justify-content-between">
-      <div class="col-md-4">
-        <form method="get" class="d-flex gap-2">
-          {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
-          {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
-          <input type="text" name="q" class="form-control" placeholder="{% translate 'Pesquisar por nome ou unidade...' %}" value="{{ termo_pesquisa }}">
-          <button type="submit" class="btn btn-outline-primary text-nowrap">
-            <i class="icon-base ti tabler-search"></i>
-          </button>
-        </form>
+    {# Um único formulário GET: pesquisa, status, unidade e itens por página andam juntos e a paginação preserva todos #}
+    <form method="get" id="filtrosInsumo" class="row g-3 align-items-end" data-tour="pesquisa">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      {% if mostrar_unidade %}
+      <div class="col-12 col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
       </div>
-
-      <div class="col-md-auto">
-        <form method="get" class="d-flex align-items-center gap-2">
-          {% if termo_pesquisa %}<input type="hidden" name="q" value="{{ termo_pesquisa }}">{% endif %}
-          {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
-          {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
-          <label for="per_page" class="form-label mb-0 text-nowrap">{% translate "Registros por página" %}</label>
-          <select name="per_page" id="per_page" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-            {% for opcao in opcoes_por_pagina %}
-            <option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>
-            {% endfor %}
-          </select>
-        </form>
+      {% endif %}
+      <div class="col-12 col-md">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="icon-base ti tabler-search"></i></span>
+          <input type="search" id="q" name="q" class="form-control" placeholder="{% translate 'Nome, marca ou unidade...' %}" value="{{ termo_pesquisa }}">
+        </div>
       </div>
-
-      <div class="col-md-auto d-flex gap-2">
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select" onchange="this.form.submit()">
+          <option value="ativo" {% if status == "ativo" %}selected{% endif %}>{% translate "Ativos" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select" onchange="this.form.submit()">
+          {% for opcao in opcoes_por_pagina %}
+          <option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+      </div>
+      <div class="col-12 col-md-auto d-flex gap-2" data-tour="exportar">
         <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success">
           <i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}
         </a>
@@ -58,17 +61,16 @@
           <i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF
         </a>
       </div>
-    </div>
+    </form>
   </div>
 
-  <div class="table-responsive text-nowrap">
+  <div class="table-responsive text-nowrap" data-tour="tabela">
     <table class="table">
       <thead>
         <tr>
           <th>{% translate "Insumo" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
-          <th>{% translate "Quantidade" as label %}{% include "_th_ordenavel.html" with campo="quantidade" label=label %}</th>
-          <th>{% translate "Valor pago" as label %}{% include "_th_ordenavel.html" with campo="preco" label=label %}</th>
-          <th>{% translate "Preço por KG/L/UN" as label %}{% include "_th_ordenavel.html" with campo="preco_unidade" label=label %}</th>
+          <th>{% translate "Preço" as label %}{% include "_th_ordenavel.html" with campo="preco_unidade" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
           <th>{% translate "Status" %}</th>
           <th>{% translate "Cadastrado em" as label %}{% include "_th_ordenavel.html" with campo="criado_em" label=label %}</th>
           <th>{% translate "Ações" %}</th>
@@ -77,10 +79,9 @@
       <tbody>
         {% for insumo in insumos %}
         <tr>
-          <td>{{ insumo.codigo }} &mdash; {{ insumo.nome }}</td>
-          <td>{{ insumo.quantidade_por_extenso }}</td>
-          <td>{{ insumo.preco_pago_formatado }}</td>
+          <td>{{ insumo.nome }}{% if insumo.marca %} <small class="text-muted">&middot; {{ insumo.marca }}</small>{% endif %}{% if insumo.processado_origem %} <span class="badge bg-label-warning" title="{% translate 'Gerado por um processado: altere pelo módulo Processados.' %}">{% translate "Processado" %}</span>{% endif %}</td>
           <td>{{ insumo.preco_unidade_formatado }} <small class="text-muted">/ {{ insumo.medida.sigla_preco }}</small></td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=insumo %}</td>{% endif %}
           <td>
             {% if insumo.ativo %}
             <span class="badge bg-label-success">{% translate "Ativo" %}</span>
@@ -90,24 +91,26 @@
           </td>
           <td>{{ insumo.criado_em|date:"d/m/Y H:i" }}</td>
           <td>
-            {% if perms.insumo.change_insumo %}
+            {% if not insumo.processado_origem %}
+            {% if perms.insumo.change_insumo and insumo.cliente_id == user.profile.cliente_id or perms.insumo.change_insumo and perms.cliente.change_itensfilial %}
             <a href="{% url 'insumo-edit' insumo.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
               <i class="icon-base ti tabler-edit"></i>
             </a>
             {% endif %}
-            {% if perms.insumo.delete_insumo %}
-            <form method="post" action="{% url 'insumo-excluir' insumo.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Deseja realmente excluir este insumo? Esta ação poderá afetar registros relacionados." %}');">
+            {% if perms.insumo.delete_insumo and insumo.cliente_id == user.profile.cliente_id or perms.insumo.delete_insumo and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'insumo-excluir' insumo.pk %}" class="d-inline" data-confirmar="{% translate "Deseja realmente excluir este insumo? Esta ação poderá afetar registros relacionados." %}">
               {% csrf_token %}
               <button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}">
                 <i class="icon-base ti tabler-trash"></i>
               </button>
             </form>
             {% endif %}
+            {% endif %}
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" class="text-center py-6">{% translate "Nenhum insumo encontrado." %}</td>
+          <td colspan="{% if mostrar_unidade %}6{% else %}5{% endif %}" class="text-center py-6">{% translate "Nenhum insumo encontrado." %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -117,6 +120,8 @@
   <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
     <form method="get" class="d-flex align-items-center gap-2">
       {% if termo_pesquisa %}<input type="hidden" name="q" value="{{ termo_pesquisa }}">{% endif %}
+      {% if unidade_selecionada %}<input type="hidden" name="unidade" value="{{ unidade_selecionada }}">{% endif %}
+      <input type="hidden" name="status" value="{{ status }}">
       {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
       {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
       <label for="per_page_rodape" class="form-label mb-0 text-nowrap">{% translate "Registros por página" %}</label>
@@ -155,3 +160,17 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+<script>
+  initTour({
+    page: 'insumos',
+    steps: [
+      { element: '[data-tour="novo"]', title: 'Novo insumo', text: 'Cadastre aqui um insumo (com marca, se quiser), quantidade e valor pago; o preço por KG/L/UN é calculado sozinho.' },
+      { element: '[data-tour="pesquisa"]', title: 'Pesquisa e filtros', text: 'Encontre insumos pelo nome, marca ou unidade e filtre por status (ativos, inativos ou todos). Os filtros valem junto com a paginação.' },
+      { element: '[data-tour="exportar"]', title: 'Exportar', text: 'Baixe a lista atual em Excel ou PDF.' },
+      { element: '[data-tour="tabela"]', title: 'Tabela e ações', text: 'Clique nos títulos para ordenar. Na última coluna estão as ações de editar e excluir.', position: 'top' }
+    ]
+  });
+</script>
+{% endblock page_js %}

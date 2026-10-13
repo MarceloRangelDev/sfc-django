@@ -1,0 +1,62 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Balanço" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Financeiro" %}</h4></div>
+
+{% include "_fin_nav.html" with ativa="balanco" %}
+{% include "_aviso_gerencial.html" %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-auto"><label class="form-label" for="data">{% translate "Posição em" %}</label><input type="date" id="data" name="data" class="form-control" value="{{ data|date:'Y-m-d' }}"></div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label" for="unidade">{% translate "Unidade" %}</label>
+        <select name="unidade" id="unidade" class="form-select">
+          {% for u in unidades %}<option value="{{ u.pk }}" {% if unidade_selecionada == u.pk|stringformat:"s" %}selected{% endif %}>{% if u.tipo_estabelecimento == "filial" %}{% translate "Filial" %}{% else %}{% translate "Matriz" %}{% endif %} &mdash; {{ u.nome_razao_social }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Gerar" %}</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4" id="quadroBalanco">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">{% translate "Ativo" %}</h5></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Caixa gerencial" %} <small class="text-muted">({% translate "recebido − pago, sem saldo inicial" %})</small></span><strong>{{ caixa }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Contas a receber em aberto" %}</span><strong>{{ a_receber }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Estoque (a custo)" %}</span><strong>{{ estoque }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between fs-5"><span>{% translate "Total do ativo" %}</span><strong>{{ ativo }}</strong></li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">{% translate "Passivo e patrimônio" %}</h5></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>{% translate "Contas a pagar em aberto" %}</span><strong>{{ a_pagar }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between fs-5"><span>{% translate "Total do passivo" %}</span><strong>{{ passivo }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between {% if patrimonio_negativo %}text-danger{% endif %}"><span>{% translate "Patrimônio (ativo − passivo)" %} <small class="text-muted">({% translate "inclui capital e saldos iniciais não lançados" %})</small></span><strong>{{ patrimonio }}</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="small text-muted mt-3">
+  {% translate "Origem dos dados: caixa = baixas (menos estornos) das contas a receber e a pagar até a data; contas em aberto = valor das contas ativas emitidas até a data menos as baixas até a data; estoque = saldo reconstruído pelo histórico de movimentações até a data, valorizado ao custo atual de cada insumo." %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('financeiro-balanco');</script>
+{% endblock page_js %}
