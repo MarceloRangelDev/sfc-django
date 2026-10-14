@@ -1,0 +1,27 @@
+{% load i18n %}
+{# Incluir UMA vez por página que usa exportar_documento_item.html. Diálogo nativo (<dialog>): sem dependências. #}
+<dialog id="dialogoReceita" aria-labelledby="dialogoReceitaTitulo" class="rounded border-0 shadow p-4" style="max-width:28rem">
+  <h5 id="dialogoReceitaTitulo">{% translate "Incluir receita e observações?" %}</h5>
+  <p class="text-muted mb-4">{% translate "Este registro tem receita e/ou observações. Deseja incluí-las no arquivo?" %}</p>
+  <div class="d-flex gap-2 justify-content-end flex-wrap">
+    <button type="button" class="btn btn-text-secondary" data-escolha="cancelar">{% translate "Cancelar" %}</button>
+    <button type="button" class="btn btn-outline-primary" data-escolha="0">{% translate "Sem receita" %}</button>
+    <button type="button" class="btn btn-primary" data-escolha="1">{% translate "Incluir receita" %}</button>
+  </div>
+</dialog>
+<script>
+(function () {
+  var dialogo = document.getElementById('dialogoReceita'), destino = null;
+  document.addEventListener('click', function (e) {
+    var link = e.target.closest('a.exportar-documento');
+    if (!link || link.dataset.pergunta !== '1') return;  // sem receita/permissão: segue o link normal
+    e.preventDefault(); destino = link.getAttribute('href'); dialogo.showModal();
+  });
+  dialogo.addEventListener('click', function (e) {
+    var escolha = e.target.dataset && e.target.dataset.escolha;
+    if (escolha === undefined) return;
+    dialogo.close();
+    if (escolha !== 'cancelar' && destino) window.location.href = destino + '&incluir_receita=' + escolha;
+  });
+})();
+</script>

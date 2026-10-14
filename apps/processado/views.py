@@ -46,6 +46,11 @@ class ProcessadoFormMixin:
     template_name = "processado_form.html"
     success_url = reverse_lazy("processado")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["ver_receita"] = self.request.user.has_perm("processado.ver_receita")  # receita só com a permissão
+        return kwargs
+
     def get_formset(self):
         dados = self.request.POST if self.request.method == "POST" else None
         instancia = self.object if self.object is not None else Processado(cliente=self.request.user.profile.cliente)

@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
-from apps.processado.forms import BaseItemFormSet, ProcessadoItemForm
+from apps.processado.forms import BaseItemFormSet, CamposReceitaMixin, ProcessadoItemForm
 from apps.produto.models import Produto
 
 from .models import Ficha, FichaItem
@@ -11,17 +11,18 @@ from .services import nome_da_ficha
 CONTROLE = {"class": "form-control"}
 
 
-class FichaForm(forms.ModelForm):
+class FichaForm(CamposReceitaMixin, forms.ModelForm):
     class Meta:
         model = Ficha
-        fields = ["produto", "ativo"]
+        fields = ["produto", "receita", "observacoes", "ativo"]
         widgets = {
             "produto": forms.Select(attrs={"class": "form-select"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, cliente=None, unidades=None, **kwargs):
+    def __init__(self, *args, cliente=None, unidades=None, ver_receita=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.configurar_receita(ver_receita)
         self.cliente = self.instance.cliente if self.instance.pk else cliente
         # Só produtos ATIVOS da mesma unidade; ao editar, o produto atual segue válido.
         filtro = Q(cliente=self.cliente, ativo=True)

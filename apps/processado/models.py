@@ -16,6 +16,10 @@ from web_project.regras.dinheiro import DinheiroService
 # e comprimento. O insumo gerado sempre usa a maior grandeza (1 kg, 1 L, 1 un, 1 m).
 DIMENSOES_DE_SAIDA = (DIMENSAO_MASSA, DIMENSAO_VOLUME, DIMENSAO_UNIDADE, DIMENSAO_COMPRIMENTO)
 
+# Limites dos textos de receita/observações (validados no servidor, nos formulários da tela e da API).
+LIMITE_RECEITA = 5000
+LIMITE_OBSERVACOES = 1000
+
 
 class Processado(models.Model):
     """Receita ou insumo processado de uma unidade (Cliente matriz/filial).
@@ -57,22 +61,35 @@ class Processado(models.Model):
         related_name="processado_origem", verbose_name="Insumo gerado",
     )
     # Exclusão lógica, como nos insumos: preserva histórico e referências.
+    # Receita (modo de preparo) e observações: texto simples (quebras de linha e listas com "- ";
+    # nunca HTML). Só quem tem a permissão `ver_receita` vê ou edita; a auditoria registra apenas
+    # que o texto mudou, sem o conteúdo (ver AUDITORIA_SEM_CONTEUDO).
+    receita = models.TextField(max_length=LIMITE_RECEITA, blank=True, default="", verbose_name="Receita / modo de preparo")
+    observacoes = models.TextField(max_length=LIMITE_OBSERVACOES, blank=True, default="", verbose_name="Observações")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     # Campos em centavos: a auditoria os mostra como "R$ 40,00".
     AUDITORIA_MONETARIOS = ("custo_total",)
+    # Campos de texto longo: a auditoria só diz que mudaram (receita é segredo do negócio).
+    AUDITORIA_SEM_CONTEUDO = ("receita", "observacoes")
 
     class Meta:
         verbose_name = "Processado"
         verbose_name_plural = "Processados"
+        permissions = [("ver_receita", "Ver e editar receita e observações")]
         ordering = ["nome"]
         unique_together = ("cliente", "nome")
         indexes = [models.Index(fields=["cliente", "ativo"], name="processado_cliente_ativo_idx")]
 
     def __str__(self):
         return self.nome
+
+    @property
+    def tem_texto_extra(self):
+        """True se há receita ou observações (decide se a exportação pergunta se deve incluí-las)."""
+        return bool(self.receita or self.observacoes)
 
     @property
     def custo_total_formatado(self):

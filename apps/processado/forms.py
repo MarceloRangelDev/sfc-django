@@ -8,13 +8,41 @@ from apps.insumo.models import Insumo
 from apps.medida.models import Medida
 from web_project.forms import DecimalBRField
 
-from .models import DIMENSOES_DE_SAIDA, Processado, ProcessadoItem
+from .models import DIMENSOES_DE_SAIDA, LIMITE_OBSERVACOES, LIMITE_RECEITA, Processado, ProcessadoItem
 
 CONTROLE = {"class": "form-control"}
 SELECT = {"class": "form-select"}
+CAMPOS_RECEITA = ("receita", "observacoes")
 
 
-class ProcessadoForm(forms.ModelForm):
+def normalizar_texto_longo(texto):
+    """Receita/observações: texto simples. Quebras de linha padronizadas e espaços das pontas
+    removidos; HTML nunca é interpretado (as telas e o PDF escapam o conteúdo)."""
+    return "\n".join((texto or "").splitlines()).strip()  # splitlines trata CRLF, CR e LF
+
+
+class CamposReceitaMixin:
+    """Campos `receita` e `observacoes` (Processado e Ficha). Só existem no formulário para quem tem a
+    permissão `ver_receita` (`ver_receita=True`); sem ela os campos nem são montados, então um POST
+    forjado não grava nada e o conteúdo existente é preservado."""
+
+    def configurar_receita(self, ver_receita):
+        if not ver_receita:
+            for nome in CAMPOS_RECEITA:
+                self.fields.pop(nome, None)
+            return
+        self.fields["receita"].widget = forms.Textarea(attrs={**CONTROLE, "rows": 8, "maxlength": LIMITE_RECEITA,
+            "placeholder": "Modo de preparo. Quebras de linha e listas com \"- \" são mantidas."})
+        self.fields["observacoes"].widget = forms.Textarea(attrs={**CONTROLE, "rows": 3, "maxlength": LIMITE_OBSERVACOES})
+
+    def clean_receita(self):
+        return normalizar_texto_longo(self.cleaned_data.get("receita"))
+
+    def clean_observacoes(self):
+        return normalizar_texto_longo(self.cleaned_data.get("observacoes"))
+
+
+class ProcessadoForm(CamposReceitaMixin, forms.ModelForm):
     """Dados gerais do processado/receita. O custo, o fator e o insumo gerado
     NÃO são campos: são calculados no servidor a cada gravação."""
 
@@ -27,15 +55,16 @@ class ProcessadoForm(forms.ModelForm):
 
     class Meta:
         model = Processado
-        fields = ["nome", "rendimento_quantidade", "rendimento_medida", "ativo"]
+        fields = ["nome", "rendimento_quantidade", "rendimento_medida", "receita", "observacoes", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs=CONTROLE),
             "rendimento_medida": forms.Select(attrs={**SELECT, "data-calc": "medida"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, cliente=None, unidades=None, **kwargs):
+    def __init__(self, *args, cliente=None, unidades=None, ver_receita=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.configurar_receita(ver_receita)
         self.cliente = self.instance.cliente if self.instance.pk else cliente
         # Saída só em massa ou volume (g, kg, mL, L); ao editar, a atual continua válida.
         filtro = Q(ativo=True, dimensao__in=DIMENSOES_DE_SAIDA)

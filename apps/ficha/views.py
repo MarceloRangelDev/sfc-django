@@ -89,6 +89,11 @@ class FichaFormMixin:
     template_name = "ficha_form.html"
     success_url = reverse_lazy("ficha")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["ver_receita"] = self.request.user.has_perm("ficha.ver_receita")  # receita só com a permissão
+        return kwargs
+
     def get_formset(self):
         dados = self.request.POST if self.request.method == "POST" else None
         instancia = self.object if self.object is not None else Ficha(cliente=self.request.user.profile.cliente)

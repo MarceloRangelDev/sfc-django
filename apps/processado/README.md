@@ -67,6 +67,20 @@ Garantias:
 
 Migration `0002_receitas_e_processados`: a tabela antiga era só âncora de permissão. Se existirem linhas antigas (sem cliente/unidade de saída) a migration **para com mensagem** em vez de inventar dados.
 
+### Receita e observações (Fase 1)
+
+Colunas **adicionadas** em `processado_processado` pela migration `processado.0003_receita_e_observacoes` (aditiva e reversível; linhas existentes ficam com texto vazio, nada é recalculado):
+
+| Coluna | Tipo | Nulo | Padrão | Regra |
+|---|---|---|---|---|
+| `receita` | text (limite de **5000** caracteres, validado no servidor) | não | `''` | Modo de preparo. Texto simples: quebras de linha e listas com `- ` são mantidas; **HTML nunca é interpretado** (telas e PDF escapam). |
+| `observacoes` | text (limite de **1000**) | não | `''` | Observações. |
+
+- **Permissão `processado.ver_receita`** (criada pela migration; concedida a *Administrador* e *Gestor*; para os demais, pela tela de Papéis/permissão especial por usuário). Sem ela, os campos **não existem** no formulário nem na API (um POST forjado não grava e o texto existente é preservado) e a pergunta do PDF não aparece. Na API, tentar gravar sem a permissão devolve **403**.
+- **Tenant:** os campos pertencem ao registro, que já é filtrado pelo cliente/unidades do usuário.
+- **Auditoria:** registra *que* receita/observações mudaram (`(conteúdo omitido)`), nunca o texto (`AUDITORIA_SEM_CONTEUDO` no model).
+- **Exportação individual (PDF/Excel):** `processado/<id>/exportar?formato=pdf|xlsx&incluir_receita=1` (tela) e `GET /api/v1/processados/{id}/exportar/` (API). Na lista, o botão *Exportar* abre a pergunta **"Incluir receita e observações?"** quando o registro tem esses textos e o usuário tem a permissão. A escolha é respeitada; sem a permissão o pedido é ignorado. Cada exportação é auditada. Código comum em `web_project/documento.py`.
+
 ## Telas e permissões
 
 Rotas (`urls.py`, todas com `module_required("processado", ...)`): `processado` (lista paginada, pesquisa, status, ordenação, filtro de unidade matriz/filial), `processado/novo`, `processado/<id>/editar`, `processado/<id>/excluir` (POST). Escopo de unidades e permissão `cliente.<ação>_itensfilial`: ver `apps/acl/README.md`. Criação é sempre na unidade do usuário. Custos mostrados na edição são os da última gravação (a tela não calcula nada: o servidor é a única fonte).

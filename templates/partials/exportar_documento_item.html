@@ -1,0 +1,9 @@
+{% load i18n %}
+{# Botões PDF/Excel de UM registro (Processado/Ficha). Parâmetros: url (rota de exportar), pergunta (True se o usuário pode ver a receita E o registro tem receita/observações: nesse caso o diálogo "incluir?" é exibido). #}
+<span class="dropdown d-inline">
+  <button type="button" class="btn btn-icon btn-text-secondary rounded-pill dropdown-toggle hide-arrow" data-bs-toggle="dropdown" aria-label="{% translate 'Exportar' %}" title="{% translate 'Exportar' %}"><i class="icon-base ti tabler-file-export"></i></button>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item exportar-documento" href="{{ url }}?formato=pdf" data-pergunta="{{ pergunta|yesno:'1,0' }}">PDF</a></li>
+    <li><a class="dropdown-item exportar-documento" href="{{ url }}?formato=xlsx" data-pergunta="{{ pergunta|yesno:'1,0' }}">Excel</a></li>
+  </ul>
+</span>

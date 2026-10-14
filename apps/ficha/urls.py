@@ -2,9 +2,13 @@ from django.urls import path
 
 from web_project.decorators import module_required
 
+from web_project.documento import DocumentoView
+
+from .models import Ficha
 from .views import FichaCalcularView, FichaCreateView, FichaExcluirView, FichaListView, FichaUpdateView
 
 urlpatterns = [
+    path("ficha/<int:pk>/exportar", module_required("ficha", "ficha.view_ficha")(DocumentoView.as_view(modelo=Ficha)), name="ficha-exportar"),
     path("ficha", module_required("ficha", "ficha.view_ficha")(FichaListView.as_view()), name="ficha"),
     path("ficha/novo", module_required("ficha", "ficha.add_ficha")(FichaCreateView.as_view()), name="ficha-create"),
     # Prévia de custos do formulário (qualquer usuário que veja fichas; só lê e calcula).

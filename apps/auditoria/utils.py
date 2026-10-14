@@ -92,6 +92,10 @@ def _texto_do_valor(objeto, campo, valor):
         return None
     # Models com valores em centavos declaram quais campos são dinheiro:
     #   AUDITORIA_MONETARIOS = ("preco_pago",)
+    # Textos longos/sigilosos (ex.: receita) declaram `AUDITORIA_SEM_CONTEUDO`: a trilha mostra que
+    # mudaram, mas nunca o conteúdo (quem lê a auditoria não precisa ter acesso a ele).
+    if campo.name in getattr(objeto, "AUDITORIA_SEM_CONTEUDO", ()):
+        return "(conteúdo omitido)"
     if campo.name in getattr(objeto, "AUDITORIA_MONETARIOS", ()):
         return DinheiroService.formatar(valor)
     if isinstance(valor, bool):

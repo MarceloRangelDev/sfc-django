@@ -45,7 +45,10 @@ ADMIN_APPS = [
 # por padrão a cada perfil. O Gestor administra a própria estrutura
 # (usuários, consulta de clientes e envio de notificações).
 EXTRAS = {
+    # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
+    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita")],
     "Gestor": [
+        ("processado", "ver_receita"), ("ficha", "ver_receita"),
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),

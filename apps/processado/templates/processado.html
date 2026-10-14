@@ -83,6 +83,8 @@
             {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
           </td>
           <td>
+            {% url 'processado-exportar' processado.pk as url_exportar %}
+            {% if perms.processado.ver_receita and processado.tem_texto_extra %}{% include "partials/exportar_documento_item.html" with url=url_exportar pergunta=True %}{% else %}{% include "partials/exportar_documento_item.html" with url=url_exportar pergunta=False %}{% endif %}
             {% if perms.processado.change_processado and processado.cliente_id == user.profile.cliente_id or perms.processado.change_processado and perms.cliente.change_itensfilial %}
             <a href="{% url 'processado-edit' processado.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
             {% endif %}
@@ -118,5 +120,6 @@
 
 {% block page_js %}
 {{ block.super }}
+{% include "partials/exportar_documento_dialogo.html" %}
 <script>initTourModulo('processados');</script>
 {% endblock page_js %}

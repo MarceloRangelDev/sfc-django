@@ -40,6 +40,20 @@ Validações: ao menos 1 item, quantidade > 0, um insumo só uma vez, insumos/pr
 
 Migration `0002_fichas_tecnicas`: se existirem fichas antigas (sem cliente/produto) a migration **para com mensagem** em vez de inventar dados.
 
+### Receita e observações (Fase 1)
+
+Colunas **adicionadas** em `ficha_ficha` pela migration `ficha.0003_receita_e_observacoes` (aditiva e reversível; linhas existentes ficam com texto vazio, nada é recalculado):
+
+| Coluna | Tipo | Nulo | Padrão | Regra |
+|---|---|---|---|---|
+| `receita` | text (limite de **5000** caracteres, validado no servidor) | não | `''` | Modo de preparo. Texto simples: quebras de linha e listas com `- ` são mantidas; **HTML nunca é interpretado** (telas e PDF escapam). |
+| `observacoes` | text (limite de **1000**) | não | `''` | Observações. |
+
+- **Permissão `ficha.ver_receita`** (criada pela migration; concedida a *Administrador* e *Gestor*; para os demais, pela tela de Papéis/permissão especial por usuário). Sem ela, os campos **não existem** no formulário nem na API (um POST forjado não grava e o texto existente é preservado) e a pergunta do PDF não aparece. Na API, tentar gravar sem a permissão devolve **403**.
+- **Tenant:** os campos pertencem ao registro, que já é filtrado pelo cliente/unidades do usuário.
+- **Auditoria:** registra *que* receita/observações mudaram (`(conteúdo omitido)`), nunca o texto (`AUDITORIA_SEM_CONTEUDO` no model).
+- **Exportação individual (PDF/Excel):** `ficha/<id>/exportar?formato=pdf|xlsx&incluir_receita=1` (tela) e `GET /api/v1/fichas-tecnicas/{id}/exportar/` (API). Na lista, o botão *Exportar* abre a pergunta **"Incluir receita e observações?"** quando o registro tem esses textos e o usuário tem a permissão. A escolha é respeitada; sem a permissão o pedido é ignorado. Cada exportação é auditada. Código comum em `web_project/documento.py`.
+
 ## Sem nome digitado
 
 A ficha técnica fica vinculada ao **Produto**: o campo "Nome da ficha técnica" saiu do cadastro/edição. A coluna `nome` continua (única por unidade, para não quebrar fichas antigas, precificações e relatórios) e agora é **derivada** a cada gravação por `services.nome_da_ficha`: o nome do produto ("Pizza"); se o produto já tem outra ficha na unidade, ganha sufixo ("Pizza (2)"). Nenhum dado existente foi alterado e não há migration; fichas antigas mantêm o nome que tinham até serem salvas de novo.

@@ -2,9 +2,17 @@ from django.urls import path
 
 from web_project.decorators import module_required
 
+from web_project.documento import DocumentoView
+
+from .models import Processado
 from .views import ProcessadoCalcularView, ProcessadoCreateView, ProcessadoExcluirView, ProcessadoListView, ProcessadoUpdateView
 
 urlpatterns = [
+    path(
+        "processado/<int:pk>/exportar",
+        module_required("processado", "processado.view_processado")(DocumentoView.as_view(modelo=Processado)),
+        name="processado-exportar",
+    ),
     path(
         "processado",
         module_required("processado", "processado.view_processado")(ProcessadoListView.as_view()),

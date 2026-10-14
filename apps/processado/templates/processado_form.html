@@ -32,6 +32,19 @@
           {{ form.rendimento_medida }}
           {% if form.rendimento_medida.errors %}<div class="text-danger small mt-1">{{ form.rendimento_medida.errors|striptags }}</div>{% endif %}
         </div>
+        {% if form.receita %}
+        <div class="col-md-12">
+          <label for="{{ form.receita.id_for_label }}" class="form-label">{% translate "Receita / modo de preparo" %}</label>
+          {{ form.receita }}
+          <div class="form-text">{% translate "Texto simples: quebras de linha e listas iniciadas por &quot;- &quot; são mantidas. Visível só a quem tem permissão." %}</div>
+          {% if form.receita.errors %}<div class="text-danger small mt-1">{{ form.receita.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <label for="{{ form.observacoes.id_for_label }}" class="form-label">{% translate "Observações" %}</label>
+          {{ form.observacoes }}
+          {% if form.observacoes.errors %}<div class="text-danger small mt-1">{{ form.observacoes.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
         <div class="col-md-12">
           <div class="form-check form-switch">
             {{ form.ativo }}

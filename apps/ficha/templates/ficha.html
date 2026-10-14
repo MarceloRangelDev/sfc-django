@@ -85,6 +85,8 @@
           </td>
           <td>{{ ficha.criado_em|date:"d/m/Y H:i" }}</td>
           <td>
+            {% url 'ficha-exportar' ficha.pk as url_exportar %}
+            {% if perms.ficha.ver_receita and ficha.tem_texto_extra %}{% include "partials/exportar_documento_item.html" with url=url_exportar pergunta=True %}{% else %}{% include "partials/exportar_documento_item.html" with url=url_exportar pergunta=False %}{% endif %}
             {% if perms.ficha.change_ficha and ficha.cliente_id == user.profile.cliente_id or perms.ficha.change_ficha and perms.cliente.change_itensfilial %}
             <a href="{% url 'ficha-edit' ficha.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
             {% endif %}
@@ -120,5 +122,6 @@
 
 {% block page_js %}
 {{ block.super }}
+{% include "partials/exportar_documento_dialogo.html" %}
 <script>initTourModulo('fichas');</script>
 {% endblock page_js %}

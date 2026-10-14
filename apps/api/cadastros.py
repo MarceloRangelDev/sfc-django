@@ -6,6 +6,8 @@ from decimal import Decimal
 from django.db.models import Prefetch, Q
 from drf_spectacular.utils import OpenApiParameter
 from rest_framework import serializers
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 
 from apps.canal.forms import CanalForm
 from apps.canal.models import CanalTaxa, CanalVenda
@@ -20,10 +22,11 @@ from apps.precificacao.forms import PrecificacaoForm
 from apps.precificacao.models import Precificacao
 from apps.precificacao.services import salvar_precificacao
 from apps.processado.forms import ItemFormSet as ProcessadoItemFormSet, ProcessadoForm
-from apps.processado.models import Processado, ProcessadoItem
+from apps.processado.models import LIMITE_OBSERVACOES, LIMITE_RECEITA, Processado, ProcessadoItem
 from apps.processado.services import excluir_processado, salvar_processado
 from apps.produto.forms import ProdutoForm
 from apps.produto.models import Produto
+from web_project.documento import exportar_documento, interpretar_booleano
 from web_project.regras.dinheiro import DinheiroService
 
 from .negocio import RecursoViewSet, dados_do_formset, documentar, erros_de
@@ -219,11 +222,60 @@ class ItemSerializer(serializers.Serializer):
     custo = serializers.IntegerField(help_text="Custo desta quantidade, em centavos (calculado).")
 
 
+CAMPOS_RECEITA = ("receita", "observacoes")
+
+
+class SaidaComReceita(serializers.ModelSerializer):
+    """Saída de Processado/Ficha: `receita` e `observacoes` só aparecem para quem tem `<app>.ver_receita`
+    (para os demais as chaves nem existem na resposta)."""
+
+    def to_representation(self, instancia):
+        dados = super().to_representation(instancia)
+        usuario = self.context["request"].user
+        if not usuario.has_perm(f"{instancia._meta.app_label}.ver_receita"):
+            for campo in CAMPOS_RECEITA:
+                dados.pop(campo, None)
+        return dados
+
+
+class EntradaReceita(serializers.Serializer):
+    receita = serializers.CharField(max_length=LIMITE_RECEITA, required=False, allow_blank=True, help_text="Texto simples (quebras de linha mantidas; HTML não é interpretado). Exige a permissão ver_receita.")
+    observacoes = serializers.CharField(max_length=LIMITE_OBSERVACOES, required=False, allow_blank=True, help_text="Texto simples. Exige a permissão ver_receita.")
+
+
+class ReceitaApiMixin:
+    """Receita/observações e exportação individual (PDF/Excel) nos ViewSets de Processado e Ficha."""
+
+    def pode_ver_receita(self):
+        return self.request.user.has_perm(f"{self.permissao_app}.ver_receita")
+
+    def kwargs_do_formulario(self, instancia):
+        return {**super().kwargs_do_formulario(instancia), "ver_receita": self.pode_ver_receita()}
+
+    def receita_atual(self, objeto):
+        return {c: getattr(objeto, c) for c in CAMPOS_RECEITA} if self.pode_ver_receita() else {}
+
+    def preparar(self, dados, instancia):
+        # Quem não tem a permissão não pode gravar receita: resposta clara (403) em vez de ignorar em silêncio.
+        if not self.pode_ver_receita() and any(c in self.request.data for c in CAMPOS_RECEITA):
+            raise PermissionDenied("Você não tem permissão para informar receita ou observações.")
+        return super().preparar(dados, instancia)
+
+    @action(detail=True, methods=["get"], url_path="exportar")
+    def exportar(self, request, pk=None):
+        """Arquivo do registro: `?formato=pdf|xlsx` e `incluir_receita=true|false` (padrão false). A receita e as
+        observações só saem se o usuário tem a permissão `ver_receita`; sem ela o parâmetro é ignorado."""
+        formato = request.query_params.get("formato", "pdf")
+        if formato not in ("pdf", "xlsx"):
+            raise serializers.ValidationError({"formato": ["Use pdf ou xlsx."]})
+        return exportar_documento(request._request, self.get_object(), formato, interpretar_booleano(request.query_params.get("incluir_receita")))
+
+
 def _itens_atuais(itens):
     return [{"insumo": i.insumo_id, "medida": i.medida_id, "quantidade": i.quantidade} for i in itens]
 
 
-class ProcessadoSerializer(serializers.ModelSerializer):
+class ProcessadoSerializer(SaidaComReceita):
     rendimento_medida_nome = serializers.CharField(source="rendimento_medida.medida", read_only=True)
     custo_total_formatado = serializers.CharField(read_only=True)
     insumo_gerado = serializers.IntegerField(source="insumo_id", read_only=True, help_text="Id do insumo criado a partir do processado (1 unidade da maior grandeza).")
@@ -233,12 +285,12 @@ class ProcessadoSerializer(serializers.ModelSerializer):
         model = Processado
         fields = [
             "id", "nome", "rendimento_quantidade", "rendimento_medida", "rendimento_medida_nome", "custo_total", "custo_total_formatado",
-            "fator_rendimento", "insumo_gerado", "itens", "ativo", "criado_em", "atualizado_em",
+            "fator_rendimento", "insumo_gerado", "receita", "observacoes", "itens", "ativo", "criado_em", "atualizado_em",
         ]
         read_only_fields = fields
 
 
-class ProcessadoEntrada(serializers.Serializer):
+class ProcessadoEntrada(EntradaReceita):
     nome = serializers.CharField(max_length=150)
     rendimento_quantidade = serializers.DecimalField(**QUANTIDADE)
     rendimento_medida = serializers.IntegerField(help_text="Id da unidade de saída (massa, volume, unidade ou comprimento).")
@@ -247,7 +299,7 @@ class ProcessadoEntrada(serializers.Serializer):
 
 
 @documentar("processados", ProcessadoSerializer, ProcessadoEntrada)
-class ProcessadoViewSet(RecursoViewSet):
+class ProcessadoViewSet(ReceitaApiMixin, RecursoViewSet):
     """Processados/receitas com a ficha técnica de insumos. O custo, o fator de rendimento e o insumo gerado são calculados
     no servidor e refeitos em cascata quando um insumo muda. DELETE é lógico: inativa o processado e o insumo gerado
     (recusado se outra receita usa o insumo gerado)."""
@@ -256,6 +308,7 @@ class ProcessadoViewSet(RecursoViewSet):
     permissao_app, permissao_model, modulo_slug = "processado", "processado", "processado"
     colunas_ordenaveis = {"nome": "nome", "custo": "custo_total", "criado_em": "criado_em"}
     rotulo = "Processado"
+    permissoes_por_acao = {"exportar": "view"}
 
     def consulta_base(self):
         return Processado.objects.select_related("rendimento_medida").prefetch_related(Prefetch("itens", ProcessadoItem.objects.select_related("insumo", "medida")))
@@ -263,7 +316,7 @@ class ProcessadoViewSet(RecursoViewSet):
     def dados_atuais(self, p):
         return {
             "nome": p.nome, "rendimento_quantidade": p.rendimento_quantidade, "rendimento_medida": p.rendimento_medida_id,
-            "ativo": p.ativo, "itens": _itens_atuais(p.itens.all()),
+            "ativo": p.ativo, "itens": _itens_atuais(p.itens.all()), **self.receita_atual(p),
         }
 
     def preparar(self, dados, instancia):
@@ -291,25 +344,25 @@ class ProcessadoViewSet(RecursoViewSet):
         return Response(status=204)
 
 
-class FichaSerializer(serializers.ModelSerializer):
+class FichaSerializer(SaidaComReceita):
     produto_nome = serializers.CharField(source="produto.nome", read_only=True)
     custo_total_formatado = serializers.CharField(read_only=True)
     itens = ItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Ficha
-        fields = ["id", "nome", "produto", "produto_nome", "custo_total", "custo_total_formatado", "itens", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "produto", "produto_nome", "custo_total", "custo_total_formatado", "receita", "observacoes", "itens", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
-class FichaEntrada(serializers.Serializer):
+class FichaEntrada(EntradaReceita):
     produto = serializers.IntegerField(help_text="Id de um produto ATIVO da sua empresa (ver /produtos/). A ficha usa o nome do produto.")
     ativo = serializers.BooleanField(required=False)
     itens = ItemEntrada(many=True, help_text="Substitui TODOS os itens (ao menos um; sem insumo repetido).")
 
 
 @documentar("fichas-tecnicas", FichaSerializer, FichaEntrada, [OpenApiParameter("produto", int)])
-class FichaViewSet(RecursoViewSet):
+class FichaViewSet(ReceitaApiMixin, RecursoViewSet):
     """Fichas técnicas dos produtos (insumos e quantidades). O custo é calculado no servidor e refeito quando um insumo muda.
     DELETE apaga a ficha sem precificações; com precificações apenas a desativa."""
 
@@ -318,6 +371,7 @@ class FichaViewSet(RecursoViewSet):
     campos_busca = ("nome", "produto__nome")
     colunas_ordenaveis = {"nome": "nome", "produto": "produto__nome", "custo": "custo_total", "criado_em": "criado_em"}
     rotulo = "Ficha técnica"
+    permissoes_por_acao = {"exportar": "view"}
 
     def consulta_base(self):
         return Ficha.objects.select_related("produto").prefetch_related(Prefetch("itens", FichaItem.objects.select_related("insumo", "medida")))
@@ -327,7 +381,7 @@ class FichaViewSet(RecursoViewSet):
         return queryset.filter(produto_id=params["produto"]) if params.get("produto", "").isdigit() else queryset
 
     def dados_atuais(self, f):
-        return {"produto": f.produto_id, "ativo": f.ativo, "itens": _itens_atuais(f.itens.all())}
+        return {"produto": f.produto_id, "ativo": f.ativo, "itens": _itens_atuais(f.itens.all()), **self.receita_atual(f)}
 
     def preparar(self, dados, instancia):
         contexto = super().preparar(dados, instancia)
