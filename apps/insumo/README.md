@@ -37,6 +37,15 @@ POST /insumo/novo → InsumoCreateView → form → Insumo.save() (recalcula pre
 
 ## Banco de dados — `insumo_insumo`
 
+**Fase 3** — colunas adicionadas (migrations `0008` estrutura, `0009` dados, `0010` unicidade; separadas para SQLite e PostgreSQL):
+
+| Coluna | Tipo | Nulo | Padrão | Regra |
+|---|---|---|---|---|
+| `uuid` | uuid | não | `uuid4()` | Identificador público estável, único, não editável (QR Code das etiquetas). Insumos existentes receberam um UUID aleatório na migração 0009 |
+| `dias_validade` | smallint | sim | NULL | Validade padrão em dias (>= 1), usada pela etiqueta com validade "calculada" |
+
+**Histórico do insumo:** `insumo/<id>/historico` (permissão `insumo.view_insumo`, mesmo tenant) lista, a partir da trilha de auditoria, as alterações desse insumo (preço, quantidade, unidade, mínimo...), com filtro por campo e período, evolução com variação percentual e linha do tempo. Não há tabela própria; registros de exportação não aparecem.
+
 | Coluna | Tipo | Obrig. | Descrição | Relacionamento |
 |---|---|---|---|---|
 | `id` | PK | sim | — | — |

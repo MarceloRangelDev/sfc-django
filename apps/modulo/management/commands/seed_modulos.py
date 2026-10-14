@@ -24,6 +24,7 @@ MODULOS_PADRAO = {
     "insumo": dict(nome="Insumos", descricao="Cadastro de insumos utilizados nas receitas/produtos.", icone="ti tabler-basket", rota="insumo", app="insumo", permissao="insumo.view_insumo", secao=P, ordem=10),
     "processado": dict(nome="Processados", descricao="Processados e receitas.", icone="ti tabler-chef-hat", rota="processado", app="processado", permissao="processado.view_processado", secao=P, ordem=20),
     "categoria": dict(nome="Categorias", descricao="Categorias usadas para organizar insumos e produtos.", icone="ti tabler-tags", rota="categoria", app="categoria", permissao="categoria.view_categoria", secao=P, ordem=30),
+    "compras": dict(nome="Lista de compras", descricao="Lista de compras com sugestões do estoque, itens avulsos e serviços.", icone="ti tabler-shopping-cart-plus", rota="compras", app="compras", permissao="compras.view_itemcompra", secao=P, ordem=17),
     "consumidor": dict(nome="Consumidores", descricao="Clientes finais da empresa (cadastro, contatos e consentimento LGPD).", icone="ti tabler-users-group", rota="consumidor", app="consumidor", permissao="consumidor.view_consumidor", secao=P, ordem=45),
     "produto": dict(nome="Produto", descricao="Cadastro de produtos.", icone="ti tabler-package", rota="produto", app="produto", permissao="produto.view_produto", secao=P, ordem=40),
     "ficha": dict(nome="Ficha Técnica", descricao="Fichas técnicas de produtos/receitas.", icone="ti tabler-clipboard-list", rota="ficha", app="ficha", permissao="ficha.view_ficha", secao=P, ordem=50),

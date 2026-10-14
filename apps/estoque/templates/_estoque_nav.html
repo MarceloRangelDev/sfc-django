@@ -6,5 +6,6 @@
   {% if perms.estoque.view_transferenciaestoque %}
   <li class="nav-item"><a class="nav-link {% if ativa == 'transferencias' %}active{% endif %}" href="{% url 'estoque-transferencias' %}">{% translate "Transferências" %}</a></li>
   {% endif %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'etiquetas' %}active{% endif %}" href="{% url 'estoque-etiquetas' %}">{% translate "Etiquetas" %}</a></li>
   <li class="nav-item"><a class="nav-link {% if ativa == 'alertas' %}active{% endif %}" href="{% url 'estoque-alertas' %}">{% translate "Alertas" %}</a></li>
 </ul>

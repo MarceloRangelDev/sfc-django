@@ -89,6 +89,16 @@ class MinimoForm(forms.Form):
         widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}),
         error_messages={"invalid": "Informe uma quantidade válida.", "min_value": "O mínimo não pode ser negativo."},
     )
+    fator_reposicao = DecimalBRField(
+        max_digits=6, decimal_places=2, min_value=Decimal("1"), max_value=Decimal("100"), required=False, label="Fator de reposição", initial=Decimal("2"),
+        widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}),
+        error_messages={"invalid": "Informe um fator válido.", "min_value": "O fator deve ser pelo menos 1."},
+    )
+    multiplo_compra = DecimalBRField(
+        max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), max_value=LIMITE_QUANTIDADE, required=False, label="Múltiplo de compra",
+        widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal", "placeholder": "Opcional"}),
+        error_messages={"invalid": "Informe uma quantidade válida.", "min_value": "O múltiplo deve ser maior que zero."},
+    )
 
 
 class TransferenciaForm(forms.Form):

@@ -92,6 +92,8 @@
           <td>{{ insumo.criado_em|date:"d/m/Y H:i" }}</td>
           <td>
             {% if not insumo.processado_origem %}
+            <a href="{% url 'insumo-historico' insumo.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Histórico de alterações' %}"><i class="icon-base ti tabler-history"></i></a>
+            {% if perms.estoque.view_movimentoestoque %}<a href="{% url 'estoque-etiquetas' %}?insumo={{ insumo.pk }}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Etiquetas com QR Code' %}"><i class="icon-base ti tabler-qrcode"></i></a>{% endif %}
             {% if perms.insumo.change_insumo and insumo.cliente_id == user.profile.cliente_id or perms.insumo.change_insumo and perms.cliente.change_itensfilial %}
             <a href="{% url 'insumo-edit' insumo.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}">
               <i class="icon-base ti tabler-edit"></i>

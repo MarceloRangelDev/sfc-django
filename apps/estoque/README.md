@@ -75,9 +75,18 @@ As permissões do módulo cabem na matriz de papéis assim: linha **Estoque** (`
 - `estoque_movimentoestoque`: `cliente_id`, `insumo_id`, `lote_id`, `tipo`, `quantidade` (> 0), `saldo_lote_apos`, `responsavel_id` + `responsavel_nome`, `transferencia_id` (nulo), `observacao`, `data`, `criado_em`, `editado_em` (nulo; preenchido na edição — migration `0002`, reversível). Índice `(cliente, insumo, data)`.
 - `estoque_transferenciaestoque`: `origem_id`, `destino_id` (CheckConstraint origem ≠ destino), `responsavel_id` + `responsavel_nome`, `observacao`, `data`, `criado_em`.
 - `estoque_estoqueminimo`: `insumo_id` (um por insumo), `minimo` decimal(15,4).
+  - **Fase 3** (migration `estoque.0003_fator_reposicao_e_multiplo`, aditiva): `fator_reposicao` decimal(6,2) NOT NULL, padrão `2` (>= 1) e `multiplo_compra` decimal(15,4) NULL (> 0). Alimentam a lista de compras (`apps/compras`). Linhas existentes ficam com fator 2 e sem múltiplo; nada é recalculado. Alterações são auditadas junto com o mínimo.
 - `estoque_alertaenviado`: `cliente_id`, `tipo` (`baixo`/`vencimento`), `referencia` (id do insumo/lote), `data`. Único por dia.
 
 Migrations: `estoque/0001` e `modulo/0007_modulo_estoque` (cadastra "estoque", inclui nos segmentos padrão e habilita para clientes que já têm segmento, sem sobrescrever vínculos; e a linha "Transferências de estoque" da matriz de papéis).
+
+## Etiquetas com QR Code (`etiquetas.py`)
+
+Aba **Etiquetas** (`estoque/etiquetas`, permissão `estoque.view_movimentoestoque`) e API `GET /api/v1/estoque/saldos/{insumo}/etiqueta/`. Gera PDF com nome, lote (opcional), emissão, validade e QR:
+- **Formatos:** `a4` (grade 3 × 8 de 63,5 × 33,9 mm) e `termica` (50 × 30 mm, uma por página); 1 a 200 etiquetas.
+- **Validade:** o usuário escolhe a cada geração — `digitada` (obrigatória, não anterior à emissão) ou `calculada` (emissão + `Insumo.dias_validade`; erro se o insumo não tem dias).
+- **QR:** contém só `<BASE_URL>/i/<uuid do insumo>` (`BASE_URL` do `.env`; sem ela, o host da requisição). O UUID é aleatório e estável (`Insumo.uuid`). A rota `/i/<uuid>` exige login, módulo de estoque e o mesmo tenant: de outra empresa ou UUID inexistente → 404 idêntico; anônimo → login e volta ao insumo. Sem preço, lote ou dado pessoal no código.
+- Cada geração é auditada (`exportar`). O QR usa o gerador nativo do reportlab (sem dependência nova). A conferência visual do layout deve ser feita imprimindo uma folha de teste.
 
 ## Limitações conhecidas
 

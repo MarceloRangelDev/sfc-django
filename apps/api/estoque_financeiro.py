@@ -9,6 +9,7 @@ from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
@@ -18,8 +19,9 @@ from apps.cliente.models import Cliente
 from apps.dashboard.services import PRESETS, indicadores, periodo
 from apps.estoque.forms import LIMITE_QUANTIDADE
 from apps.estoque.models import Lote, TransferenciaEstoque
+from apps.estoque.etiquetas import EtiquetaParametrosForm, resposta_etiquetas
 from apps.estoque.services import (
-    alertas_de_estoque_baixo, alertas_de_vencimento, anotar_saldo, definir_minimo, dias_alerta_vencimento as dias_estoque, transferir,
+    alertas_de_estoque_baixo, alertas_de_vencimento, anotar_saldo, definir_minimo, MANTER, dias_alerta_vencimento as dias_estoque, transferir,
 )
 from apps.estoque.views import _situacao, _unidades_da_transferencia
 from apps.financeiro.forms import BaixaForm, CategoriaFinanceiraForm, PeriodoForm, conta_form_para
@@ -74,6 +76,8 @@ class SaldoSerializer(serializers.Serializer):
 
 class MinimoEntrada(serializers.Serializer):
     minimo = serializers.DecimalField(max_digits=15, decimal_places=4, min_value=0, max_value=LIMITE_QUANTIDADE, help_text="Quantidade mínima na unidade do insumo; 0 desliga o alerta.")
+    fator_reposicao = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=1, max_value=100, required=False, help_text="Lista de compras: sugestão = mínimo × fator − saldo (padrão 2). Omitido = não altera.")
+    multiplo_compra = serializers.DecimalField(max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), max_value=LIMITE_QUANTIDADE, required=False, allow_null=True, help_text="Embalagem: a sugestão é arredondada para cima a um múltiplo. null = remove; omitido = não altera.")
 
 
 @extend_schema(tags=["estoque"])
@@ -84,7 +88,7 @@ class EstoqueSaldoViewSet(viewsets.GenericViewSet):
     serializer_class = SaldoSerializer
     permission_classes = [PermissaoDoSistema]
     permissao_app, permissao_model, modulo_slug = "estoque", "movimentoestoque", "estoque"
-    permissoes_por_acao = {"minimo": "change"}
+    permissoes_por_acao = {"minimo": "change", "etiqueta": "view"}
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -127,6 +131,22 @@ class EstoqueSaldoViewSet(viewsets.GenericViewSet):
     def retrieve(self, request, pk=None):
         return resposta(self._dados(self.get_object(), com_lotes=True))
 
+    @extend_schema(
+        responses={200: OpenApiTypes.BINARY}, summary="Etiquetas do insumo em PDF (com QR Code)",
+        parameters=[OpenApiParameter("formato", str, description="a4 (padrão) ou termica"), OpenApiParameter("copias", int, description="1 a 200 (padrão 1)"),
+                    OpenApiParameter("lote", str), OpenApiParameter("emissao", str, description="AAAA-MM-DD (padrão hoje)"),
+                    OpenApiParameter("modo_validade", str, description="digitada (padrão, exige `validade`) ou calculada (emissão + dias de validade do insumo)"),
+                    OpenApiParameter("validade", str, description="AAAA-MM-DD")],
+    )
+    @action(detail=True, methods=["get"], url_path="etiqueta")
+    def etiqueta(self, request, pk=None):
+        insumo = self.get_object()
+        dados = {"modo_validade": "digitada", "copias": 1, "formato": "a4", **{k: v for k, v in request.query_params.items()}}
+        form = EtiquetaParametrosForm(dados, insumo=insumo)
+        if not form.is_valid():
+            raise serializers.ValidationError({campo: [str(m) for m in erros] for campo, erros in form.errors.items()})
+        return resposta_etiquetas(request._request, insumo, form.cleaned_data)
+
     @extend_schema(request=MinimoEntrada, responses={200: SaldoSerializer}, summary="Define o estoque mínimo do insumo",
                    parameters=[OpenApiParameter("id", int, OpenApiParameter.PATH, description="Id do insumo.")])
     @action(detail=True, methods=["put"], url_path="minimo")
@@ -134,7 +154,8 @@ class EstoqueSaldoViewSet(viewsets.GenericViewSet):
         insumo = self.get_object()
         entrada = MinimoEntrada(data=request.data)
         entrada.is_valid(raise_exception=True)
-        definir_minimo(request, insumo, entrada.validated_data["minimo"])  # audita a mudança
+        dados = entrada.validated_data
+        definir_minimo(request, insumo, dados["minimo"], dados.get("fator_reposicao", MANTER), dados.get("multiplo_compra", MANTER))  # audita
         return resposta(self._dados(self.get_queryset().get(pk=insumo.pk), com_lotes=True), "Estoque mínimo atualizado.")
 
 

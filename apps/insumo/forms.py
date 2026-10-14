@@ -40,11 +40,12 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
 
     class Meta:
         model = Insumo
-        fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "ativo"]
+        fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "dias_validade", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control"}),
             "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60}),
             "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
+            "dias_validade": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 32000, "placeholder": "Opcional (ex.: 5)"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

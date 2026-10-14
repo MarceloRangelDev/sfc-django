@@ -19,6 +19,18 @@
           {% if form.minimo.errors %}<div class="text-danger small mt-1">{{ form.minimo.errors|striptags }}</div>{% endif %}
           <div class="form-text">{% translate "Quando o saldo ficar abaixo deste valor, o estoque gera um alerta. Use 0 para não alertar." %}</div>
         </div>
+        <div class="col-md-4">
+          <label for="{{ form.fator_reposicao.id_for_label }}" class="form-label">{% translate "Fator de reposição" %}</label>
+          {{ form.fator_reposicao }}
+          {% if form.fator_reposicao.errors %}<div class="text-danger small mt-1">{{ form.fator_reposicao.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Lista de compras: sugere comprar (mínimo × fator) − saldo. Fator 2 = repor até o dobro do mínimo." %}</div>
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.multiplo_compra.id_for_label }}" class="form-label">{% translate "Múltiplo de compra" %} ({{ insumo.medida.sigla }})</label>
+          {{ form.multiplo_compra }}
+          {% if form.multiplo_compra.errors %}<div class="text-danger small mt-1">{{ form.multiplo_compra.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Opcional: tamanho da embalagem. A sugestão é arredondada para cima a um múltiplo dele." %}</div>
+        </div>
       </div>
       <div class="mt-6">
         {% url 'estoque-insumo' insumo.pk as url_voltar %}

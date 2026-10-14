@@ -155,6 +155,16 @@ class EstoqueMinimo(models.Model):
 
     insumo = models.OneToOneField("insumo.Insumo", on_delete=models.CASCADE, related_name="estoque_minimo", verbose_name="Insumo")
     minimo = models.DecimalField(max_digits=15, decimal_places=4, default=Decimal("0"), validators=[MinValueValidator(Decimal("0"))], verbose_name="Quantidade mínima")
+    # Lista de compras (apps/compras): quantidade sugerida = mínimo x fator_reposicao - saldo, arredondada
+    # PARA CIMA ao múltiplo de compra (embalagem) quando informado. Fator 2 = "repor até o dobro do mínimo".
+    fator_reposicao = models.DecimalField(
+        max_digits=6, decimal_places=2, default=Decimal("2"), db_default=Decimal("2"),
+        validators=[MinValueValidator(Decimal("1"))], verbose_name="Fator de reposição",
+    )
+    multiplo_compra = models.DecimalField(
+        max_digits=15, decimal_places=4, null=True, blank=True,
+        validators=[MinValueValidator(Decimal("0.0001"))], verbose_name="Múltiplo de compra",
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

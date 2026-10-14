@@ -1,0 +1,77 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Histórico do insumo" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <h4 class="mb-0">{% translate "Histórico" %}: {{ insumo.nome }} <small class="text-muted">{{ insumo.codigo }}</small></h4>
+  <a href="{% url 'insumo' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+</div>
+
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" for="campo">{% translate "Campo" %}</label>
+        <select id="campo" name="campo" class="form-select">
+          <option value="">{% translate "Todas as alterações" %}</option>
+          {% for chave, rotulo in campos %}<option value="{{ chave }}" {% if chave == campo %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto"><label class="form-label" for="de">{% translate "De" %}</label><input type="date" id="de" name="de" class="form-control" value="{{ de }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="ate">{% translate "Até" %}</label><input type="date" id="ate" name="ate" class="form-control" value="{{ ate }}"></div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-filter me-1"></i>{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+</div>
+
+{% if campo and evolucao %}
+<div class="card mb-6">
+  <div class="card-header"><h5 class="mb-0">{% translate "Evolução" %}: {{ evolucao.0.rotulo }}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Quando" %}</th><th>{% translate "Por" %}</th><th>{% translate "Antes" %}</th><th>{% translate "Depois" %}</th><th class="text-end">{% translate "Variação" %}</th></tr></thead>
+      <tbody>
+        {% for e in evolucao %}
+        <tr>
+          <td>{{ e.quando|date:"d/m/Y H:i" }}</td><td>{{ e.usuario.username|default:"—" }}</td>
+          <td>{{ e.antes|default:"(vazio)" }}</td><td>{{ e.depois|default:"(vazio)" }}</td>
+          <td class="text-end">{{ e.variacao|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h5 class="mb-0">{% translate "Linha do tempo" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Quando" %}</th><th>{% translate "Por" %}</th><th>{% translate "Ação" %}</th><th>{% translate "Alterações" %}</th></tr></thead>
+      <tbody>
+        {% for evento in eventos %}
+        <tr>
+          <td class="text-nowrap">{{ evento.registro.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>{{ evento.registro.usuario.username|default:"—" }}</td>
+          <td>{{ evento.registro.acao|capfirst }}</td>
+          <td>
+            {% for a in evento.alteracoes %}
+            <div>{{ a.rotulo }}: {{ a.antes|default:"(vazio)" }} → {{ a.depois|default:"(vazio)" }}{% if a.variacao %} <span class="badge bg-label-secondary">{{ a.variacao }}</span>{% endif %}</div>
+            {% empty %}
+            <span class="text-muted">{{ evento.registro.descricao|truncatechars:120 }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center py-6">{% translate "Nenhuma alteração registrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if limitado %}<div class="card-body text-muted small">{% translate "Mostrando os 500 registros mais recentes; use o filtro de período para ver os anteriores." %}</div>{% endif %}
+</div>
+{% endblock %}

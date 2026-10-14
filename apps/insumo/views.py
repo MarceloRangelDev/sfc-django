@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, ListView, UpdateView
+from django.views.generic import CreateView, ListView, TemplateView, UpdateView
 
 from apps.auditoria.mixins import AuditoriaFormMixin
 from apps.auditoria.utils import registrar as registrar_auditoria
@@ -177,3 +177,31 @@ class InsumoExcluirView(View):
             insumo.save(update_fields=["ativo", "atualizado_em"])
         messages.success(request, f'Insumo "{insumo.nome}" excluído com sucesso.')
         return redirect("insumo")
+
+
+class InsumoPorUuidView(View):
+    """Destino do QR Code das etiquetas (`/i/<uuid>`): leva ao insumo no estoque. O UUID sozinho NÃO dá acesso:
+    exige login, módulo de estoque habilitado e que o insumo seja do tenant do usuário (escopo de visualização);
+    de outra empresa responde 404, igual a um UUID inexistente (não revela que existe)."""
+
+    def get(self, request, uuid):
+        insumo = get_object_or_404(Insumo, uuid=uuid, cliente__in=clientes_dos_itens(request.user, "view"))
+        return redirect("estoque-insumo", pk=insumo.pk)
+
+
+class InsumoHistoricoView(TemplateView):
+    """Histórico de alterações de UM insumo (preço, quantidade, unidade, mínimo...), a partir da trilha de
+    auditoria — só registros desse insumo, dentro do escopo do usuário. Permite filtrar por campo e período e
+    mostra a variação percentual dos valores numéricos/monetários."""
+
+    template_name = "insumo_historico.html"
+
+    def get_context_data(self, **kwargs):
+        from .historico import montar_historico
+
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        insumo = get_object_or_404(
+            Insumo.objects.select_related("medida", "cliente"), pk=kwargs["pk"], cliente__in=clientes_dos_itens(self.request.user, "view")
+        )
+        context.update(insumo=insumo, **montar_historico(insumo, self.request.GET))
+        return context

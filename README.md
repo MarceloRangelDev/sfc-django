@@ -216,6 +216,7 @@ sfc-django/
 │   ├── estoque/                # Estoque: lotes, validade, movimentações, transferências e alertas
 │   ├── custo/                  # Custo operacional fixo/variável distribuído por categoria
 │   ├── categoria/              # Categorias (usadas pelos produtos) com ticket médio e % do faturamento
+│   ├── compras/                # Lista de compras: sugestões do estoque, itens manuais e serviços
 │   ├── consumidor/             # Consumidores (clientes finais): cadastro, LGPD, ViaCEP/BrasilAPI
 │   ├── cliente/                # Clientes (tenants), Matriz/Filiais, segmento e Gestor padrão
 │   ├── insumo/                 # Insumos (cálculo de preço por KG/L/UN)
@@ -380,6 +381,9 @@ Permissão = permissão nativa do Django exigida (além de estar autenticado). "
 | GET/PUT/PATCH/DELETE | `/perfis/{id}/` | Consulta / atualiza / exclui | Bearer | `view/change/delete_group` |
 | GET | `/permissoes/` | Catálogo de permissões atribuíveis | Bearer | `auth.view_permission` |
 | GET | `/auditoria/`, `/auditoria/{id}/` | Trilha de auditoria (filtros `q`, `usuario`, `modulo`, `acao`, `de`, `ate`); somente leitura | Bearer | `auditoria.view_registroauditoria` |
+| GET/POST | `/compras/itens/`, `/compras/itens/{id}/` | Lista de compras: itens de insumo ou avulsos/serviços (CRUD auditado) | Bearer + módulo `compras` | `compras.*_itemcompra` |
+| GET / POST | `/compras/sugestoes/`, `/compras/sugestoes/adicionar/` | Sugestões do estoque `(mínimo × fator) − saldo` (múltiplo de compra opcional); adicionar é idempotente e a quantidade é do servidor | Bearer + módulo | `view_` / `add_itemcompra` |
+| GET | `/estoque/saldos/{insumo}/etiqueta/` | PDF de etiquetas com QR (`formato=a4\|termica`, `copias`, `lote`, `emissao`, `modo_validade=digitada\|calculada`, `validade`) | Bearer + módulo `estoque` | `estoque.view_movimentoestoque` |
 | GET/POST | `/consumidores/`, `/consumidores/{id}/` | Consumidores (clientes finais): lista com documento mascarado e sem contatos; detalhe completo; `DELETE` **anonimiza** (LGPD) | Bearer + módulo `consumidor` | `consumidor.*_consumidor` |
 | GET | `/consumidores/consulta-cep/{cep}/`, `/consumidores/consulta-cnpj/{cnpj}/` | Sugestão de endereço (ViaCEP) e de dados do CNPJ (BrasilAPI); não grava; 30/min por usuário | Bearer + módulo | `consumidor.add_consumidor` |
 | GET/POST | `/produtos/`, `/produtos/{id}/` | Produtos: lista (`q`, `categoria`, `ativo`, `ordenar`) / cria; consulta / atualiza (PUT, PATCH) / exclui (sem uso apaga; em uso só desativa) | Bearer + módulo `produto` | `produto.view/add/change/delete_produto` |
@@ -833,5 +837,6 @@ edição de estoque: delta = sinal × (nova − antiga); saldo do lote e saldos 
 8. **Interface:** a verificação visual das telas foi feita manualmente no navegador (insumos, medidas, usuários, filtro de perfil por cliente); não há testes automatizados de interface (clicar em botões).
 9. **Valores de referência de cozinha** (copo americano 200 ml, xícara 240 ml, colher de café 2 ml) podem variar por região — ajuste na tela de Medidas conforme a sua realidade (só se a medida ainda não estiver em uso).
 10. **Não foi feito teste de carga** (muitos usuários simultâneos).
-11. **Evolução em fases (PDV, compras, cotações, clientes finais, pedidos, hora/dia, integrações, fiscal):** em andamento. **Fase 1 (receita e observações em Processados e Fichas, com PDF/Excel individual)** e **Fase 2 (Consumidores / clientes finais, com ViaCEP e BrasilAPI e anonimização LGPD)** concluídas. Fases seguintes pendentes; a emissão fiscal (NFS-e Nacional, NFC-e, NF-e) depende de certificado, ambiente de homologação e credenciais do provedor, e **não** será simulada.
+11. **Evolução em fases (PDV, compras, cotações, clientes finais, pedidos, hora/dia, integrações, fiscal):** em andamento. **Fase 1 (receita e observações em Processados e Fichas, com PDF/Excel individual)** **Fase 2 (Consumidores / clientes finais, com ViaCEP e BrasilAPI e anonimização LGPD)** e **Fase 3 (lista de compras com sugestões, UUID do insumo, etiquetas A4/térmica com QR Code e histórico do insumo)** concluídas. Fases seguintes pendentes; a emissão fiscal (NFS-e Nacional, NFC-e, NF-e) depende de certificado, ambiente de homologação e credenciais do provedor, e **não** será simulada.
 12. **Consumidores:** prazo de retenção automática dos dados pessoais **não definido** (a anonimização é manual); o consentimento LGPD é registrado mas não bloqueia o cadastro; os provedores ViaCEP e BrasilAPI são gratuitos e sem SLA (a tela funciona com digitação manual se estiverem fora). Veja `apps/consumidor/README.md`.
+13. **Etiquetas/QR:** o layout do PDF (A4 3×8 e térmica 50×30) foi gerado e testado automaticamente, mas **não foi conferido impresso**; imprima uma folha de teste e ajuste as medidas em `apps/estoque/etiquetas.py` se a sua folha/impressora diferir. Configure `BASE_URL` no `.env`: é o endereço gravado no QR (trocá-lo depois invalida os QR já impressos).

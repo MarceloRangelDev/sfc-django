@@ -188,12 +188,12 @@ class InsumoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Insumo
         fields = [
-            "id", "codigo", "nome", "marca", "medida", "medida_detalhe", "quantidade", "quantidade_por_extenso",
+            "id", "codigo", "uuid", "nome", "marca", "medida", "medida_detalhe", "quantidade", "quantidade_por_extenso",
             "preco_pago", "preco_pago_decimal", "preco_pago_formatado",
             "preco_unidade", "preco_unidade_decimal", "preco_unidade_formatado", "rotulo_preco",
-            "ativo", "criado_em", "atualizado_em",
+            "dias_validade", "ativo", "criado_em", "atualizado_em",
         ]
-        read_only_fields = ["criado_em", "atualizado_em"]
+        read_only_fields = ["uuid", "criado_em", "atualizado_em"]
         validators = []  # unicidade (cliente, nome) tratada em validate_nome
 
     @extend_schema_field(serializers.CharField())

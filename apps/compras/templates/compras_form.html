@@ -1,0 +1,63 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar item" %}{% else %}{% translate "Novo item de compra" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar item da lista de compras" %}{% else %}{% translate "Novo item da lista de compras" %}{% endif %}</h4>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" id="formItemCompra" data-form-salvar novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        {% if form.fields.cliente %}
+        <div class="col-md-6">
+          <label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.cliente }}
+          {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="col-md-6">
+          <label for="{{ form.insumo.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
+          {{ form.insumo }}
+          {% if form.insumo.errors %}<div class="text-danger small mt-1">{{ form.insumo.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Escolha um insumo do estoque ou deixe em branco para um item avulso ou serviço." %}</div>
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Item avulso / serviço" %}</label>
+          {{ form.descricao }}
+          {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Ignorado quando um insumo é escolhido (o nome vem do insumo)." %}</div>
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade" %}</label>
+          {{ form.quantidade }}
+          {% if form.quantidade.errors %}<div class="text-danger small mt-1">{{ form.quantidade.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.medida.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.medida }}
+          {% if form.medida.errors %}<div class="text-danger small mt-1">{{ form.medida.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-12">
+          <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
+          {{ form.observacao }}
+          {% if form.observacao.errors %}<div class="text-danger small mt-1">{{ form.observacao.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="mt-6">
+        {% url 'compras' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

@@ -2,9 +2,20 @@ from django.urls import path
 
 from web_project.decorators import module_required
 
-from .views import InsumoCreateView, InsumoExcluirView, InsumoListView, InsumoUpdateView
+from .views import InsumoCreateView, InsumoExcluirView, InsumoHistoricoView, InsumoListView, InsumoPorUuidView, InsumoUpdateView
 
 urlpatterns = [
+    path(
+        "insumo/<int:pk>/historico",
+        module_required("insumo", "insumo.view_insumo")(InsumoHistoricoView.as_view()),
+        name="insumo-historico",
+    ),
+    # Destino do QR Code das etiquetas (ver InsumoPorUuidView): login + estoque habilitado + mesmo tenant.
+    path(
+        "i/<uuid:uuid>",
+        module_required("estoque", "estoque.view_movimentoestoque")(InsumoPorUuidView.as_view()),
+        name="insumo-uuid",
+    ),
     path(
         "insumo",
         module_required("insumo", "insumo.view_insumo")(InsumoListView.as_view()),

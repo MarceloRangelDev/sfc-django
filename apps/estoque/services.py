@@ -316,23 +316,46 @@ def transferir(usuario, origem, destino, itens, observacao=""):
 # Mínimos
 # --------------------------------------------------------------------------
 
-def definir_minimo(request, insumo, minimo):
-    """Grava a quantidade mínima do insumo (0 = sem alerta), com auditoria."""
+MANTER = object()  # "não alterar" (None significaria "limpar" no múltiplo de compra)
+
+
+def definir_minimo(request, insumo, minimo, fator_reposicao=MANTER, multiplo_compra=MANTER):
+    """Grava a quantidade mínima do insumo (0 = sem alerta) e, se informados, o fator de reposição e o
+    múltiplo de compra usados pela lista de compras, com auditoria das mudanças."""
     from apps.auditoria.utils import registrar_alteracoes
 
     if minimo < 0:
         raise RegraNegocioError("O mínimo não pode ser negativo.")
+    if fator_reposicao is not MANTER and fator_reposicao < 1:
+        raise RegraNegocioError("O fator de reposição deve ser pelo menos 1.")
+    if multiplo_compra is not MANTER and multiplo_compra is not None and multiplo_compra <= 0:
+        raise RegraNegocioError("O múltiplo de compra deve ser maior que zero.")
+
+    def texto(valor, sigla=""):
+        return "(vazio)" if valor is None else f"{valor.normalize():f}{' ' + sigla if sigla else ''}"
+
     with transaction.atomic():
         atual = EstoqueMinimo.objects.filter(insumo=insumo).first()
-        antes = atual.minimo if atual else ZERO
-        EstoqueMinimo.objects.update_or_create(insumo=insumo, defaults={"minimo": minimo})
-        if antes != minimo:
-            sigla = insumo.medida.sigla
-            registrar_alteracoes(
-                request, insumo,
-                [{"campo": "estoque_minimo", "rotulo": "Estoque mínimo", "antes": f"{antes.normalize():f} {sigla}", "depois": f"{minimo.normalize():f} {sigla}"}],
-                modulo="estoque",
-            )
+        novos = {"minimo": minimo}
+        if fator_reposicao is not MANTER:
+            novos["fator_reposicao"] = fator_reposicao
+        if multiplo_compra is not MANTER:
+            novos["multiplo_compra"] = multiplo_compra
+        antes = {
+            "minimo": atual.minimo if atual else ZERO,
+            "fator_reposicao": atual.fator_reposicao if atual else Decimal("2"),
+            "multiplo_compra": atual.multiplo_compra if atual else None,
+        }
+        EstoqueMinimo.objects.update_or_create(insumo=insumo, defaults=novos)
+        sigla = insumo.medida.sigla
+        rotulos = {"minimo": ("estoque_minimo", "Estoque mínimo", sigla), "fator_reposicao": ("fator_reposicao", "Fator de reposição", ""),
+                   "multiplo_compra": ("multiplo_compra", "Múltiplo de compra", sigla)}
+        alteracoes = [
+            {"campo": rotulos[c][0], "rotulo": rotulos[c][1], "antes": texto(antes[c], rotulos[c][2]), "depois": texto(v, rotulos[c][2])}
+            for c, v in novos.items() if antes[c] != v
+        ]
+        if alteracoes:
+            registrar_alteracoes(request, insumo, alteracoes, modulo="estoque")
 
 
 # --------------------------------------------------------------------------

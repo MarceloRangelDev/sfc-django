@@ -16,6 +16,7 @@ from web_project.exportacao import exportar_excel, exportar_pdf, sanitizar_texto
 from web_project.mixins import ListaPaginadaMixin, ListaPorUnidadeMixin
 from web_project.regras import RegraNegocioError
 
+from .etiquetas import EtiquetaForm, resposta_etiquetas
 from .forms import ItensTransferenciaFormSet, MinimoForm, MovimentoEdicaoForm, MovimentoForm, TransferenciaForm
 from .models import EstoqueMinimo, Lote, MovimentoEstoque, TransferenciaEstoque
 from .services import (
@@ -24,6 +25,7 @@ from .services import (
     anotar_saldo,
     definir_minimo,
     dias_alerta_vencimento,
+    MANTER,
     MANTER_VALIDADE,
     editar_movimento,
     registrar_entrada,
@@ -235,7 +237,10 @@ class MinimoView(FormView):
 
     def get_initial(self):
         atual = EstoqueMinimo.objects.filter(insumo=self.get_insumo()).first()
-        return {"minimo": atual.minimo if atual else 0}
+        return {
+            "minimo": atual.minimo if atual else 0, "fator_reposicao": atual.fator_reposicao if atual else 2,
+            "multiplo_compra": atual.multiplo_compra if atual else None,
+        }
 
     def get_context_data(self, **kwargs):
         return TemplateLayout.init(self, super().get_context_data(insumo=self.get_insumo(), **kwargs))
@@ -243,7 +248,9 @@ class MinimoView(FormView):
     def form_valid(self, form):
         insumo = self.get_insumo()
         try:
-            definir_minimo(self.request, insumo, form.cleaned_data["minimo"])
+            definir_minimo(
+                self.request, insumo, form.cleaned_data["minimo"], form.cleaned_data["fator_reposicao"] or MANTER, form.cleaned_data["multiplo_compra"],
+            )
         except RegraNegocioError as erro:
             form.add_error(None, str(erro))
             return self.form_invalid(form)
@@ -409,3 +416,26 @@ class AlertasView(TemplateView):
             lote.dias = (lote.validade - hoje).days
         context.update(baixos=alertas_de_estoque_baixo(escopo), lotes=lotes, dias_vencimento=dias_alerta_vencimento())
         return context
+
+
+class EtiquetaView(FormView):
+    """Gera etiquetas (PDF) de um insumo: formato A4 ou térmica, lote opcional, validade digitada ou calculada."""
+
+    template_name = "estoque_etiquetas.html"
+
+    def get_form(self, form_class=None):
+        insumos = Insumo.objects.filter(cliente__in=clientes_dos_itens(self.request.user, "view"), ativo=True).select_related("cliente").order_by("nome")
+        dados = self.request.POST if self.request.method == "POST" else None
+        inicial = {"emissao": timezone.localdate(), "modo_validade": "digitada", "copias": 1, "formato": "a4"}
+        if self.request.GET.get("insumo", "").isdigit():
+            inicial["insumo"] = self.request.GET["insumo"]
+        return EtiquetaForm(dados, initial=inicial, insumos=insumos)
+
+    def get_context_data(self, **kwargs):
+        return TemplateLayout.init(self, super().get_context_data(**kwargs))
+
+    def post(self, request, *args, **kwargs):
+        form = self.get_form()
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        return resposta_etiquetas(request, form.cleaned_data["insumo"], form.cleaned_data)

@@ -1,4 +1,5 @@
 import re
+import uuid
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -85,6 +86,14 @@ class Insumo(models.Model):
     # apps/insumo/views.py::InsumoExcluirView) — o registro permanece no
     # banco (histórico, fichas técnicas que já o referenciam etc.) e some
     # apenas da listagem padrão.
+    # Identificador público ESTÁVEL do insumo (usado no QR Code das etiquetas): aleatório, não adivinhável
+    # em sequência e sem dado sensível. Nunca muda. Quem escaneia ainda precisa de login e do tenant certo
+    # (ver apps/insumo/views.py::InsumoPorUuidView).
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name="Identificador (QR Code)")
+    # Validade padrão em dias após a emissão da etiqueta; usada quando o usuário escolhe validade "calculada".
+    dias_validade = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)], verbose_name="Validade padrão (dias)",
+    )
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Cadastrado em")
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")

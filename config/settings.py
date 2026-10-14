@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "apps.processado",
     "apps.categoria",
     "apps.consumidor",
+    "apps.compras",
     "apps.canal",
     "apps.custo",
     "apps.estoque",
