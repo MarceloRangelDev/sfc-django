@@ -1,0 +1,146 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar consumidor" %}{% else %}{% translate "Novo consumidor" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar consumidor" %}{% else %}{% translate "Novo consumidor" %}{% endif %}</h4>
+
+<form method="post" id="formConsumidor" data-form-salvar novalidate
+      data-url-cep="{% url 'consumidor-consulta-cep' %}" data-url-cnpj="{% url 'consumidor-consulta-cnpj' %}">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="card mb-6">
+    <div class="card-header"><h5 class="mb-0">{% translate "Identificação" %}</h5></div>
+    <div class="card-body">
+      <div class="row g-4">
+        {% if form.fields.cliente %}
+        <div class="col-md-6">
+          <label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>
+          {{ form.cliente }}
+          {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="col-md-6">
+          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome / Razão social" %}</label>
+          {{ form.nome }}
+          {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.tipo_pessoa.id_for_label }}" class="form-label">{% translate "Tipo de pessoa" %}</label>
+          {{ form.tipo_pessoa }}
+        </div>
+        <div class="col-md-5">
+          <label for="{{ form.documento.id_for_label }}" class="form-label">{% translate "CPF/CNPJ" %} <small class="text-muted">({% translate "opcional" %})</small></label>
+          <div class="input-group">
+            {{ form.documento }}
+            <button type="button" class="btn btn-outline-secondary" id="consultarCnpj" title="{% translate 'Buscar dados do CNPJ (fonte externa)' %}">{% translate "Buscar CNPJ" %}</button>
+          </div>
+          {% if form.documento.errors %}<div class="text-danger small mt-1">{{ form.documento.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ form.data_nascimento.id_for_label }}" class="form-label">{% translate "Data de nascimento" %}</label>
+          {{ form.data_nascimento }}
+          {% if form.data_nascimento.errors %}<div class="text-danger small mt-1">{{ form.data_nascimento.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-12"><div class="form-text" id="avisoConsulta" aria-live="polite"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header"><h5 class="mb-0">{% translate "Contatos" %}</h5></div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-3"><label for="{{ form.telefone.id_for_label }}" class="form-label">{% translate "Telefone" %}</label>{{ form.telefone }}{% if form.telefone.errors %}<div class="text-danger small mt-1">{{ form.telefone.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-3"><label for="{{ form.whatsapp.id_for_label }}" class="form-label">{% translate "WhatsApp" %}</label>{{ form.whatsapp }}{% if form.whatsapp.errors %}<div class="text-danger small mt-1">{{ form.whatsapp.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-3"><label for="{{ form.instagram.id_for_label }}" class="form-label">{% translate "Instagram" %}</label>{{ form.instagram }}{% if form.instagram.errors %}<div class="text-danger small mt-1">{{ form.instagram.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-3"><label for="{{ form.email.id_for_label }}" class="form-label">{% translate "E-mail" %}</label>{{ form.email }}{% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors|striptags }}</div>{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header"><h5 class="mb-0">{% translate "Endereço" %}</h5></div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-3">
+          <label for="{{ form.cep.id_for_label }}" class="form-label">{% translate "CEP" %}</label>
+          <div class="input-group">
+            {{ form.cep }}
+            <button type="button" class="btn btn-outline-secondary" id="consultarCep" title="{% translate 'Buscar endereço pelo CEP (fonte externa)' %}">{% translate "Buscar" %}</button>
+          </div>
+          {% if form.cep.errors %}<div class="text-danger small mt-1">{{ form.cep.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6"><label for="{{ form.logradouro.id_for_label }}" class="form-label">{% translate "Logradouro" %}</label>{{ form.logradouro }}</div>
+        <div class="col-md-3"><label for="{{ form.numero.id_for_label }}" class="form-label">{% translate "Número" %}</label>{{ form.numero }}</div>
+        <div class="col-md-4"><label for="{{ form.complemento.id_for_label }}" class="form-label">{% translate "Complemento" %}</label>{{ form.complemento }}</div>
+        <div class="col-md-3"><label for="{{ form.bairro.id_for_label }}" class="form-label">{% translate "Bairro" %}</label>{{ form.bairro }}</div>
+        <div class="col-md-3"><label for="{{ form.cidade.id_for_label }}" class="form-label">{% translate "Cidade" %}</label>{{ form.cidade }}</div>
+        <div class="col-md-2">
+          <label for="{{ form.uf.id_for_label }}" class="form-label">{% translate "UF" %}</label>{{ form.uf }}
+          {% if form.uf.errors %}<div class="text-danger small mt-1">{{ form.uf.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-body">
+      <div class="form-check mb-3">
+        {{ form.consentimento_lgpd }}
+        <label class="form-check-label" for="{{ form.consentimento_lgpd.id_for_label }}">{% translate "O consumidor consentiu o uso dos seus dados (LGPD)" %}</label>
+        {% if object.consentimento_em %}<div class="form-text">{% blocktranslate with data=object.consentimento_em|date:"d/m/Y H:i" %}Consentimento registrado em {{ data }}.{% endblocktranslate %}</div>{% endif %}
+      </div>
+      <div class="form-check form-switch">
+        {{ form.ativo }}
+        <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
+      </div>
+    </div>
+  </div>
+
+  {% url 'consumidor' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}
+  {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+</form>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+(function () {
+  // Consultas externas = SUGESTÃO: só pré-preenche campos; o usuário confere e salva (o servidor valida de novo).
+  var form = document.getElementById('formConsumidor'), aviso = document.getElementById('avisoConsulta');
+  var falha = '{% translate "Não foi possível consultar. Preencha manualmente." %}';
+  function campo(nome) { return form.querySelector('[name="' + nome + '"]'); }
+  function consultar(url, parametro, valor, aoReceber) {
+    aviso.className = 'form-text'; aviso.textContent = '{% translate "Consultando..." %}';
+    fetch(url + '?' + parametro + '=' + encodeURIComponent(valor), { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, dados: d }; }); })
+      .then(function (r) {
+        if (!r.ok) { aviso.className = 'form-text text-danger'; aviso.textContent = r.dados.erro || falha; return; }
+        aoReceber(r.dados);
+        aviso.className = 'form-text text-warning'; aviso.textContent = r.dados.aviso;
+      })
+      .catch(function () { aviso.className = 'form-text text-danger'; aviso.textContent = falha; });
+  }
+  function preencher(dados, nomes) {
+    nomes.forEach(function (n) {
+      if (dados[n] !== undefined && dados[n] !== '' && campo(n)) { campo(n).value = dados[n]; campo(n).dispatchEvent(new Event('input', { bubbles: true })); }
+    });
+  }
+  document.getElementById('consultarCep').addEventListener('click', function () {
+    consultar(form.dataset.urlCep, 'cep', campo('cep').value, function (d) { preencher(d, ['logradouro', 'bairro', 'cidade', 'uf']); });
+  });
+  document.getElementById('consultarCnpj').addEventListener('click', function () {
+    campo('tipo_pessoa').value = 'PJ';
+    consultar(form.dataset.urlCnpj, 'cnpj', campo('documento').value, function (d) {
+      preencher(d, ['cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf', 'telefone']);
+      if (!campo('nome').value) campo('nome').value = d.nome;
+    });
+  });
+})();
+</script>
+{% endblock %}

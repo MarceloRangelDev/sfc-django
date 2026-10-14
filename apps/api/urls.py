@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import cadastros, estoque_financeiro, views, views_operacao
+from . import cadastros, consumidores, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -28,6 +28,7 @@ router.register("financeiro/contas-receber", estoque_financeiro.ContaReceberView
 router.register("financeiro/dre", estoque_financeiro.DreViewSet, basename="api-financeiro-dre")
 router.register("financeiro/balanco", estoque_financeiro.BalancoViewSet, basename="api-financeiro-balanco")
 router.register("painel", estoque_financeiro.PainelViewSet, basename="api-painel")
+router.register("consumidores", consumidores.ConsumidorViewSet, basename="api-consumidor")
 router.register("produtos", cadastros.ProdutoViewSet, basename="api-produto")
 router.register("canais-venda", cadastros.CanalViewSet, basename="api-canal")
 router.register("custos-operacionais", cadastros.CustoViewSet, basename="api-custo")

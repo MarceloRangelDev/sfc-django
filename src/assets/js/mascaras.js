@@ -1,7 +1,7 @@
 /**
  * Máscaras reutilizáveis (frontend) — uso:  <input data-mask="cpf">
  *
- * Tipos: cpf, cnpj, cpf-cnpj (decide pelo tamanho), telefone, celular,
+ * Tipos: cpf, cnpj, cpf-cnpj (decide pelo tamanho), telefone, celular, fone, cep,
  *        moeda, decimal, inteiro, data, datahora.
  *
  * IMPORTANTE: a máscara só melhora a digitação. TODA validação é refeita
@@ -33,6 +33,9 @@
     },
     telefone: function (t) { return aplicarPadrao(soDigitos(t).slice(0, 10), '(99) 9999-9999'); },
     celular: function (t) { return aplicarPadrao(soDigitos(t).slice(0, 11), '(99) 99999-9999'); },
+    // fone: fixo (10 dígitos) ou celular (11), decidido pelo tamanho; cep: 00000-000.
+    fone: function (t) { var d = soDigitos(t).slice(0, 11); return d.length > 10 ? formatadores.celular(d) : formatadores.telefone(d); },
+    cep: function (t) { return aplicarPadrao(soDigitos(t).slice(0, 8), '99999-999'); },
     data: function (t) { return aplicarPadrao(soDigitos(t).slice(0, 8), '99/99/9999'); },
     datahora: function (t) { return aplicarPadrao(soDigitos(t).slice(0, 12), '99/99/9999 99:99'); },
     inteiro: function (t) { return soDigitos(t); },

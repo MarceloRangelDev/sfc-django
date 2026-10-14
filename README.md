@@ -216,6 +216,7 @@ sfc-django/
 │   ├── estoque/                # Estoque: lotes, validade, movimentações, transferências e alertas
 │   ├── custo/                  # Custo operacional fixo/variável distribuído por categoria
 │   ├── categoria/              # Categorias (usadas pelos produtos) com ticket médio e % do faturamento
+│   ├── consumidor/             # Consumidores (clientes finais): cadastro, LGPD, ViaCEP/BrasilAPI
 │   ├── cliente/                # Clientes (tenants), Matriz/Filiais, segmento e Gestor padrão
 │   ├── insumo/                 # Insumos (cálculo de preço por KG/L/UN)
 │   ├── medida/                 # Unidades de medida (tabela `medidas`) + prévia de cálculo
@@ -379,6 +380,8 @@ Permissão = permissão nativa do Django exigida (além de estar autenticado). "
 | GET/PUT/PATCH/DELETE | `/perfis/{id}/` | Consulta / atualiza / exclui | Bearer | `view/change/delete_group` |
 | GET | `/permissoes/` | Catálogo de permissões atribuíveis | Bearer | `auth.view_permission` |
 | GET | `/auditoria/`, `/auditoria/{id}/` | Trilha de auditoria (filtros `q`, `usuario`, `modulo`, `acao`, `de`, `ate`); somente leitura | Bearer | `auditoria.view_registroauditoria` |
+| GET/POST | `/consumidores/`, `/consumidores/{id}/` | Consumidores (clientes finais): lista com documento mascarado e sem contatos; detalhe completo; `DELETE` **anonimiza** (LGPD) | Bearer + módulo `consumidor` | `consumidor.*_consumidor` |
+| GET | `/consumidores/consulta-cep/{cep}/`, `/consumidores/consulta-cnpj/{cnpj}/` | Sugestão de endereço (ViaCEP) e de dados do CNPJ (BrasilAPI); não grava; 30/min por usuário | Bearer + módulo | `consumidor.add_consumidor` |
 | GET/POST | `/produtos/`, `/produtos/{id}/` | Produtos: lista (`q`, `categoria`, `ativo`, `ordenar`) / cria; consulta / atualiza (PUT, PATCH) / exclui (sem uso apaga; em uso só desativa) | Bearer + módulo `produto` | `produto.view/add/change/delete_produto` |
 | GET/POST | `/canais-venda/`, `/canais-venda/{id}/` | Canais de venda com `taxas` (percentual OU valor fixo em centavos); alterar taxas refaz as precificações | Bearer + módulo `canal-venda` | `canal.*_canalvenda` |
 | GET/POST | `/custos-operacionais/`, `/custos-operacionais/{id}/` | Custos fixos/variáveis mensais (`valor` em centavos; `modelo` = custo comum) | Bearer + módulo `custo-operacional` | `custo.*_custooperacional` |
@@ -830,4 +833,5 @@ edição de estoque: delta = sinal × (nova − antiga); saldo do lote e saldos 
 8. **Interface:** a verificação visual das telas foi feita manualmente no navegador (insumos, medidas, usuários, filtro de perfil por cliente); não há testes automatizados de interface (clicar em botões).
 9. **Valores de referência de cozinha** (copo americano 200 ml, xícara 240 ml, colher de café 2 ml) podem variar por região — ajuste na tela de Medidas conforme a sua realidade (só se a medida ainda não estiver em uso).
 10. **Não foi feito teste de carga** (muitos usuários simultâneos).
-11. **Evolução em fases (PDV, compras, cotações, clientes finais, pedidos, hora/dia, integrações, fiscal):** em andamento. **Fase 1 (receita e observações em Processados e Fichas, com PDF/Excel individual)** concluída. Fases seguintes pendentes; a emissão fiscal (NFS-e Nacional, NFC-e, NF-e) depende de certificado, ambiente de homologação e credenciais do provedor, e **não** será simulada.
+11. **Evolução em fases (PDV, compras, cotações, clientes finais, pedidos, hora/dia, integrações, fiscal):** em andamento. **Fase 1 (receita e observações em Processados e Fichas, com PDF/Excel individual)** e **Fase 2 (Consumidores / clientes finais, com ViaCEP e BrasilAPI e anonimização LGPD)** concluídas. Fases seguintes pendentes; a emissão fiscal (NFS-e Nacional, NFC-e, NF-e) depende de certificado, ambiente de homologação e credenciais do provedor, e **não** será simulada.
+12. **Consumidores:** prazo de retenção automática dos dados pessoais **não definido** (a anonimização é manual); o consentimento LGPD é registrado mas não bloqueia o cadastro; os provedores ViaCEP e BrasilAPI são gratuitos e sem SLA (a tela funciona com digitação manual se estiverem fora). Veja `apps/consumidor/README.md`.

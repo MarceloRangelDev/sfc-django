@@ -34,6 +34,8 @@ urlpatterns = [
     path("", include("apps.produto.urls")),
     # processados urls
     path("", include("apps.processado.urls")),
+    # consumidor urls (clientes finais da empresa)
+    path("", include("apps.consumidor.urls")),
     # categoria urls
     path("", include("apps.categoria.urls")),
     # dashboard urls (usuários online do painel; o painel em si é a rota "index")
