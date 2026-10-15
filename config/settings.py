@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "apps.pedido",
     "apps.maodeobra",
     "apps.integracao",
+    "apps.fiscal",
     "apps.canal",
     "apps.custo",
     "apps.estoque",

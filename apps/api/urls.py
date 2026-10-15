@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import cadastros, compras, consumidores, cotacoes, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import cadastros, compras, consumidores, cotacoes, fiscal, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -39,6 +39,7 @@ router.register("pedidos", pedidos.PedidoViewSet, basename="api-pedido")
 router.register("integracoes", integracoes.ConexaoViewSet, basename="api-integracao")
 router.register("mensagens", integracoes.MensagemViewSet, basename="api-mensagem")
 router.register("compromissos", integracoes.CompromissoViewSet, basename="api-compromisso")
+router.register("fiscal/documentos", fiscal.DocumentoFiscalViewSet, basename="api-documento-fiscal")
 router.register("colaboradores", maodeobra.ColaboradorViewSet, basename="api-colaborador")
 router.register("apontamentos", maodeobra.ApontamentoViewSet, basename="api-apontamento")
 router.register("cotacoes", cotacoes.CotacaoViewSet, basename="api-cotacao")
@@ -71,6 +72,7 @@ def somente_administrador(view):
 urlpatterns = [
     # Autenticação
     path("api/v1/pdv/configuracao/", pdv.ConfiguracaoPdvView.as_view(), name="api-pdv-config"),
+    path("api/v1/fiscal/configuracao/", fiscal.FiscalConfiguracaoViewSet.as_view({"get": "list"}), name="api-fiscal-config"),
     path("api/v1/mao-de-obra/regras/", maodeobra.ConfiguracaoMaoDeObraView.as_view(), name="api-mao-obra-config"),
     path("api/v1/mao-de-obra/relatorio/", maodeobra.RelatorioMaoDeObraView.as_view(), name="api-mao-obra-relatorio"),
     path("api/v1/auth/login/", views.LoginView.as_view(), name="api-login"),

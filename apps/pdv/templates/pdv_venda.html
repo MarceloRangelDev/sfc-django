@@ -20,6 +20,17 @@
   </div>
 </div>
 
+{% if venda.status == "paga" and venda.cliente.emite_nota_fiscal and perms.fiscal.emitir_nota %}
+<div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+  <form method="post" action="{% url 'fiscal-solicitar' venda.pk %}" class="d-flex gap-2">{% csrf_token %}
+    <select name="tipo" class="form-select form-select-sm" aria-label="{% translate 'Tipo de documento' %}"><option value="nfce">NFC-e</option><option value="nfe">NF-e</option><option value="nfse">NFS-e</option></select>
+    <button class="btn btn-outline-primary btn-sm">{% translate "Solicitar nota fiscal" %}</button>
+  </form>
+  <small class="text-muted">{% translate "O comprovante acima é NÃO FISCAL. A nota fiscal só existe quando autorizada pela autoridade fiscal." %}</small>
+  {% for d in venda.documentos_fiscais.all %}<a href="{% url 'fiscal-documento' d.pk %}" class="badge bg-label-{% if d.status == 'autorizada' %}success{% elif d.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ d.get_tipo_display }}: {{ d.get_status_display }}</a>{% endfor %}
+</div></div>
+{% endif %}
+
 {% if venda.status == "cancelada" %}<div class="alert alert-secondary">{% translate "Cancelada" %} {{ venda.cancelada_em|date:"d/m/Y H:i" }}: {{ venda.motivo_cancelamento }}</div>{% endif %}
 
 <div class="row g-4">

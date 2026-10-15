@@ -1,0 +1,49 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Notas fiscais" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h4 class="mb-0">{% translate "Notas fiscais" %}</h4>
+  <div class="d-flex gap-2">
+    {% if pode_emitir %}<form method="post" action="{% url 'fiscal-processar' %}">{% csrf_token %}<button class="btn btn-outline-primary">{% translate "Processar pendentes" %}</button></form>{% endif %}
+    {% if perms.fiscal.change_configuracaofiscal %}<a href="{% url 'fiscal-config' %}" class="btn btn-outline-secondary">{% translate "Configuração fiscal" %}</a>{% endif %}
+  </div>
+</div>
+<div class="alert alert-warning" role="note">
+  {% translate "A emissão fiscal real ainda não está disponível: os pedidos ficam PENDENTES com o motivo, e a venda segue com o comprovante NÃO FISCAL. Nenhum documento é marcado como autorizado sem a resposta real da autoridade fiscal." %}
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select"><option value="">{% translate "Todos" %}</option>{% for v, r in status_opcoes %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Documento" %}</th><th>{% translate "Venda" %}</th><th>{% translate "Ambiente" %}</th><th>{% translate "Status" %}</th><th>{% translate "Situação" %}</th><th>{% translate "Criado em" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for d in documentos %}
+        <tr>
+          <td><a href="{% url 'fiscal-documento' d.pk %}">{{ d.get_tipo_display }}</a></td><td>#{{ d.venda.numero }}</td><td>{{ d.get_ambiente_display }}</td>
+          <td><span class="badge bg-label-{% if d.status == 'autorizada' %}success{% elif d.status == 'rejeitada' or d.status == 'erro' %}danger{% elif d.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ d.get_status_display }}</span></td>
+          <td class="text-truncate" style="max-width: 360px;" title="{{ d.motivo }}">{{ d.motivo|default:"—" }}</td><td>{{ d.criado_em|date:"d/m/Y H:i" }}</td>
+          <td><a href="{% url 'fiscal-documento' d.pk %}" class="btn btn-icon btn-text-secondary rounded-pill"><i class="icon-base ti tabler-eye"></i></a></td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="text-center py-6">{% translate "Nenhum documento fiscal." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}

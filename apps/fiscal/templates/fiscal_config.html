@@ -1,0 +1,60 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Configuração fiscal" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2 d-flex justify-content-between align-items-center"><h4 class="mb-0">{% translate "Configuração fiscal" %}</h4>
+  <a href="{% url 'fiscal-documentos' %}" class="btn btn-outline-secondary">{% translate "Notas fiscais" %}</a></div>
+<div class="alert alert-warning" role="note">
+  {% translate "Esta tela prepara a empresa para emitir nota fiscal. A emissão real depende de integração concluída e homologada com a autoridade fiscal (ver README do módulo); até lá os pedidos ficam pendentes e a venda usa o comprovante não fiscal." %}
+</div>
+
+<div class="card mb-4"><div class="card-body">
+  <form method="post" novalidate>
+    {% csrf_token %}<input type="hidden" name="acao" value="salvar">
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-md-4"><label class="form-label" for="{{ form_cliente.regime_tributario.id_for_label }}">{% translate "Regime tributário" %}</label>{{ form_cliente.regime_tributario }}</div>
+      <div class="col-md-8 d-flex align-items-end"><div class="form-check form-switch">{{ form_cliente.emite_nota_fiscal }}<label class="form-check-label" for="{{ form_cliente.emite_nota_fiscal.id_for_label }}">{% translate "Esta empresa emite nota fiscal" %}</label></div></div>
+      <div class="col-md-4"><label class="form-label" for="{{ form.ambiente.id_for_label }}">{% translate "Ambiente" %}</label>{{ form.ambiente }}</div>
+      <div class="col-md-8"><label class="form-label" for="{{ form.provedor.id_for_label }}">{% translate "Provedor fiscal" %}</label>{{ form.provedor }}</div>
+      <div class="col-12"><span class="form-label d-block">{% translate "Documentos habilitados" %}</span>
+        <div class="form-check form-check-inline">{{ form.habilita_nfce }}<label class="form-check-label" for="{{ form.habilita_nfce.id_for_label }}">NFC-e</label></div>
+        <div class="form-check form-check-inline">{{ form.habilita_nfe }}<label class="form-check-label" for="{{ form.habilita_nfe.id_for_label }}">NF-e</label></div>
+        <div class="form-check form-check-inline">{{ form.habilita_nfse }}<label class="form-check-label" for="{{ form.habilita_nfse.id_for_label }}">NFS-e</label></div></div>
+      <div class="col-md-3"><label class="form-label" for="{{ form.inscricao_municipal.id_for_label }}">{% translate "Inscrição municipal" %}</label>{{ form.inscricao_municipal }}</div>
+      <div class="col-md-3"><label class="form-label" for="{{ form.inscricao_estadual.id_for_label }}">{% translate "Inscrição estadual" %}</label>{{ form.inscricao_estadual }}</div>
+      <div class="col-md-3"><label class="form-label" for="{{ form.codigo_municipio.id_for_label }}">{% translate "Código IBGE do município" %}</label>{{ form.codigo_municipio }}{% if form.codigo_municipio.errors %}<div class="text-danger small mt-1">{{ form.codigo_municipio.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-3"><label class="form-label" for="{{ form.serie.id_for_label }}">{% translate "Série" %}</label>{{ form.serie }}</div>
+    </div>
+    <div class="mt-6"><button class="btn btn-primary">{% translate "Salvar" %}</button></div>
+  </form>
+</div></div>
+
+<div class="card mb-4"><div class="card-body">
+  <h5>{% translate "Certificado digital A1" %}</h5>
+  {% if configuracao.tem_certificado %}
+  <p class="mb-2">{{ configuracao.certificado_assunto }} — {% translate "válido até" %} {{ configuracao.certificado_validade|date:"d/m/Y" }}</p>
+  <form method="post" class="mb-4" data-confirmar="{% translate 'Remover o certificado?' %}">{% csrf_token %}<input type="hidden" name="acao" value="remover_certificado"><button class="btn btn-outline-danger btn-sm">{% translate "Remover certificado" %}</button></form>
+  {% else %}<p class="text-muted">{% translate "Nenhum certificado enviado." %}</p>{% endif %}
+  <form method="post" enctype="multipart/form-data" class="row g-3">{% csrf_token %}<input type="hidden" name="acao" value="certificado">
+    {% if form_cert.non_field_errors %}<div class="col-12"><div class="alert alert-danger" role="alert">{{ form_cert.non_field_errors }}</div></div>{% endif %}
+    <div class="col-md-6"><label class="form-label" for="{{ form_cert.arquivo.id_for_label }}">{{ form_cert.arquivo.label }}</label>{{ form_cert.arquivo }}{% if form_cert.arquivo.errors %}<div class="text-danger small mt-1">{{ form_cert.arquivo.errors|striptags }}</div>{% endif %}</div>
+    <div class="col-md-4"><label class="form-label" for="{{ form_cert.senha.id_for_label }}">{{ form_cert.senha.label }}</label>{{ form_cert.senha }}</div>
+    <div class="col-md-2 d-flex align-items-end"><button class="btn btn-outline-primary w-100">{% translate "Enviar" %}</button></div>
+    <div class="col-12 form-text">{% translate "O arquivo e a senha são guardados cifrados e nunca são exibidos nem registrados em log/auditoria." %}</div>
+  </form>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h5>{% translate "Prontidão por tipo de documento" %}</h5>
+  {% for tipo, pendencias in prontidao.items %}
+  <p class="mb-1"><strong>{{ tipo|upper }}</strong>:
+    {% if pendencias %}<ul class="mb-3">{% for p in pendencias %}<li>{{ p }}</li>{% endfor %}</ul>
+    {% else %}<span class="text-success">{% translate "cadastro completo" %}</span> <span class="text-muted">({% translate "o provedor ainda decide se consegue emitir" %})</span>{% endif %}
+  </p>
+  {% endfor %}
+</div></div>
+{% endblock %}

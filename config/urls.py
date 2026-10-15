@@ -44,6 +44,8 @@ urlpatterns = [
     path("", include("apps.maodeobra.urls")),
     # integracao urls (conexões, mensagens, agenda e webhooks)
     path("", include("apps.integracao.urls")),
+    # fiscal urls (configuração fiscal, certificado e documentos fiscais)
+    path("", include("apps.fiscal.urls")),
     # cotacao urls (cotações de preços entre lojas)
     path("", include("apps.cotacao.urls")),
     # compras urls (lista de compras e sugestões do estoque)

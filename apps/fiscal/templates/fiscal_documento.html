@@ -1,0 +1,34 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ documento }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h4 class="mb-0">{{ documento.get_tipo_display }} — {% translate "venda" %} #{{ documento.venda.numero }}</h4>
+  <a href="{% url 'fiscal-documentos' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+</div>
+<div class="card mb-4"><div class="card-body">
+  <dl class="row mb-0">
+    <dt class="col-sm-3">{% translate "Status" %}</dt><dd class="col-sm-9"><span class="badge bg-label-{% if documento.status == 'autorizada' %}success{% elif documento.status == 'rejeitada' or documento.status == 'erro' %}danger{% elif documento.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ documento.get_status_display }}</span></dd>
+    <dt class="col-sm-3">{% translate "Situação / motivo" %}</dt><dd class="col-sm-9">{{ documento.motivo|default:"—" }}</dd>
+    <dt class="col-sm-3">{% translate "Ambiente" %}</dt><dd class="col-sm-9">{{ documento.get_ambiente_display }}</dd>
+    <dt class="col-sm-3">{% translate "Número / série" %}</dt><dd class="col-sm-9">{% if documento.numero %}{{ documento.numero }} / {{ documento.serie }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-3">{% translate "Chave de acesso" %}</dt><dd class="col-sm-9">{{ documento.chave_acesso|default:"—" }}</dd>
+    <dt class="col-sm-3">{% translate "Protocolo" %}</dt><dd class="col-sm-9">{{ documento.protocolo|default:"—" }}</dd>
+    <dt class="col-sm-3">{% translate "Tentativas" %}</dt><dd class="col-sm-9">{{ documento.tentativas }}</dd>
+    <dt class="col-sm-3">{% translate "Criado em" %}</dt><dd class="col-sm-9">{{ documento.criado_em|date:"d/m/Y H:i" }}</dd>
+  </dl>
+  <p class="text-muted small mt-4 mb-0">{% translate "O DANFE/cupom fiscal só é gerado a partir de um documento autorizado pela autoridade fiscal." %}</p>
+</div></div>
+{% if pode_emitir and documento.status != "cancelada" %}
+<div class="card"><div class="card-body">
+  <h5>{% translate "Cancelar documento" %}</h5>
+  <form method="post" action="{% url 'fiscal-cancelar' documento.pk %}" class="row g-3" data-confirmar="{% translate 'Cancelar este documento fiscal?' %}">{% csrf_token %}
+    <div class="col-md-9"><input type="text" name="motivo" class="form-control" minlength="15" maxlength="255" required placeholder="{% translate 'Motivo (mínimo 15 caracteres)' %}"></div>
+    <div class="col-md-3"><button class="btn btn-outline-danger w-100">{% translate "Cancelar documento" %}</button></div>
+  </form>
+</div></div>
+{% endif %}
+{% endblock %}
