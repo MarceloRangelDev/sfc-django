@@ -1,0 +1,58 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ conexao.nome }} - {% translate "Integrações" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start py-4 mb-2 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1">{{ conexao.nome }} <span class="badge bg-label-{% if conexao.status == 'conectada' %}success{% elif conexao.status == 'erro' %}danger{% else %}secondary{% endif %}">{{ conexao.get_status_display }}</span></h4>
+    <small class="text-muted">{{ adaptador.rotulo }} · {{ conexao.cliente.nome_razao_social }}</small>
+  </div>
+  <a href="{% url 'integracoes' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+</div>
+
+{% if conexao.ultimo_erro %}<div class="alert alert-danger">{% translate "Último erro" %}: {{ conexao.ultimo_erro }}</div>{% endif %}
+{% if not adaptador.validado %}<div class="alert alert-warning">{% translate "Conector ainda não homologado contra uma conta real." %}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card mb-4"><div class="card-body">
+      <h6>{% translate "Estado" %}</h6>
+      <dl class="row mb-0">
+        <dt class="col-5">{% translate "Escopos" %}</dt><dd class="col-7">{{ conexao.escopos|default:"—" }}</dd>
+        <dt class="col-5">{% translate "Expira em" %}</dt><dd class="col-7">{{ conexao.expira_em|date:"d/m/Y H:i"|default:"—" }}</dd>
+        <dt class="col-5">{% translate "Última sincronização" %}</dt><dd class="col-7">{{ conexao.ultima_sincronizacao|date:"d/m/Y H:i"|default:"—" }}</dd>
+        <dt class="col-5">{% translate "Credenciais" %}</dt><dd class="col-7">{% if conexao.credenciais_cifradas %}{% translate "guardadas cifradas (não exibidas)" %}{% else %}{% translate "nenhuma" %}{% endif %}</dd>
+      </dl>
+      {% if webhook_url %}
+      <hr><h6>{% translate "URL do webhook" %}</h6>
+      <code class="user-select-all d-block text-break">{{ webhook_url }}</code>
+      <div class="form-text">{% translate "Cadastre esta URL no provedor. As chamadas só são aceitas com a assinatura correta." %}</div>
+      {% endif %}
+    </div></div>
+    {% if pode_alterar %}
+    <div class="card"><div class="card-body d-flex flex-wrap gap-2">
+      {% if conexao.status != "desconectada" and conexao.status != "revogada" %}
+      <form method="post" action="{% url 'integracao-acao' conexao.pk 'testar' %}">{% csrf_token %}<button class="btn btn-outline-primary">{% translate "Testar conexão" %}</button></form>
+      {% if adaptador.sincroniza_agenda %}<form method="post" action="{% url 'integracao-acao' conexao.pk 'sincronizar' %}">{% csrf_token %}<button class="btn btn-outline-primary">{% translate "Sincronizar agora" %}</button></form>{% endif %}
+      {% if not adaptador.usa_oauth %}<a class="btn btn-outline-secondary" href="{% url 'integracao-credenciais' conexao.pk %}">{% translate "Trocar credenciais" %}</a>{% endif %}
+      <form method="post" action="{% url 'integracao-acao' conexao.pk 'desconectar' %}" data-confirmar="{% translate 'Desconectar? O acesso será revogado e as credenciais apagadas.' %}">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Desconectar" %}</button></form>
+      {% elif perms.integracao.delete_conexao %}
+      <form method="post" action="{% url 'integracao-acao' conexao.pk 'excluir' %}" data-confirmar="{% translate 'Excluir esta conexão?' %}">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Excluir" %}</button></form>
+      {% endif %}
+      {% if tem_mensagens %}<a class="btn btn-outline-secondary" href="{% url 'integracao-mensagens' conexao.pk %}">{% translate "Mensagens" %}</a>{% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Registro operacional" %}</h6></div>
+      <ul class="list-group list-group-flush">
+        {% for l in logs %}<li class="list-group-item small"><span class="badge bg-label-{% if l.nivel == 'erro' %}danger{% elif l.nivel == 'aviso' %}warning{% else %}secondary{% endif %}">{{ l.get_nivel_display }}</span> {{ l.criado_em|date:"d/m H:i" }} · <strong>{{ l.evento }}</strong> {{ l.detalhe }}</li>
+        {% empty %}<li class="list-group-item text-muted">{% translate "Sem registros." %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

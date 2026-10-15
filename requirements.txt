@@ -12,6 +12,9 @@ resend>=2.0.0
 openpyxl==3.1.5
 reportlab==5.0.1
 
+# Cifra das credenciais das integrações e leitura do certificado digital A1 (Fases 8 e 9)
+cryptography==50.0.2
+
 # API REST + documentação Swagger/OpenAPI (Fase 7)
 djangorestframework==3.16.1
 drf-spectacular==0.30.0

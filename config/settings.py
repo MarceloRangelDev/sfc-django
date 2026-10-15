@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "apps.pdv",
     "apps.pedido",
     "apps.maodeobra",
+    "apps.integracao",
     "apps.canal",
     "apps.custo",
     "apps.estoque",
@@ -278,6 +279,16 @@ MAIL_REPLY_TO = os.environ.get("MAIL_REPLY_TO", default=MAIL_FROM_EMAIL)
 
 DEFAULT_FROM_EMAIL = f"{MAIL_FROM_NAME} <{MAIL_FROM_EMAIL}>" if MAIL_FROM_EMAIL else MAIL_FROM_NAME
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+
+# Integrações (apps/integracao)
+# ------------------------------------------------------------------------------
+# Chave(s) Fernet que cifram as credenciais das integrações (separe por vírgula para rotacionar: a PRIMEIRA cifra, todas decifram).
+# Gere: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())". Em produção, sem ela, o sistema recusa gravar credenciais.
+INTEGRACAO_CRYPTO_KEYS = os.environ.get("INTEGRACAO_CRYPTO_KEYS", default="")
+# OAuth do Google Agenda (console.cloud.google.com): sem estes valores a conexão com o Google fica indisponível.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", default="")
 
 
 # Cache

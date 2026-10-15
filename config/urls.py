@@ -42,6 +42,8 @@ urlpatterns = [
     path("", include("apps.pedido.urls")),
     # maodeobra urls (colaboradores e apontamentos por hora/dia)
     path("", include("apps.maodeobra.urls")),
+    # integracao urls (conexões, mensagens, agenda e webhooks)
+    path("", include("apps.integracao.urls")),
     # cotacao urls (cotações de preços entre lojas)
     path("", include("apps.cotacao.urls")),
     # compras urls (lista de compras e sugestões do estoque)

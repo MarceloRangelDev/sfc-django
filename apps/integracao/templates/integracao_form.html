@@ -1,0 +1,32 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ adaptador.rotulo }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2">{% if conexao %}{% translate "Credenciais" %}: {{ conexao.nome }}{% else %}{% translate "Conectar" %} {{ adaptador.rotulo }}{% endif %}</h4>
+<p class="text-muted">{{ adaptador.descricao }}</p>
+{% if not adaptador.validado %}<div class="alert alert-warning">{% translate "Conector ainda não homologado contra uma conta real." %}</div>{% endif %}
+<div class="alert alert-info">{% translate "Os segredos são guardados cifrados e nunca são exibidos de novo. Use o menor acesso possível (escopo mínimo) e revogue no provedor se precisar." %}{% if adaptador.escopos %} <br><strong>{% translate "Escopos necessários" %}:</strong> {{ adaptador.escopos|join:", " }}{% endif %}</div>
+<div class="card"><div class="card-body">
+  <form method="post" autocomplete="off" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      {% for campo in form %}
+      <div class="{% if campo.field.widget.input_type == 'checkbox' %}col-12{% else %}col-md-6{% endif %}">
+        {% if campo.field.widget.input_type == 'checkbox' %}<div class="form-check">{{ campo }} <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label></div>
+        {% else %}<label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>{{ campo }}{% endif %}
+        {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+        {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-6 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">{% translate "Salvar e testar" %}</button>
+      <a class="btn btn-text-secondary" href="{% if conexao %}{% url 'integracao-detalhe' conexao.pk %}{% else %}{% url 'integracoes' %}{% endif %}">{% translate "Cancelar" %}</a>
+    </div>
+  </form>
+</div></div>
+{% endblock %}

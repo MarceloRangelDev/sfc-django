@@ -1,0 +1,38 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Agenda" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Agenda" %}</h4>
+  {% if perms.integracao.add_compromisso %}<a href="{% url 'compromisso-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo compromisso" %}</a>{% endif %}
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="tipo">{% translate "Tipo" %}</label><select id="tipo" name="tipo" class="form-select"><option value="">{% translate "Todos" %}</option>{% for v, r in tipos %}<option value="{{ v }}" {% if tipo == v %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+      <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label><select id="status" name="status" class="form-select"><option value="">{% translate "Ativos" %}</option><option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option><option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option></select></div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap"><table class="table">
+    <thead><tr><th>{% translate "Início" as label %}{% include "_th_ordenavel.html" with campo="inicio" label=label %}</th><th>{% translate "Fim" %}</th><th>{% translate "Título" as label %}{% include "_th_ordenavel.html" with campo="titulo" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Tipo" %}</th><th>{% translate "Origem" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for c in compromissos %}<tr>
+        <td>{{ c.inicio|date:"d/m/Y H:i" }}</td><td>{{ c.fim|date:"d/m/Y H:i" }}</td><td>{{ c.titulo }}{% if c.todo_o_dia %} <span class="badge bg-label-info">{% translate "dia inteiro" %}</span>{% endif %}</td>
+        {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=c %}</td>{% endif %}<td>{{ c.get_tipo_display }}</td><td>{% if c.origem == "externa" %}{% translate "calendário externo" %}{% else %}{% translate "sistema" %}{% endif %}</td>
+        <td>{% if perms.integracao.change_compromisso and c.cliente_id == user.profile.cliente_id or perms.integracao.change_compromisso and perms.cliente.change_itensfilial %}<a href="{% url 'compromisso-edit' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhum compromisso." %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% if page_obj and is_paginated %}<div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>{% endif %}
+</div>
+{% endblock %}

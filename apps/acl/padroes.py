@@ -27,6 +27,7 @@ SCREEN_APPS = [
     "pdv",
     "pedido",
     "maodeobra",
+    "integracao",
     "ficha",
     "precificacao",
     "custo",
@@ -56,7 +57,9 @@ PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, sup
     ("pdv", "conferir_caixa"), ("pdv", "abrir_caixa"),
 ]
 # Mão de obra revela valor da hora/diária de pessoas: só Administrador (tudo) e Gestor (ver/criar/alterar; excluir é do Administrador).
-MAO_DE_OBRA_GESTOR = [("maodeobra", f"{acao}_{modelo}") for modelo in ("colaborador", "apontamento", "configuracaomaodeobra") for acao in ("view", "add", "change")]
+MAO_DE_OBRA_GESTOR = [("maodeobra", f"{acao}_{modelo}") for modelo in ("colaborador", "apontamento", "configuracaomaodeobra", "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao") for acao in ("view", "add", "change")]
+# Integrações guardam credenciais de terceiros: só Administrador (tudo) e Gestor (conectar, mensagens e log). Compromissos da agenda: todos que operam.
+INTEGRACAO_GESTOR = [("integracao", f"{acao}_{modelo}") for modelo in ("conexao", "mensagem") for acao in ("view", "add", "change")] + [("integracao", "view_logintegracao"), ("integracao", "enviar_mensagem")]
 PEDIDO_PERMISSOES = [("pedido", "mover_pedido"), ("pedido", "cancelar_pedido")]  # mover: todos os perfis que operam; cancelar: Gestor e Administrador
 PDV_CONFIG_GESTOR = [
     (app, f"{acao}_{modelo}") for app, modelo in (("pdvconfig", "formapagamento"), ("pdvconfig", "mesa"), ("pdvconfig", "configuracaopdv"))
@@ -65,11 +68,11 @@ PDV_CONFIG_GESTOR = [
 
 EXTRAS = {
     # PDV: o Operador só vende (e abre/fecha o PRÓPRIO caixa); o resto é de Gestor e Administrador.
-    "Operador": [("pdv", "abrir_caixa"), ("pedido", "mover_pedido")],
+    "Operador": [("pdv", "abrir_caixa"), ("pedido", "mover_pedido"), ("integracao", "change_compromisso")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES],
+    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem')],
     "Gestor": [
-        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR,
+        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),
@@ -102,7 +105,8 @@ AUTH_CODENAMES_ADMINISTRADOR = [
 # Permissões de negócio que NÃO entram na regra "todas as ações por perfil" e só são dadas
 # a quem for autorizado explicitamente (Administrador e, via EXTRAS, o Gestor): transferir
 # estoque entre matriz e filiais e ver os relatórios financeiros (DRE e balanço).
-SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro", "colaborador", "apontamento", "configuracaomaodeobra")
+SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro", "colaborador", "apontamento", "configuracaomaodeobra",
+                        "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao")
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.
