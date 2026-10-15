@@ -33,6 +33,13 @@
             </div>
             <div class="col-md-12">
               <div class="form-check form-switch">
+                {{ form.usar_no_pdv }}
+                <label class="form-check-label" for="{{ form.usar_no_pdv.id_for_label }}">{% translate "Usar no PDV (preço e ficha de venda deste produto)" %}</label>
+              </div>
+              <div class="form-text">{% translate "Só uma precificação por produto pode ser a do PDV; ao marcar esta, as outras deste produto são desmarcadas." %}</div>
+            </div>
+            <div class="col-md-12">
+              <div class="form-check form-switch">
                 {{ form.ativo }}
                 <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativa" %}</label>
               </div>

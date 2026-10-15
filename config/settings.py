@@ -71,6 +71,8 @@ INSTALLED_APPS = [
     "apps.consumidor",
     "apps.compras",
     "apps.cotacao",
+    "apps.pdvconfig",
+    "apps.pdv",
     "apps.canal",
     "apps.custo",
     "apps.estoque",
@@ -136,6 +138,7 @@ TEMPLATES = [
                 "django.templatetags.static",
                 "web_project.template_tags.theme",
                 "web_project.template_tags.versao",  # {% static_v %}: scripts próprios com a data do arquivo na URL
+                "web_project.template_tags.dinheiro",  # {{ centavos|moeda }}
             ],
         },
     },

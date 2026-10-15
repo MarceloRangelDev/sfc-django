@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import cadastros, compras, consumidores, cotacoes, estoque_financeiro, views, views_operacao
+from . import cadastros, compras, consumidores, cotacoes, pdv, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -29,6 +29,12 @@ router.register("financeiro/dre", estoque_financeiro.DreViewSet, basename="api-f
 router.register("financeiro/balanco", estoque_financeiro.BalancoViewSet, basename="api-financeiro-balanco")
 router.register("painel", estoque_financeiro.PainelViewSet, basename="api-painel")
 router.register("consumidores", consumidores.ConsumidorViewSet, basename="api-consumidor")
+router.register("formas-pagamento", pdv.FormaPagamentoViewSet, basename="api-forma-pagamento")
+router.register("mesas", pdv.MesaViewSet, basename="api-mesa")
+router.register("pdv/produtos", pdv.ProdutoPdvViewSet, basename="api-pdv-produto")
+router.register("pdv/caixa", pdv.CaixaViewSet, basename="api-pdv-caixa")
+router.register("pdv/vendas", pdv.VendaViewSet, basename="api-pdv-venda")
+router.register("pdv/comandas", pdv.ComandaViewSet, basename="api-pdv-comanda")
 router.register("cotacoes", cotacoes.CotacaoViewSet, basename="api-cotacao")
 router.register("compras/itens", compras.ItemCompraViewSet, basename="api-compra-item")
 router.register("compras/sugestoes", compras.SugestaoCompraViewSet, basename="api-compra-sugestao")
@@ -58,6 +64,7 @@ def somente_administrador(view):
 
 urlpatterns = [
     # Autenticação
+    path("api/v1/pdv/configuracao/", pdv.ConfiguracaoPdvView.as_view(), name="api-pdv-config"),
     path("api/v1/auth/login/", views.LoginView.as_view(), name="api-login"),
     path("api/v1/auth/logout/", views.LogoutView.as_view(), name="api-logout"),
     path("api/v1/auth/me/", views.MeView.as_view(), name="api-me"),

@@ -416,7 +416,7 @@ class PrecificacaoSerializer(serializers.ModelSerializer):
             "id", "nome", "ficha", "ficha_nome", "produto", "produto_nome", "canal", "canal_nome", "canal_descricao", "canal_descricao_completa",
             "taxa_percentual", "taxa_fixa", "custo_operacional", "custo_operacional_manual", "metodo_lucro", "percentual_lucro", "valor_lucro",
             "custo_ficha", "custo_total", "taxas_percentuais_valor", "lucro", "preco_venda", "preco_venda_formatado", "cmv_percentual",
-            "ativo", "criado_em", "atualizado_em",
+            "usar_no_pdv", "ativo", "criado_em", "atualizado_em",
         ]
         read_only_fields = fields
 
@@ -432,6 +432,7 @@ class PrecificacaoEntrada(serializers.Serializer):
     metodo_lucro = serializers.ChoiceField(choices=Precificacao.METODO_CHOICES)
     percentual_lucro = serializers.DecimalField(max_digits=9, decimal_places=4, min_value=0, required=False, allow_null=True, help_text="Margem ou markup (%).")
     valor_lucro = _moeda(required=False, allow_null=True, help_text="Lucro em reais, em centavos (método 'valor').")
+    usar_no_pdv = serializers.BooleanField(required=False, help_text="Esta precificação dá o preço e a ficha de venda do produto no PDV (as outras do produto são desmarcadas).")
     ativo = serializers.BooleanField(required=False)
 
 
@@ -468,7 +469,7 @@ class PrecificacaoViewSet(RecursoViewSet):
             "ficha": p.ficha_id, "canal": p.canal_id, "canal_nome": "" if p.canal_id else p.canal_nome, "canal_descricao": "" if p.canal_id else p.canal_descricao,
             "taxa_percentual": None if p.canal_id else p.taxa_percentual, "taxa_fixa": None if p.canal_id else p.taxa_fixa,
             "custo_operacional": p.custo_operacional if p.custo_operacional_manual else None,  # automático continua automático
-            "metodo_lucro": p.metodo_lucro, "percentual_lucro": p.percentual_lucro, "valor_lucro": p.valor_lucro, "ativo": p.ativo,
+            "metodo_lucro": p.metodo_lucro, "percentual_lucro": p.percentual_lucro, "valor_lucro": p.valor_lucro, "usar_no_pdv": p.usar_no_pdv, "ativo": p.ativo,
         }
 
     def gravar(self, request, contexto, dados, instancia, foto):

@@ -1,0 +1,35 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Caixas" %} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="caixas" %}
+<div class="card">
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>{% translate "Operador" %}</th><th>{% translate "Unidade" %}</th><th>{% translate "Aberto em" %}</th><th>{% translate "Fechado em" %}</th><th class="text-end">{% translate "Diferença" %}</th><th>{% translate "Conferência" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for c in caixas %}
+        <tr>
+          <td>{{ c.pk }}</td><td>{{ c.operador.get_username }}</td><td>{{ c.cliente.nome_razao_social }}</td>
+          <td>{{ c.aberto_em|date:"d/m/Y H:i" }}</td><td>{{ c.fechado_em|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td class="text-end {% if c.diferenca %}text-danger{% endif %}">{% if c.diferenca is not None %}{{ c.diferenca|moeda }}{% else %}—{% endif %}</td>
+          <td>{% if c.aberto %}<span class="badge bg-label-info">{% translate "Aberto" %}</span>{% elif c.conferido_em %}<span class="badge bg-label-success">{% translate "Conferido" %}</span>{% else %}<span class="badge bg-label-warning">{% translate "Pendente" %}</span>{% endif %}</td>
+          <td><a href="{% url 'pdv-caixa-detalhe' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Abrir' %}"><i class="icon-base ti tabler-eye"></i></a></td>
+        </tr>
+        {% empty %}<tr><td colspan="8" class="text-center py-6">{% translate "Nenhum caixa." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}

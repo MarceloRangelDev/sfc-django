@@ -1,0 +1,49 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Comprovante" %} #{{ dados.numero }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<style>
+  .comprovante { font-family: "Courier New", monospace; background: #fff; color: #000; padding: 12px; margin: 0 auto; }
+  .comprovante.termica80 { width: 80mm; font-size: 12px; } .comprovante.termica58 { width: 58mm; font-size: 10px; } .comprovante.a4 { width: 180mm; font-size: 14px; }
+  .comprovante .linha { display: flex; justify-content: space-between; gap: 8px; } .comprovante hr { border-top: 1px dashed #000; margin: 6px 0; }
+  .comprovante .centro { text-align: center; }
+  @media print { body * { visibility: hidden; } .comprovante, .comprovante * { visibility: visible; } .comprovante { position: absolute; left: 0; top: 0; box-shadow: none; } .sem-impressao { display: none !important; } @page { margin: 4mm; } }
+</style>
+<div class="sem-impressao d-flex flex-wrap gap-2 align-items-center py-4">
+  <h4 class="mb-0 me-3">{% translate "Comprovante" %} #{{ dados.numero }}</h4>
+  <div class="btn-group">{% for valor, rotulo in tamanhos %}<a class="btn btn-sm {% if tamanho == valor %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?tamanho={{ valor }}">{{ rotulo }}</a>{% endfor %}</div>
+  <button type="button" class="btn btn-sm btn-success" onclick="window.print()"><i class="icon-base ti tabler-printer me-1"></i>{% translate "Imprimir" %}</button>
+  <a class="btn btn-sm btn-outline-secondary" href="?formato=pdf&tamanho={{ tamanho }}">PDF</a>
+  <a class="btn btn-sm btn-outline-secondary" href="?formato=escpos&tamanho={{ tamanho }}">ESC/POS</a>
+  <a class="btn btn-sm btn-text-secondary" href="{% url 'pdv-venda' venda.pk %}">{% translate "Voltar" %}</a>
+</div>
+<div class="comprovante {{ tamanho }} shadow-sm">
+  <div class="centro"><strong>{{ dados.empresa }}</strong><br>{{ dados.documento }}</div>
+  <hr><div class="centro"><strong>{{ dados.aviso }}</strong></div><hr>
+  <div class="linha"><span>Venda #{{ dados.numero }}</span><span>{{ dados.emitido_em }}</span></div>
+  {% if dados.mesa %}<div>Mesa: {{ dados.mesa }}</div>{% endif %}
+  {% if dados.consumidor %}<div>Cliente: {{ dados.consumidor }}</div>{% endif %}
+  {% if dados.operador %}<div>Operador: {{ dados.operador }}</div>{% endif %}
+  {% if dados.cancelada %}<div class="centro"><strong>*** VENDA CANCELADA ***</strong></div>{% endif %}
+  {% if dados.aberta %}<div class="centro"><strong>*** CONTA ABERTA - NÃO PAGA ***</strong></div>{% endif %}
+  <hr>
+  {% for i in dados.itens %}
+  <div>{{ i.descricao }}</div>
+  <div class="linha"><span>&nbsp;&nbsp;{{ i.quantidade }} x {{ i.preco }}</span><span>{{ i.total }}</span></div>
+  {% if i.observacao %}<div>&nbsp;&nbsp;obs: {{ i.observacao }}</div>{% endif %}
+  {% endfor %}
+  <hr>
+  <div class="linha"><span>Subtotal</span><span>{{ dados.subtotal }}</span></div>
+  {% if dados.desconto %}<div class="linha"><span>Desconto</span><span>-{{ dados.desconto }}</span></div>{% endif %}
+  <div class="linha"><strong>TOTAL</strong><strong>{{ dados.total }}</strong></div>
+  {% for p in dados.pagamentos %}
+  <div class="linha"><span>{{ p.forma }}{% if p.pagador %} ({{ p.pagador }}){% endif %}</span><span>{{ p.valor }}</span></div>
+  {% if p.recebido %}<div class="linha"><span>&nbsp;&nbsp;Recebido</span><span>{{ p.recebido }}</span></div>{% endif %}
+  {% endfor %}
+  {% if dados.troco %}<div class="linha"><span>Troco</span><span>{{ dados.troco }}</span></div>{% endif %}
+  {% if dados.rodape %}<hr><div class="centro">{{ dados.rodape }}</div>{% endif %}
+</div>
+{% endblock %}

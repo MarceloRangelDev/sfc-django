@@ -24,6 +24,7 @@ SCREEN_APPS = [
     "consumidor",
     "compras",
     "cotacao",
+    "pdv",
     "ficha",
     "precificacao",
     "custo",
@@ -42,16 +43,28 @@ ADMIN_APPS = [
     "auditoria",
     "notificacao",
     "canal",
+    "pdvconfig",
 ]
 
 # Permissões (app_label, codename) além das telas de negócio, concedidas
 # por padrão a cada perfil. O Gestor administra a própria estrutura
 # (usuários, consulta de clientes e envio de notificações).
+PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, suprimento e conferência do caixa
+    ("pdv", "cancelar_venda"), ("pdv", "devolver_item"), ("pdv", "conceder_desconto"), ("pdv", "sangria"), ("pdv", "suprimento"),
+    ("pdv", "conferir_caixa"), ("pdv", "abrir_caixa"),
+]
+PDV_CONFIG_GESTOR = [
+    (app, f"{acao}_{modelo}") for app, modelo in (("pdvconfig", "formapagamento"), ("pdvconfig", "mesa"), ("pdvconfig", "configuracaopdv"))
+    for acao in ("view", "add", "change")
+]
+
 EXTRAS = {
+    # PDV: o Operador só vende (e abre/fecha o PRÓPRIO caixa); o resto é de Gestor e Administrador.
+    "Operador": [("pdv", "abrir_caixa")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita")],
+    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS],
     "Gestor": [
-        ("processado", "ver_receita"), ("ficha", "ver_receita"),
+        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),

@@ -1,0 +1,20 @@
+{% load i18n %}
+{% comment %}Resumo de um caixa: contexto `resumo` (services.resumo_do_caixa).{% endcomment %}
+<h6 class="mt-4">{% translate "Dinheiro esperado na gaveta" %}</h6>
+<table class="table table-sm">
+  <tr><td>{% translate "Troco inicial" %}</td><td class="text-end">{{ resumo.dinheiro.abertura|moeda }}</td></tr>
+  <tr><td>{% translate "Vendas em dinheiro" %}</td><td class="text-end">{{ resumo.dinheiro.vendas_dinheiro|moeda }}</td></tr>
+  <tr><td>{% translate "Suprimentos" %}</td><td class="text-end">{{ resumo.dinheiro.suprimentos|moeda }}</td></tr>
+  <tr><td>{% translate "Sangrias" %}</td><td class="text-end">− {{ resumo.dinheiro.sangrias|moeda }}</td></tr>
+  <tr><td>{% translate "Devoluções em dinheiro" %}</td><td class="text-end">− {{ resumo.dinheiro.devolucoes|moeda }}</td></tr>
+  <tr class="fw-bold"><td>{% translate "Esperado" %}</td><td class="text-end">{{ resumo.dinheiro.esperado|moeda }}</td></tr>
+</table>
+<h6 class="mt-4">{% translate "Vendas por forma de pagamento" %} <small class="text-muted">({{ resumo.qtd_vendas }} {% translate "venda(s)" %}, {{ resumo.total_vendas|moeda }})</small></h6>
+<table class="table table-sm">
+  <thead><tr><th>{% translate "Forma" %}</th><th class="text-end">{% translate "Bruto" %}</th><th class="text-end">{% translate "Taxas" %}</th><th class="text-end">{% translate "Líquido" %}</th></tr></thead>
+  <tbody>
+  {% for l in resumo.por_forma %}<tr><td>{{ l.forma_nome }}</td><td class="text-end">{{ l.bruto|moeda }}</td><td class="text-end">{{ l.taxas|moeda }}</td><td class="text-end">{{ l.liquido|moeda }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-center py-2">{% translate "Sem vendas." %}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% if resumo.canceladas %}<small class="text-muted">{{ resumo.canceladas }} {% translate "venda(s) cancelada(s) não entram nos totais." %}</small>{% endif %}

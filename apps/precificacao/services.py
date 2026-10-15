@@ -53,6 +53,10 @@ def salvar_precificacao(request, precificacao, foto_antes=None):
     try:
         with transaction.atomic():
             preencher(precificacao)
+            if precificacao.usar_no_pdv and precificacao.ativo:  # ANTES de salvar (a restrição do banco permite uma só por produto): as outras perdem a marca (auditado)
+                for outra in Precificacao.objects.filter(produto_id=precificacao.produto_id, usar_no_pdv=True).exclude(pk=precificacao.pk):
+                    Precificacao.objects.filter(pk=outra.pk).update(usar_no_pdv=False)
+                    registrar_alteracoes(request, outra, [{"campo": "usar_no_pdv", "rotulo": "Usar no PDV", "antes": "Sim", "depois": "Não"}])
             precificacao.save()
             if criando:
                 registrar_criacao(request, precificacao)

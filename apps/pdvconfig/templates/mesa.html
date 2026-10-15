@@ -1,0 +1,53 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Mesas" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Mesas e comandas" %}</h4>
+  {% if perms.pdvconfig.add_mesa %}<a href="{% url 'mesa-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova mesa" %}</a>{% endif %}
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Ativas" %}</option>
+          <option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativas" %}</option>
+          <option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todas" %}</option>
+        </select>
+      </div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Nome" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Status" %}</th><th>{% translate "Ações" %}</th></tr></thead>
+      <tbody>
+        {% for mesa in mesas %}
+        <tr>
+          <td>{{ mesa.nome }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=mesa %}</td>{% endif %}
+          <td>{% if mesa.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}</td>
+          <td>{% if perms.pdvconfig.change_mesa and mesa.cliente_id == user.profile.cliente_id or perms.pdvconfig.change_mesa and perms.cliente.change_itensfilial %}<a href="{% url 'mesa-edit' mesa.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}</td>
+        </tr>
+        {% empty %}<tr><td colspan="{% if mostrar_unidade %}4{% else %}3{% endif %}" class="text-center py-6">{% translate "Nenhuma mesa cadastrada." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj and is_paginated %}
+  <div class="card-body d-flex justify-content-end">
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -34,6 +34,10 @@ urlpatterns = [
     path("", include("apps.produto.urls")),
     # processados urls
     path("", include("apps.processado.urls")),
+    # pdvconfig urls (formas de pagamento, mesas e ajustes do PDV - Configurações)
+    path("", include("apps.pdvconfig.urls")),
+    # pdv urls (caixa, vendas, comandas e comprovantes)
+    path("", include("apps.pdv.urls")),
     # cotacao urls (cotações de preços entre lojas)
     path("", include("apps.cotacao.urls")),
     # compras urls (lista de compras e sugestões do estoque)

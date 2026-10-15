@@ -1,0 +1,81 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Comanda" %} {{ venda.mesa.nome }} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="comandas" %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h5 class="mb-0">{% translate "Comanda" %} #{{ venda.numero }} — {{ venda.mesa.nome }} <span class="badge bg-label-{% if venda.status == 'paga' %}success{% elif venda.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ venda.get_status_display }}</span></h5>
+  <div class="d-flex gap-2">
+    <a href="{% url 'pdv-comprovante' venda.pk %}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">{% translate "Pré-conta / comprovante" %}</a>
+    {% if venda.status == "aberta" and perms.pdv.cancelar_venda %}
+    <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" data-confirmar="{% translate 'Cancelar esta comanda?' %}">{% csrf_token %}<input type="hidden" name="motivo" value="Comanda cancelada"><button class="btn btn-outline-danger btn-sm">{% translate "Cancelar comanda" %}</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>{% translate "Item" %}</th><th class="text-end">{% translate "Qtd." %}</th><th class="text-end">{% translate "Preço" %}</th><th class="text-end">{% translate "Total" %}</th><th></th></tr></thead>
+        <tbody>
+          {% for i in itens %}
+          <tr><td>{{ i.descricao }}{% if i.observacao %}<div class="small text-muted">{{ i.observacao }}</div>{% endif %}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.preco_unitario|moeda }}</td><td class="text-end">{{ i.total|moeda }}</td>
+            <td class="text-end">{% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="remover" value="{{ i.pk }}"><button class="btn btn-sm btn-text-danger" aria-label="{% translate 'Remover' %}">✕</button></form>{% endif %}</td></tr>
+          {% empty %}<tr><td colspan="5" class="text-center py-4">{% translate "Nenhum item ainda." %}</td></tr>{% endfor %}
+        </tbody>
+        <tfoot><tr><th colspan="3" class="text-end">{% translate "Subtotal" %}</th><th class="text-end">{{ venda.subtotal|moeda }}</th><th></th></tr></tfoot>
+      </table></div>
+    </div>
+    {% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Lançar item" %}</h6></div><div class="card-body">
+      <div class="row g-2">
+        {% for p in produtos %}
+        <div class="col-6 col-lg-4">
+          <form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}">{% csrf_token %}
+            <input type="hidden" name="produto" value="{{ p.produto_id }}"><input type="hidden" name="quantidade" value="1">
+            <button class="btn btn-outline-primary w-100 text-start"><div class="fw-medium">{{ p.produto.nome }}</div><small class="text-muted">{{ p.preco_venda|moeda }}</small></button>
+          </form>
+        </div>
+        {% empty %}<div class="col-12 text-muted">{% translate "Nenhum produto com preço do PDV." %}</div>{% endfor %}
+      </div>
+    </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    {% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id and itens %}
+    <div class="card" id="pdvComanda" data-total="{{ venda.subtotal }}" data-url-pagar="{% url 'pdv-comanda-pagar' venda.pk %}">
+      {{ formas_json|json_script:"formasPdv" }}
+      <div class="card-header"><h5 class="mb-0">{% translate "Receber" %}</h5></div>
+      <div class="card-body">
+        {% if pode_desconto %}<div class="d-flex justify-content-between align-items-center mb-2"><label for="pdvDesconto" class="mb-0">{% translate "Desconto (R$)" %}</label><input type="text" id="pdvDesconto" class="form-control form-control-sm text-end" style="width:8rem" inputmode="numeric" placeholder="0,00"></div>{% endif %}
+        <div class="d-flex justify-content-between fs-5 mb-3"><span>{% translate "Total" %}</span><strong id="pdvTotal">{{ venda.subtotal|moeda }}</strong></div>
+        <div id="pdvPagamentos"></div>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" id="pdvAddPagamento" class="btn btn-sm btn-outline-primary">{% translate "+ Forma de pagamento" %}</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dividir="2">{% translate "Dividir em 2" %}</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dividir="3">{% translate "Dividir em 3" %}</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dividir="4">{% translate "Dividir em 4" %}</button>
+        </div>
+        <div class="d-flex justify-content-between"><span id="pdvFalta" class="fw-medium"></span><span id="pdvTroco" class="fw-medium text-primary"></span></div>
+        <button type="button" id="pdvFinalizar" class="btn btn-success w-100 mt-3" disabled>{% translate "Receber e fechar a conta" %}</button>
+        <div id="pdvMsg" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+    {% elif venda.status == "paga" %}
+    <div class="alert alert-success">{% translate "Conta recebida" %}: {{ venda.total|moeda }}. <a href="{% url 'pdv-venda' venda.pk %}">{% translate "Ver venda" %}</a></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+{% if venda.status == "aberta" %}<script src="{% static_v 'js/pdv.js' %}"></script>{% endif %}
+{% endblock %}

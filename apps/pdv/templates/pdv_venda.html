@@ -1,0 +1,85 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Venda" %} #{{ venda.numero }} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="vendas" %}
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-1">{% translate "Venda" %} #{{ venda.numero }} <span class="badge bg-label-{% if venda.status == 'paga' %}success{% elif venda.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ venda.get_status_display }}</span></h5>
+    <small class="text-muted">{{ venda.criado_em|date:"d/m/Y H:i" }} · {% translate "caixa" %} #{{ venda.caixa_id }} · {{ venda.get_origem_display }}{% if venda.mesa %} · {{ venda.mesa.nome }}{% endif %}{% if venda.consumidor %} · {{ venda.consumidor.nome }}{% endif %}</small>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="{% url 'pdv-comprovante' venda.pk %}">{% translate "Comprovante" %}</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'pdv-comprovante' venda.pk %}?formato=pdf">PDF</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'pdv-comprovante' venda.pk %}?formato=escpos" title="{% translate 'Arquivo ESC/POS para impressora térmica' %}">ESC/POS</a>
+  </div>
+</div>
+
+{% if venda.status == "cancelada" %}<div class="alert alert-secondary">{% translate "Cancelada" %} {{ venda.cancelada_em|date:"d/m/Y H:i" }}: {{ venda.motivo_cancelamento }}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>{% translate "Item" %}</th><th class="text-end">{% translate "Qtd." %}</th><th class="text-end">{% translate "Devolvido" %}</th><th class="text-end">{% translate "Total" %}</th><th></th></tr></thead>
+        <tbody>
+          {% for i in itens %}
+          <tr>
+            <td>{{ i.descricao }}{% if i.preparado %} <span class="badge bg-label-info">{% translate "preparado" %}</span>{% endif %}</td>
+            <td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.quantidade_devolvida|floatformat:"-3" }}</td><td class="text-end">{{ i.total|moeda }}</td>
+            <td class="text-end">{% if venda.status == "paga" and perms.pdv.devolver_item and i.disponivel_para_devolucao > 0 %}<button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#dev{{ i.pk }}">{% translate "Devolver" %}</button>{% endif %}</td>
+          </tr>
+          {% if venda.status == "paga" and perms.pdv.devolver_item and i.disponivel_para_devolucao > 0 %}
+          <tr class="collapse" id="dev{{ i.pk }}"><td colspan="5">
+            <form method="post" action="{% url 'pdv-venda-devolver' venda.pk i.pk %}" class="row g-2 align-items-end" novalidate>{% csrf_token %}
+              <div class="col-md-2"><label class="form-label small">{% translate "Qtd." %}</label>{{ form_devolucao.quantidade }}</div>
+              <div class="col-md-3"><label class="form-label small">{% translate "Devolver por" %}</label>{{ form_devolucao.forma_estorno }}</div>
+              <div class="col-md-4"><label class="form-label small">{% translate "Motivo" %}</label>{{ form_devolucao.motivo }}</div>
+              <div class="col-md-3"><button class="btn btn-warning w-100">{% translate "Registrar" %}</button></div>
+              <div class="col-12"><div class="form-check"><input type="checkbox" class="form-check-input" name="repor_estoque" id="repor{{ i.pk }}" {% if i.preparado %}disabled{% endif %}><label class="form-check-label" for="repor{{ i.pk }}">{% translate "Repor o estoque (só se o item não foi preparado)" %}</label></div></div>
+            </form>
+          </td></tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th colspan="3" class="text-end">{% translate "Subtotal" %}</th><th class="text-end">{{ venda.subtotal|moeda }}</th><th></th></tr>
+          {% if venda.desconto %}<tr><th colspan="3" class="text-end">{% translate "Desconto" %}</th><th class="text-end">− {{ venda.desconto|moeda }}</th><th></th></tr>{% endif %}
+          <tr><th colspan="3" class="text-end">{% translate "Total" %}</th><th class="text-end">{{ venda.total|moeda }}</th><th></th></tr>
+        </tfoot>
+      </table></div>
+    </div>
+    {% if devolucoes %}
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Devoluções" %}</h6></div>
+      <div class="table-responsive"><table class="table table-sm"><tbody>
+        {% for d in devolucoes %}<tr><td>{{ d.criado_em|date:"d/m H:i" }}</td><td>{{ d.item.descricao }} × {{ d.quantidade|floatformat:"-3" }}</td><td>{{ d.forma_estorno.nome }}</td><td>{% if d.repor_estoque %}{% translate "estoque reposto" %}{% else %}{% translate "sem reposição" %}{% endif %}</td><td class="text-end">{{ d.valor|moeda }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{% translate "Pagamentos" %}</h6></div>
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>{% translate "Forma" %}</th><th class="text-end">{% translate "Valor" %}</th><th class="text-end">{% translate "Taxa" %}</th></tr></thead>
+        <tbody>{% for p in pagamentos %}<tr><td>{{ p.forma_nome }}{% if p.pagador %} <small class="text-muted">({{ p.pagador }})</small>{% endif %}<div class="small text-muted">{{ p.taxa_descricao }}</div></td><td class="text-end">{{ p.valor|moeda }}{% if p.valor_recebido %}<div class="small text-muted">{% translate "recebido" %} {{ p.valor_recebido|moeda }}</div>{% endif %}</td><td class="text-end">{{ p.taxa_valor|moeda }}</td></tr>
+        {% empty %}<tr><td colspan="3" class="text-center py-3">{% translate "Sem pagamentos." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% if venda.troco %}<div class="card-body pt-0">{% translate "Troco" %}: <strong>{{ venda.troco|moeda }}</strong></div>{% endif %}
+    </div>
+    {% if venda.status != "cancelada" and perms.pdv.cancelar_venda %}
+    <div class="card"><div class="card-body">
+      <h6>{% translate "Cancelar venda" %}</h6>
+      <p class="text-muted small">{% translate "Estorna o recebimento e repõe o estoque dos itens não preparados. Só enquanto o caixa da venda estiver aberto; depois, use a devolução de itens." %}</p>
+      <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" novalidate data-confirmar="{% translate 'Cancelar esta venda?' %}">{% csrf_token %}
+        {{ form_cancelar.motivo }}<button class="btn btn-outline-danger mt-3">{% translate "Cancelar venda" %}</button>
+      </form>
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Caixa" %} #{{ caixa.pk }} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="caixas" %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <h5>{% translate "Caixa" %} #{{ caixa.pk }} — {{ caixa.operador.get_username }}</h5>
+      <p class="text-muted mb-2">{{ caixa.cliente.nome_razao_social }} · {% translate "aberto em" %} {{ caixa.aberto_em|date:"d/m/Y H:i" }}{% if caixa.fechado_em %} · {% translate "fechado em" %} {{ caixa.fechado_em|date:"d/m/Y H:i" }}{% endif %}</p>
+      {% if not caixa.aberto %}
+      <table class="table table-sm">
+        <tr><td>{% translate "Esperado no fechamento" %}</td><td class="text-end">{{ caixa.valor_esperado|moeda }}</td></tr>
+        <tr><td>{% translate "Contado" %}</td><td class="text-end">{{ caixa.valor_contado|moeda }}</td></tr>
+        <tr class="fw-bold"><td>{% translate "Diferença" %}</td><td class="text-end {% if caixa.diferenca %}text-danger{% else %}text-success{% endif %}">{{ caixa.diferenca|moeda }}</td></tr>
+      </table>
+      {% if caixa.observacao_fechamento %}<p class="small">{% translate "Observação do operador" %}: {{ caixa.observacao_fechamento }}</p>{% endif %}
+      {% if caixa.conferido_em %}
+      <div class="alert alert-success">{% translate "Conferido por" %} {{ caixa.conferido_por.get_username }} {% translate "em" %} {{ caixa.conferido_em|date:"d/m/Y H:i" }}{% if caixa.observacao_conferencia %} — {{ caixa.observacao_conferencia }}{% endif %}</div>
+      {% elif perms.pdv.conferir_caixa %}
+      <form method="post" action="{% url 'pdv-caixa-conferir' caixa.pk %}" class="row g-2 align-items-end">{% csrf_token %}
+        <div class="col-8">{{ form_conf.observacao }}</div><div class="col-4"><button class="btn btn-primary w-100">{% translate "Conferir" %}</button></div>
+      </form>
+      {% else %}<div class="alert alert-warning mb-0">{% translate "Aguardando conferência." %}</div>{% endif %}
+      {% endif %}
+      {% include "_pdv_resumo.html" %}
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{% translate "Sangrias e suprimentos" %}</h6></div>
+      <div class="table-responsive"><table class="table table-sm">
+        <tbody>{% for m in movimentos %}<tr><td>{{ m.criado_em|date:"d/m H:i" }}</td><td>{{ m.get_tipo_display }}</td><td class="text-end">{{ m.valor|moeda }}</td><td>{{ m.motivo }}</td></tr>
+        {% empty %}<tr><td class="text-center py-3">{% translate "Nenhum movimento." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Vendas do caixa" %}</h6></div>
+      <div class="table-responsive"><table class="table table-sm">
+        <tbody>{% for v in vendas %}<tr><td><a href="{% url 'pdv-venda' v.pk %}">#{{ v.numero }}</a></td><td>{{ v.get_status_display }}</td><td class="text-end">{{ v.total|moeda }}</td></tr>
+        {% empty %}<tr><td class="text-center py-3">{% translate "Sem vendas." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

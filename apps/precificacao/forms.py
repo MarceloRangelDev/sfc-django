@@ -47,7 +47,7 @@ class PrecificacaoForm(forms.ModelForm):
         model = Precificacao
         fields = [
             "ficha", "canal", "canal_nome", "canal_descricao", "taxa_percentual", "taxa_fixa",
-            "custo_operacional", "metodo_lucro", "percentual_lucro", "valor_lucro", "ativo",
+            "custo_operacional", "metodo_lucro", "percentual_lucro", "valor_lucro", "usar_no_pdv", "ativo",
         ]
         widgets = {
             "ficha": forms.Select(attrs={"class": "form-select", "data-prev": "1"}),
@@ -55,6 +55,7 @@ class PrecificacaoForm(forms.ModelForm):
             "canal_nome": forms.TextInput(attrs={**CONTROLE, "data-prev": "1"}),
             "canal_descricao": forms.TextInput(attrs={**CONTROLE, "data-prev": "1"}),
             "metodo_lucro": forms.Select(attrs={"class": "form-select", "data-prev": "1"}),
+            "usar_no_pdv": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

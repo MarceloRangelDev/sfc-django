@@ -1,0 +1,68 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Meu caixa" %} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="caixa" %}
+
+{% if not caixa %}
+<div class="alert alert-info">{% translate "Você não tem caixa aberto." %} {% if perms.pdv.add_venda %}<a href="{% url 'pdv' %}">{% translate "Abrir caixa" %}</a>{% endif %}</div>
+{% else %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">{% translate "Caixa" %} #{{ caixa.pk }} <small class="text-muted">· {% translate "aberto em" %} {{ caixa.aberto_em|date:"d/m/Y H:i" }}</small></h5></div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><td>{% translate "Troco inicial" %}</td><td class="text-end">{{ resumo.dinheiro.abertura|moeda }}</td></tr>
+        </table>
+        {% include "_pdv_resumo.html" %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    {% if perms.pdv.sangria %}
+    <div class="card mb-4"><div class="card-body">
+      <h6>{% translate "Sangria (retirar dinheiro)" %}</h6>
+      <form method="post" action="{% url 'pdv-caixa-sangria' %}" class="row g-2 align-items-end" novalidate>{% csrf_token %}
+        <div class="col-5">{{ form_mov.valor }}</div><div class="col-5">{{ form_mov.motivo }}</div><div class="col-2"><button class="btn btn-outline-primary">OK</button></div>
+      </form>
+    </div></div>
+    {% endif %}
+    {% if perms.pdv.suprimento %}
+    <div class="card mb-4"><div class="card-body">
+      <h6>{% translate "Suprimento (colocar dinheiro)" %}</h6>
+      <form method="post" action="{% url 'pdv-caixa-suprimento' %}" class="row g-2 align-items-end" novalidate>{% csrf_token %}
+        <div class="col-5">{{ form_mov.valor }}</div><div class="col-5">{{ form_mov.motivo }}</div><div class="col-2"><button class="btn btn-outline-primary">OK</button></div>
+      </form>
+    </div></div>
+    {% endif %}
+    <div class="card"><div class="card-body">
+      <h6>{% translate "Fechar caixa" %}</h6>
+      <p class="text-muted small">{% translate "Conte o dinheiro da gaveta e informe abaixo. A diferença para o esperado fica registrada para conferência." %}</p>
+      <form method="post" action="{% url 'pdv-caixa-fechar' %}" novalidate data-confirmar="{% translate 'Fechar o caixa agora?' %}">{% csrf_token %}
+        <div class="row g-2">
+          <div class="col-md-5"><label class="form-label">{{ form_fechar.valor_contado.label }}</label>{{ form_fechar.valor_contado }}</div>
+          <div class="col-md-7"><label class="form-label">{{ form_fechar.observacao.label }}</label>{{ form_fechar.observacao }}</div>
+        </div>
+        <button class="btn btn-danger mt-3">{% translate "Fechar caixa" %}</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header"><h6 class="mb-0">{% translate "Sangrias e suprimentos" %}</h6></div>
+  <div class="table-responsive"><table class="table table-sm">
+    <thead><tr><th>{% translate "Quando" %}</th><th>{% translate "Tipo" %}</th><th class="text-end">{% translate "Valor" %}</th><th>{% translate "Motivo" %}</th></tr></thead>
+    <tbody>
+    {% for m in movimentos %}<tr><td>{{ m.criado_em|date:"d/m H:i" }}</td><td>{{ m.get_tipo_display }}</td><td class="text-end">{{ m.valor|moeda }}</td><td>{{ m.motivo }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-center py-3">{% translate "Nenhum movimento." %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

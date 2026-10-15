@@ -1,0 +1,31 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Comandas" %} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="comandas" %}
+{% if caixa and perms.pdv.add_venda %}
+<div class="card mb-4"><div class="card-body">
+  <form method="post" action="{% url 'pdv-comanda-abrir' %}" class="row g-2 align-items-end" novalidate>{% csrf_token %}
+    <div class="col-md-4"><label class="form-label" for="{{ form.mesa.id_for_label }}">{% translate "Abrir comanda na mesa" %}</label>{{ form.mesa }}</div>
+    <div class="col-md-5"><label class="form-label" for="{{ form.observacao.id_for_label }}">{% translate "Observação" %}</label>{{ form.observacao }}</div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">{% translate "Abrir comanda" %}</button></div>
+  </form>
+</div></div>
+{% elif perms.pdv.add_venda %}<div class="alert alert-info">{% translate "Abra o seu caixa para abrir comandas." %} <a href="{% url 'pdv' %}">{% translate "Abrir caixa" %}</a></div>{% endif %}
+<div class="card">
+  <div class="card-header"><h5 class="mb-0">{% translate "Comandas abertas" %}</h5></div>
+  <div class="table-responsive"><table class="table">
+    <thead><tr><th>{% translate "Mesa" %}</th><th>#</th><th>{% translate "Itens" %}</th><th class="text-end">{% translate "Total" %}</th><th>{% translate "Aberta em" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for c in comandas %}
+      <tr><td>{{ c.mesa.nome }}</td><td>{{ c.numero }}</td><td>{{ c.qtd }}</td><td class="text-end">{{ c.subtotal|moeda }}</td><td>{{ c.criado_em|date:"d/m H:i" }}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'pdv-comanda' c.pk %}">{% translate "Abrir" %}</a></td></tr>
+      {% empty %}<tr><td colspan="6" class="text-center py-6">{% translate "Nenhuma comanda aberta." %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

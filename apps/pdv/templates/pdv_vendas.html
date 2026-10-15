@@ -1,0 +1,43 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Vendas" %} - PDV - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">PDV</h4></div>
+{% include "_pdv_nav.html" with ativa="vendas" %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Número ou cliente" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select"><option value="">{% translate "Todos" %}</option>{% for v, r in status_opcoes %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>{% translate "Data" %}</th><th>{% translate "Cliente" %}</th><th>{% translate "Origem" %}</th><th>{% translate "Operador" %}</th><th class="text-end">{% translate "Total" %}</th><th>{% translate "Status" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for v in vendas %}
+        <tr>
+          <td><a href="{% url 'pdv-venda' v.pk %}">#{{ v.numero }}</a></td><td>{{ v.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>{{ v.consumidor.nome|default:"—" }}</td><td>{{ v.get_origem_display }}{% if v.mesa %} · {{ v.mesa.nome }}{% endif %}</td><td>{{ v.caixa.operador.get_username }}</td>
+          <td class="text-end">{{ v.total|moeda }}</td>
+          <td>{% if v.status == "paga" %}<span class="badge bg-label-success">{{ v.get_status_display }}</span>{% elif v.status == "cancelada" %}<span class="badge bg-label-secondary">{{ v.get_status_display }}</span>{% else %}<span class="badge bg-label-warning">{{ v.get_status_display }}</span>{% endif %}</td>
+          <td><a href="{% url 'pdv-venda' v.pk %}" class="btn btn-icon btn-text-secondary rounded-pill"><i class="icon-base ti tabler-eye"></i></a></td>
+        </tr>
+        {% empty %}<tr><td colspan="8" class="text-center py-6">{% translate "Nenhuma venda." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}

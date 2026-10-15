@@ -75,6 +75,9 @@ class Precificacao(models.Model):
     preco_venda = models.PositiveBigIntegerField(default=0, editable=False, verbose_name="Preço de venda (centavos)")
     cmv_percentual = models.DecimalField(max_digits=9, decimal_places=2, default=Decimal("0"), editable=False, verbose_name="CMV (%)")
 
+    # Esta precificação fornece o PREÇO e a FICHA usados pelo PDV para vender o produto (no máximo uma ativa por produto;
+    # ao marcar uma, as outras do mesmo produto são desmarcadas — services.salvar_precificacao).
+    usar_no_pdv = models.BooleanField(default=False, db_default=False, verbose_name="Usar no PDV")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -88,6 +91,9 @@ class Precificacao(models.Model):
         verbose_name_plural = "Precificações"
         ordering = ["nome", "pk"]
         indexes = [models.Index(fields=["cliente", "ativo"], name="precificacao_cliente_ativo_idx")]
+        constraints = [
+            models.UniqueConstraint(fields=["produto"], condition=models.Q(usar_no_pdv=True, ativo=True), name="precificacao_uma_para_o_pdv_por_produto"),
+        ]
 
     def __str__(self):
         return self.nome
