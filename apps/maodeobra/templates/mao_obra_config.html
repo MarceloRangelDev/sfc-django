@@ -1,0 +1,29 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Regras de cálculo" %} - Mão de obra - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Mão de obra" %}</h4></div>
+{% include "_mo_nav.html" with ativa="config" %}
+<div class="card"><div class="card-body">
+  <p class="text-muted">{% translate "Estas regras valem para os PRÓXIMOS apontamentos. Apontamentos já lançados guardam as regras e o valor da hora da época e só mudam se você os editar (recálculo)." %}</p>
+  <form method="post" data-form-salvar novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-md-4"><label for="{{ form.arredondamento.id_for_label }}" class="form-label">{% translate "Arredondamento" %}</label>{{ form.arredondamento }}</div>
+      <div class="col-md-4"><label for="{{ form.jornada_horas.id_for_label }}" class="form-label">{% translate "Jornada normal (horas/dia)" %}</label>{{ form.jornada_horas }}{% if form.jornada_horas.errors %}<div class="text-danger small mt-1">{{ form.jornada_horas.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4"><label for="{{ form.extra_percentual.id_for_label }}" class="form-label">{% translate "Adicional de hora extra (%)" %}</label>{{ form.extra_percentual }}{% if form.extra_percentual.errors %}<div class="text-danger small mt-1">{{ form.extra_percentual.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Ex.: 50 ou 100. Vale para o que passa da jornada." %}</div></div>
+      <div class="col-md-4"><label for="{{ form.adicional_domingo.id_for_label }}" class="form-label">{% translate "Adicional de domingo (%)" %}</label>{{ form.adicional_domingo }}<div class="form-text">{% translate "0 = desligado. Se > 0, todas as horas de domingo recebem este adicional." %}</div></div>
+    </div>
+    <div class="mt-6">{% url 'apontamento-list' as url_lista %}{% include "partials/botoes_salvar.html" with cancelar=url_lista %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

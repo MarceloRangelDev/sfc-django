@@ -26,6 +26,7 @@ SCREEN_APPS = [
     "cotacao",
     "pdv",
     "pedido",
+    "maodeobra",
     "ficha",
     "precificacao",
     "custo",
@@ -54,6 +55,8 @@ PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, sup
     ("pdv", "cancelar_venda"), ("pdv", "devolver_item"), ("pdv", "conceder_desconto"), ("pdv", "sangria"), ("pdv", "suprimento"),
     ("pdv", "conferir_caixa"), ("pdv", "abrir_caixa"),
 ]
+# Mão de obra revela valor da hora/diária de pessoas: só Administrador (tudo) e Gestor (ver/criar/alterar; excluir é do Administrador).
+MAO_DE_OBRA_GESTOR = [("maodeobra", f"{acao}_{modelo}") for modelo in ("colaborador", "apontamento", "configuracaomaodeobra") for acao in ("view", "add", "change")]
 PEDIDO_PERMISSOES = [("pedido", "mover_pedido"), ("pedido", "cancelar_pedido")]  # mover: todos os perfis que operam; cancelar: Gestor e Administrador
 PDV_CONFIG_GESTOR = [
     (app, f"{acao}_{modelo}") for app, modelo in (("pdvconfig", "formapagamento"), ("pdvconfig", "mesa"), ("pdvconfig", "configuracaopdv"))
@@ -66,7 +69,7 @@ EXTRAS = {
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
     "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES],
     "Gestor": [
-        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES,
+        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),
@@ -99,7 +102,7 @@ AUTH_CODENAMES_ADMINISTRADOR = [
 # Permissões de negócio que NÃO entram na regra "todas as ações por perfil" e só são dadas
 # a quem for autorizado explicitamente (Administrador e, via EXTRAS, o Gestor): transferir
 # estoque entre matriz e filiais e ver os relatórios financeiros (DRE e balanço).
-SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro")
+SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro", "colaborador", "apontamento", "configuracaomaodeobra")
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.

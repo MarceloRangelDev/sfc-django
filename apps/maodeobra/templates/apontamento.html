@@ -1,0 +1,58 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Apontamentos" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Mão de obra" %}</h4>
+  {% if perms.maodeobra.add_apontamento %}<a href="{% url 'apontamento-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo apontamento" %}</a>{% endif %}
+</div>
+{% include "_mo_nav.html" with ativa="apontamentos" %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-auto"><label class="form-label" for="{{ filtro.inicio.id_for_label }}">{% translate "De" %}</label>{{ filtro.inicio }}</div>
+      <div class="col-md-auto"><label class="form-label" for="{{ filtro.fim.id_for_label }}">{% translate "Até" %}</label>{{ filtro.fim }}</div>
+      <div class="col-md-3"><label class="form-label" for="{{ filtro.colaborador.id_for_label }}">{% translate "Colaborador" %}</label>{{ filtro.colaborador }}</div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr>
+        <th>{% translate "Data" as label %}{% include "_th_ordenavel.html" with campo="data" label=label %}</th>
+        <th>{% translate "Colaborador" as label %}{% include "_th_ordenavel.html" with campo="colaborador" label=label %}</th>
+        {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+        <th>{% translate "Serviço / descrição" %}</th><th>{% translate "Período" %}</th><th class="text-end">{% translate "Trabalhado" %}</th><th class="text-end">{% translate "Extras" %}</th>
+        <th class="text-end">{% translate "Total" as label %}{% include "_th_ordenavel.html" with campo="total" label=label %}</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for a in apontamentos %}
+        <tr>
+          <td>{{ a.data|date:"d/m/Y" }}</td><td>{{ a.colaborador.nome }}</td>{% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=a %}</td>{% endif %}
+          <td>{{ a.servico.nome|default:a.descricao|default:"—" }}</td>
+          <td>{% if a.tipo == "hora" %}{{ a.inicio|time:"H:i" }}–{{ a.fim|time:"H:i" }}{% if a.pausa_minutos %} (−{{ a.pausa_minutos }} min){% endif %}{% else %}{% translate "por dia" %}{% endif %}</td>
+          <td class="text-end">{{ a.horas_txt }}</td><td class="text-end">{% if a.minutos_extra %}{{ a.minutos_extra }} min{% else %}—{% endif %}</td>
+          <td class="text-end">{{ a.valor_total|moeda }}</td>
+          <td>
+            {% if perms.maodeobra.change_apontamento and a.cliente_id == user.profile.cliente_id or perms.maodeobra.change_apontamento and perms.cliente.change_itensfilial %}<a href="{% url 'apontamento-edit' a.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar (recalcula)' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}
+            {% if perms.maodeobra.delete_apontamento and a.cliente_id == user.profile.cliente_id or perms.maodeobra.delete_apontamento and perms.cliente.delete_itensfilial %}<form method="post" action="{% url 'apontamento-excluir' a.pk %}" class="d-inline" data-confirmar="{% translate 'Excluir este apontamento?' %}">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>{% endif %}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhum apontamento." %}</td></tr>{% endfor %}
+      </tbody>
+      {% if apontamentos %}<tfoot><tr><th colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-end">{% translate "Total desta página" %}</th><th class="text-end">{{ total_pagina|moeda }}</th><th></th></tr></tfoot>{% endif %}
+    </table>
+  </div>
+  {% if page_obj and is_paginated %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}

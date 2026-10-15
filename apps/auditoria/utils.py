@@ -82,8 +82,10 @@ def registrar(
 
 def _campos_auditaveis(objeto):
     """Campos editáveis do model (ignora a PK e campos automáticos como
-    criado_em/atualizado_em, que são editable=False)."""
-    return [c for c in objeto._meta.concrete_fields if c.editable and not c.primary_key]
+    criado_em/atualizado_em, que são editable=False). Um model pode declarar `AUDITORIA_INCLUIR` com
+    campos calculados (editable=False) que também devem aparecer na trilha (ex.: o total de um apontamento)."""
+    incluir = getattr(objeto, "AUDITORIA_INCLUIR", ())
+    return [c for c in objeto._meta.concrete_fields if (c.editable or c.name in incluir) and not c.primary_key]
 
 
 def _texto_do_valor(objeto, campo, valor):

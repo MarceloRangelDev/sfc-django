@@ -1,0 +1,7 @@
+{% load i18n %}
+<ul class="nav nav-pills mb-4 flex-wrap">
+  <li class="nav-item"><a class="nav-link {% if ativa == 'apontamentos' %}active{% endif %}" href="{% url 'apontamento-list' %}">{% translate "Apontamentos" %}</a></li>
+  {% if perms.maodeobra.view_colaborador %}<li class="nav-item"><a class="nav-link {% if ativa == 'colaboradores' %}active{% endif %}" href="{% url 'colaborador-list' %}">{% translate "Colaboradores" %}</a></li>{% endif %}
+  <li class="nav-item"><a class="nav-link {% if ativa == 'relatorio' %}active{% endif %}" href="{% url 'mao-obra-relatorio' %}">{% translate "Relatório" %}</a></li>
+  {% if perms.maodeobra.change_configuracaomaodeobra %}<li class="nav-item"><a class="nav-link {% if ativa == 'config' %}active{% endif %}" href="{% url 'mao-obra-config' %}">{% translate "Regras de cálculo" %}</a></li>{% endif %}
+</ul>

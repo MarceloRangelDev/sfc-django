@@ -28,6 +28,7 @@ MODULOS_PADRAO = {
     "cotacao": dict(nome="Cotações", descricao="Cotações de preços entre lojas, comparativo, vencedores e contas a pagar.", icone="ti tabler-report-search", rota="cotacao", app="cotacao", permissao="cotacao.view_cotacao", secao=P, ordem=18),
     "pdv": dict(nome="PDV", descricao="Caixa, vendas, comandas de mesa e comprovantes.", icone="ti tabler-cash-register", rota="pdv", app="pdv", permissao="pdv.view_venda", secao=P, ordem=12),
     "pedido": dict(nome="Pedidos e cozinha", descricao="Fila de produção da cozinha, pedidos de balcão, mesa, retirada e entrega.", icone="ti tabler-tools-kitchen-2", rota="cozinha", app="pedido", permissao="pedido.view_pedido", secao=P, ordem=13),
+    "mao-de-obra": dict(nome="Mão de obra", descricao="Colaboradores e apontamentos por hora ou por dia, com hora extra e relatório.", icone="ti tabler-clock-hour-4", rota="apontamento-list", app="maodeobra", permissao="maodeobra.view_apontamento", secao=P, ordem=14),
     "consumidor": dict(nome="Consumidores", descricao="Clientes finais da empresa (cadastro, contatos e consentimento LGPD).", icone="ti tabler-users-group", rota="consumidor", app="consumidor", permissao="consumidor.view_consumidor", secao=P, ordem=45),
     "produto": dict(nome="Produto", descricao="Cadastro de produtos.", icone="ti tabler-package", rota="produto", app="produto", permissao="produto.view_produto", secao=P, ordem=40),
     "ficha": dict(nome="Ficha Técnica", descricao="Fichas técnicas de produtos/receitas.", icone="ti tabler-clipboard-list", rota="ficha", app="ficha", permissao="ficha.view_ficha", secao=P, ordem=50),
@@ -59,6 +60,15 @@ MODULOS_PADRAO = {
     "acl-papel": dict(nome="Papéis", descricao="Perfis de acesso e suas permissões.", icone="ti tabler-shield-lock", rota="acl-papel-list", app="acl", permissao="auth.view_group", secao=C, ordem=90, essencial=True, delegavel=False),
     "acl-permissao": dict(nome="Permissões", descricao="Catálogo de permissões.", icone="ti tabler-key", rota="acl-permissao-list", app="acl", permissao="auth.view_permission", secao=C, ordem=100, essencial=True, delegavel=False),
 }
+
+# Módulos de negócio que só fazem sentido para segmentos que precificam SERVIÇO (Serviço e Produto e Serviço).
+SOMENTE_SERVICO = {"mao-de-obra"}
+
+
+def permitido_no_segmento(slug_modulo, tipo_precificacao):
+    """Se o módulo de negócio entra num segmento com este tipo de precificação."""
+    return slug_modulo not in SOMENTE_SERVICO or tipo_precificacao in (Segmento.TIPO_SERVICO, Segmento.TIPO_AMBOS)
+
 
 SEGMENTOS_PADRAO = {
     "servico": ("Serviço", Segmento.TIPO_SERVICO),
@@ -100,13 +110,15 @@ class Command(BaseCommand):
         negocio = [m for m in modulos.values() if not m.essencial]
         for slug, (nome, tipo) in SEGMENTOS_PADRAO.items():
             segmento, _ = Segmento.objects.get_or_create(slug=slug, defaults={"nome": nome, "tipo_precificacao": tipo})
-            segmento.modulos.add(*negocio)
+            segmento.modulos.add(*[m for m in negocio if permitido_no_segmento(m.slug, tipo)])
 
         # Clientes sem nenhum vínculo com o módulo passam a tê-lo habilitado
         # (clientes novos nascem sem módulos; ver README do app).
         novos = 0
         for cliente in Cliente.objects.filter(segmento__isnull=False):
             for modulo in negocio:
+                if not permitido_no_segmento(modulo.slug, cliente.segmento.tipo_precificacao):
+                    continue
                 _obj, criado = ClienteModulo.objects.get_or_create(cliente=cliente, modulo=modulo, defaults={"ativo": True})
                 novos += criado
         # Módulos habilitados precisam estar EFETIVOS: completa as permissões padrão dos perfis (só onde faltam).

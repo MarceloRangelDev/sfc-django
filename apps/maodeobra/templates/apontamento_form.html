@@ -1,0 +1,54 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar apontamento" %}{% else %}{% translate "Novo apontamento" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar apontamento" %}{% else %}{% translate "Novo apontamento" %}{% endif %}</h4>
+{% if object %}<div class="alert alert-warning">{% translate "Ao salvar, o apontamento é RECALCULADO com as regras e o valor da hora vigentes hoje." %}</div>{% endif %}
+<div class="card"><div class="card-body">
+  <form method="post" id="formApontamento" data-form-salvar novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-md-4"><label for="{{ form.colaborador.id_for_label }}" class="form-label">{% translate "Colaborador" %}</label>{{ form.colaborador }}{% if form.colaborador.errors %}<div class="text-danger small mt-1">{{ form.colaborador.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4"><label for="{{ form.servico.id_for_label }}" class="form-label">{% translate "Serviço" %}</label>{{ form.servico }}{% if form.servico.errors %}<div class="text-danger small mt-1">{{ form.servico.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4"><label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>{{ form.descricao }}</div>
+      <div class="col-md-3"><label for="{{ form.data.id_for_label }}" class="form-label">{% translate "Data" %}</label>{{ form.data }}{% if form.data.errors %}<div class="text-danger small mt-1">{{ form.data.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-5">
+        <label class="form-label d-block">{% translate "Tipo" %}</label>
+        {% for op in form.tipo %}<div class="form-check form-check-inline"><label class="form-check-label">{{ op.tag }} {{ op.choice_label }}</label></div>{% endfor %}
+      </div>
+      <div class="col-12 row g-4" data-bloco="hora">
+        <div class="col-md-3"><label for="{{ form.inicio.id_for_label }}" class="form-label">{% translate "Início" %}</label>{{ form.inicio }}{% if form.inicio.errors %}<div class="text-danger small mt-1">{{ form.inicio.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-3"><label for="{{ form.fim.id_for_label }}" class="form-label">{% translate "Fim" %}</label>{{ form.fim }}{% if form.fim.errors %}<div class="text-danger small mt-1">{{ form.fim.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Fim menor que o início = passou da meia-noite." %}</div></div>
+        <div class="col-md-3"><label for="{{ form.pausa_minutos.id_for_label }}" class="form-label">{% translate "Pausa (min)" %}</label>{{ form.pausa_minutos }}{% if form.pausa_minutos.errors %}<div class="text-danger small mt-1">{{ form.pausa_minutos.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Descontada do tempo." %}</div></div>
+      </div>
+      <div class="col-12 row g-4" data-bloco="dia">
+        <div class="col-md-3"><label for="{{ form.dias.id_for_label }}" class="form-label">{% translate "Dias trabalhados" %}</label>{{ form.dias }}{% if form.dias.errors %}<div class="text-danger small mt-1">{{ form.dias.errors|striptags }}</div>{% endif %}</div>
+      </div>
+      <div class="col-12"><label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>{{ form.observacao }}</div>
+    </div>
+    <div class="mt-6">{% url 'apontamento-list' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}{% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+(function () {
+  // Mostra só os campos do tipo escolhido (o servidor ignora/zera os demais e calcula tudo).
+  var form = document.getElementById('formApontamento');
+  function atualizar() {
+    var tipo = (form.querySelector('input[name="tipo"]:checked') || {}).value || 'hora';
+    form.querySelector('[data-bloco="hora"]').style.display = tipo === 'hora' ? '' : 'none';
+    form.querySelector('[data-bloco="dia"]').style.display = tipo === 'dia' ? '' : 'none';
+  }
+  form.querySelectorAll('input[name="tipo"]').forEach(function (r) { r.addEventListener('change', atualizar); });
+  atualizar();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Relatório de mão de obra" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Mão de obra" %}</h4></div>
+{% include "_mo_nav.html" with ativa="relatorio" %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-auto"><label class="form-label" for="{{ filtro.inicio.id_for_label }}">{% translate "De" %}</label>{{ filtro.inicio }}</div>
+      <div class="col-md-auto"><label class="form-label" for="{{ filtro.fim.id_for_label }}">{% translate "Até" %}</label>{{ filtro.fim }}</div>
+      <div class="col-md-3"><label class="form-label" for="{{ filtro.colaborador.id_for_label }}">{% translate "Colaborador" %}</label>{{ filtro.colaborador }}</div>
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+      <div class="col-md-auto ms-auto d-flex gap-2">
+        <button name="export" value="pdf" class="btn btn-outline-secondary">PDF</button><button name="export" value="xlsx" class="btn btn-outline-secondary">Excel</button>
+      </div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Colaborador" %}</th><th class="text-end">{% translate "Apontamentos" %}</th><th class="text-end">{% translate "Horas" %}</th><th class="text-end">{% translate "Extras" %}</th><th class="text-end">{% translate "Dias" %}</th><th class="text-end">{% translate "Normal" %}</th><th class="text-end">{% translate "Extras (R$)" %}</th><th class="text-end">{% translate "Total" %}</th></tr></thead>
+      <tbody>
+        {% for l in linhas %}
+        <tr><td>{{ l.colaborador__nome }}</td><td class="text-end">{{ l.qtd }}</td><td class="text-end">{{ l.horas_txt }}</td><td class="text-end">{{ l.extra_txt }}</td><td class="text-end">{{ l.dias|floatformat:"-1" }}</td><td class="text-end">{{ l.normal_fmt }}</td><td class="text-end">{{ l.extra_fmt }}</td><td class="text-end">{{ l.total_fmt }}</td></tr>
+        {% empty %}<tr><td colspan="8" class="text-center py-6">{% translate "Nenhum apontamento no período." %}</td></tr>{% endfor %}
+      </tbody>
+      {% if linhas %}<tfoot><tr><th colspan="7" class="text-end">{% translate "Total" %}</th><th class="text-end">{{ total_fmt }}</th></tr></tfoot>{% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}
