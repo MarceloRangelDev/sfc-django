@@ -12,6 +12,9 @@
   <h5 class="mb-0">{% translate "Comanda" %} #{{ venda.numero }} — {{ venda.mesa.nome }} <span class="badge bg-label-{% if venda.status == 'paga' %}success{% elif venda.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ venda.get_status_display }}</span></h5>
   <div class="d-flex gap-2">
     <a href="{% url 'pdv-comprovante' venda.pk %}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">{% translate "Pré-conta / comprovante" %}</a>
+    {% if venda.status == "aberta" and perms.pedido.add_pedido %}
+    <form method="post" action="{% url 'pedido-enviar' venda.pk %}">{% csrf_token %}<input type="hidden" name="tipo" value="mesa"><button class="btn btn-primary btn-sm">{% translate "Enviar à cozinha" %}</button></form>
+    {% endif %}
     {% if venda.status == "aberta" and perms.pdv.cancelar_venda %}
     <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" data-confirmar="{% translate 'Cancelar esta comanda?' %}">{% csrf_token %}<input type="hidden" name="motivo" value="Comanda cancelada"><button class="btn btn-outline-danger btn-sm">{% translate "Cancelar comanda" %}</button></form>
     {% endif %}

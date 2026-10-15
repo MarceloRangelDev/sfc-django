@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "apps.cotacao",
     "apps.pdvconfig",
     "apps.pdv",
+    "apps.pedido",
     "apps.canal",
     "apps.custo",
     "apps.estoque",

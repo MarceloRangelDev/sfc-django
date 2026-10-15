@@ -1,0 +1,49 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Pedido" %} #{{ pedido.numero }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Pedidos e cozinha" %}</h4></div>
+{% include "_pedido_nav.html" with ativa="pedidos" %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{% translate "Pedido" %} #{{ pedido.numero }} <span class="badge bg-label-primary">{{ pedido.get_status_display }}</span></h5>
+        <small class="text-muted">{{ pedido.get_tipo_display }}{% if pedido.venda.mesa %} · {{ pedido.venda.mesa.nome }}{% endif %}</small>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for i in itens %}<li class="list-group-item">{{ i.quantidade|floatformat:"-3" }}× {{ i.descricao }}{% if i.observacao %}<div class="small text-muted">↳ {{ i.observacao }}</div>{% endif %}</li>{% endfor %}
+      </ul>
+      {% if pedido.observacao %}<div class="card-body"><em>{{ pedido.observacao }}</em></div>{% endif %}
+      {% if pedido.motivo_cancelamento %}<div class="card-body text-danger">{% translate "Cancelado" %}: {{ pedido.motivo_cancelamento }}</div>{% endif %}
+      {% if pode_mover %}
+      <div class="card-body d-flex gap-2 flex-wrap">
+        {% if pedido.status == "novo" %}<form method="post" action="{% url 'pedido-acao' pedido.pk %}">{% csrf_token %}<input type="hidden" name="acao" value="confirmar"><button class="btn btn-primary">{% translate "Confirmar" %}</button></form>{% endif %}
+        {% if pode_avancar and pedido.status != "novo" %}<form method="post" action="{% url 'pedido-acao' pedido.pk %}" {% if pedido.status == "pronto" %}data-confirmar="{% translate 'Marcar como entregue? Não há como desfazer.' %}"{% endif %}>{% csrf_token %}<input type="hidden" name="acao" value="avancar"><button class="btn btn-primary">{% translate "Avançar" %}</button></form>{% endif %}
+        {% if pode_voltar %}<form method="post" action="{% url 'pedido-acao' pedido.pk %}">{% csrf_token %}<input type="hidden" name="acao" value="voltar"><button class="btn btn-outline-secondary">{% translate "Voltar um passo" %}</button></form>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% if pode_cancelar and pedido.ativo %}
+    <div class="card"><div class="card-body">
+      <h6>{% translate "Cancelar pedido" %}</h6>
+      <p class="text-muted small">{% translate "Repõe o estoque dos itens ainda não preparados e retira os itens da comanda. Só enquanto a venda não foi paga." %}</p>
+      <form method="post" action="{% url 'pedido-acao' pedido.pk %}" data-confirmar="{% translate 'Cancelar este pedido?' %}">{% csrf_token %}
+        <input type="hidden" name="acao" value="cancelar"><input type="text" name="motivo" class="form-control" maxlength="255" required placeholder="{% translate 'Motivo (obrigatório)' %}"><button class="btn btn-outline-danger mt-3">{% translate "Cancelar pedido" %}</button>
+      </form>
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Histórico" %}</h6></div>
+      <ul class="list-group list-group-flush">
+        {% for e in eventos %}<li class="list-group-item small">{{ e.criado_em|date:"d/m H:i:s" }} — {% if e.de_status %}{{ e.de_status }} → {% endif %}<strong>{{ e.para_status }}</strong> · {{ e.usuario_nome|default:"sistema" }}{% if e.nota %}<div class="text-muted">{{ e.nota }}</div>{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

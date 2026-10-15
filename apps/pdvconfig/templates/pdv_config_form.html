@@ -20,6 +20,8 @@
           <label for="{{ form.formato_comprovante.id_for_label }}" class="form-label">{% translate "Formato padrão do comprovante" %}</label>{{ form.formato_comprovante }}
         </div>
         <div class="col-md-8">
+          <label for="{{ form.confirmacao_pedido.id_for_label }}" class="form-label">{% translate "Confirmação do pedido (cozinha)" %}</label>{{ form.confirmacao_pedido }}
+          <div class="form-text">{% translate "Define quando o pedido entra na fila da cozinha e baixa o estoque." %}</div>
           <label for="{{ form.rodape_comprovante.id_for_label }}" class="form-label">{% translate "Mensagem no rodapé do comprovante" %}</label>{{ form.rodape_comprovante }}
           {% if form.rodape_comprovante.errors %}<div class="text-danger small mt-1">{{ form.rodape_comprovante.errors|striptags }}</div>{% endif %}
         </div>

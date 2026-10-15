@@ -231,14 +231,20 @@ def conferir_caixa(request, caixa, observacao=""):
 # Estoque
 # --------------------------------------------------------------------------
 
-def baixar_estoque(usuario, venda):
-    """Dá baixa nos insumos da ficha técnica de cada item (uma vez só). Respeita `ConfiguracaoPdv.controla_estoque`.
-    Saldo insuficiente derruba a transação inteira, com a mensagem do estoque."""
-    if venda.baixa_estoque_em:
-        return False
+def baixar_estoque(usuario, venda, itens=None):
+    """Dá baixa nos insumos da ficha técnica de cada item AINDA NÃO baixado (cada item é baixado uma só vez; `itens` limita a
+    quais). Respeita `ConfiguracaoPdv.controla_estoque`. Saldo insuficiente derruba a transação inteira, com a mensagem do estoque.
+    `venda.baixa_estoque_em` marca quando TODOS os itens já foram baixados. Devolve se baixou algum item."""
+    pendentes = venda.itens.filter(baixa_estoque_em__isnull=True)
+    if itens is not None:
+        pendentes = pendentes.filter(pk__in=[i.pk for i in itens])
     configuracao = ConfiguracaoPdv.da_unidade(venda.cliente)
+    pendentes = list(pendentes.select_related("ficha").prefetch_related("ficha__itens__insumo", "ficha__itens__medida"))
+    if not pendentes:
+        return False
+    agora = timezone.now()
     if configuracao.controla_estoque:
-        for item in venda.itens.select_related("ficha").prefetch_related("ficha__itens__insumo", "ficha__itens__medida"):
+        for item in pendentes:
             for ficha_item in item.ficha.itens.all():
                 quantidade = (ficha_item.quantidade * item.quantidade).quantize(QUATRO_CASAS, rounding=ROUND_HALF_UP)
                 if quantidade <= 0:
@@ -248,8 +254,10 @@ def baixar_estoque(usuario, venda):
                 except RegraNegocioError as erro:
                     raise RegraNegocioError(f"{item.descricao}: {erro}") from None
                 VendaItemInsumo.objects.create(item=item, insumo=ficha_item.insumo, medida=ficha_item.medida, quantidade=quantidade)
-    venda.baixa_estoque_em = timezone.now()
-    venda.save(update_fields=["baixa_estoque_em", "atualizado_em"])
+    VendaItem.objects.filter(pk__in=[i.pk for i in pendentes]).update(baixa_estoque_em=agora)
+    if not venda.itens.filter(baixa_estoque_em__isnull=True).exists():
+        venda.baixa_estoque_em = agora
+        venda.save(update_fields=["baixa_estoque_em", "atualizado_em"])
     return True
 
 
@@ -373,6 +381,10 @@ def _finalizar(request, venda, pagamentos, desconto, pode_desconto, chave=None):
     venda.save()
     baixar_estoque(request.user, venda)
     _receber_venda(request, venda)
+    if venda.pedidos.exists():
+        from apps.pedido import services as pedidos  # import tardio: o app de pedidos depende do PDV
+
+        pedidos.confirmar_apos_pagamento(request, venda)
     return venda
 
 
@@ -388,9 +400,9 @@ def _auditar_venda_criada(request, venda, rotulo="Criado"):
     )
 
 
-def registrar_venda(request, caixa, itens, pagamentos, consumidor=None, desconto=0, observacao="", chave=None, pode_desconto=False):
+def registrar_venda(request, caixa, itens, pagamentos, consumidor=None, desconto=0, observacao="", chave=None, pode_desconto=False, cozinha=None):
     """Venda de balcão: itens + pagamentos de uma vez. Devolve (venda, criada). Com `chave` repetida devolve a venda
-    já registrada (criada=False) sem duplicar nada."""
+    já registrada (criada=False) sem duplicar nada. `cozinha` (balcao/retirada/entrega) também envia os itens à cozinha."""
     cliente = caixa.cliente
     if chave:
         existente = Venda.objects.filter(cliente=cliente, chave_idempotencia=chave).first()
@@ -413,6 +425,10 @@ def registrar_venda(request, caixa, itens, pagamentos, consumidor=None, desconto
             ])
             _finalizar(request, venda, pagamentos, desconto, pode_desconto, chave)
             _auditar_venda_criada(request, venda)
+            if cozinha:
+                from apps.pedido import services as pedidos  # import tardio: o app de pedidos depende do PDV
+
+                pedidos.criar_pedido(request, venda, tipo=cozinha)
     except IntegrityError:
         if chave:  # corrida: outra requisição com a mesma chave gravou primeiro
             existente = Venda.objects.filter(cliente=cliente, chave_idempotencia=chave).first()
@@ -457,8 +473,8 @@ def adicionar_item(request, venda, produto_id, quantidade, observacao=""):
         _exigir_caixa_do_usuario(request, venda.caixa)
         antes = _texto_itens(venda)
         linha = _linhas(venda.cliente, [{"produto": produto_id, "quantidade": quantidade, "observacao": observacao}])[0]
-        existente = venda.itens.filter(produto_id=linha["produto_id"]).first()
-        if existente and existente.quantidade_devolvida == 0:
+        existente = venda.itens.filter(produto_id=linha["produto_id"], baixa_estoque_em__isnull=True, pedido_item__isnull=True).first()
+        if existente and existente.quantidade_devolvida == 0 and existente.baixa_estoque_em is None and not hasattr(existente, 'pedido_item'):
             nova = existente.quantidade + linha["quantidade"]
             if nova > MAX_QUANTIDADE:
                 raise RegraNegocioError("A quantidade deve estar entre 0,001 e 9.999.")
@@ -479,9 +495,12 @@ def remover_item(request, venda, item_id):
         venda = _comanda_editavel(venda)
         _exigir_caixa_do_usuario(request, venda.caixa)
         antes = _texto_itens(venda)
-        removido, _ = venda.itens.filter(pk=item_id).delete()
-        if not removido:
+        item = venda.itens.filter(pk=item_id).first()
+        if item is None:
             raise RegraNegocioError("Item não encontrado nesta comanda.")
+        if hasattr(item, "pedido_item"):
+            raise RegraNegocioError("O item já foi enviado à cozinha: cancele o pedido para retirá-lo.")
+        item.delete()
         _recalcular_subtotal(venda)
         registrar_alteracoes(request, venda, [{"campo": "itens", "rotulo": "Itens", "antes": antes, "depois": _texto_itens(venda)}], modulo="pdv")
     return venda
@@ -530,12 +549,12 @@ def cancelar_venda(request, venda, motivo):
             raise RegraNegocioError("A venda já está cancelada.")
         if venda.devolucoes.exists():
             raise RegraNegocioError("A venda tem devoluções registradas e não pode ser cancelada.")
+        if venda.status == Venda.PAGA and not venda.caixa.aberto:
+            raise RegraNegocioError("O caixa desta venda já foi fechado. Use a devolução de itens.")
+        for item in venda.itens.prefetch_related("insumos_baixados"):
+            if not item.preparado:
+                _repor_estoque(request.user, item, Decimal("1"), venda)
         if venda.status == Venda.PAGA:
-            if not venda.caixa.aberto:
-                raise RegraNegocioError("O caixa desta venda já foi fechado. Use a devolução de itens.")
-            for item in venda.itens.prefetch_related("insumos_baixados"):
-                if not item.preparado:
-                    _repor_estoque(request.user, item, Decimal("1"), venda)
             conta = venda.conta_receber
             if conta is not None:
                 for baixa in conta.baixas.filter(tipo=BaixaBase.BAIXA, estornada_por__isnull=True):
@@ -546,6 +565,10 @@ def cancelar_venda(request, venda, motivo):
         antes = venda.get_status_display()
         venda.status, venda.cancelada_em, venda.cancelada_por, venda.motivo_cancelamento = Venda.CANCELADA, timezone.now(), request.user, motivo[:255]
         venda.save()
+        if venda.pedidos.exists():
+            from apps.pedido import services as pedidos  # import tardio: o app de pedidos depende do PDV
+
+            pedidos.cancelar_por_venda(request, venda)
         registrar_alteracoes(request, venda, [
             {"campo": "status", "rotulo": "Status", "antes": antes, "depois": "Cancelada"},
             {"campo": "motivo_cancelamento", "rotulo": "Motivo do cancelamento", "antes": None, "depois": motivo[:255]},

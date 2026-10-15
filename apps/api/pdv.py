@@ -48,6 +48,8 @@ class PermissaoPorAcao(BasePermission):
             return False
         chave = getattr(view, "action", None) or request.method.lower()  # ViewSet: ação; APIView: método HTTP
         permissao = getattr(view, "permissoes", {}).get(chave)
+        if isinstance(permissao, (list, tuple)):  # várias permissões: todas são exigidas
+            return bool(permissao) and all(usuario.has_perm(p) for p in permissao)
         return bool(permissao) and usuario.has_perm(permissao)
 
 
@@ -214,7 +216,7 @@ class ConfiguracaoPdvView(APIView):
     permissoes = {"get": "pdvconfig.view_configuracaopdv", "patch": "pdvconfig.change_configuracaopdv"}
 
     def _dados(self, c):
-        return {"controla_estoque": c.controla_estoque, "formato_comprovante": c.formato_comprovante, "rodape_comprovante": c.rodape_comprovante}
+        return {"controla_estoque": c.controla_estoque, "confirmacao_pedido": c.confirmacao_pedido, "formato_comprovante": c.formato_comprovante, "rodape_comprovante": c.rodape_comprovante}
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
@@ -222,7 +224,7 @@ class ConfiguracaoPdvView(APIView):
 
     @extend_schema(
         request=inline_serializer("ConfiguracaoPdvEntrada", {
-            "controla_estoque": serializers.BooleanField(required=False), "formato_comprovante": serializers.ChoiceField(choices=["termica80", "termica58", "a4"], required=False),
+            "controla_estoque": serializers.BooleanField(required=False), "confirmacao_pedido": serializers.ChoiceField(choices=["lancado", "pagamento", "manual"], required=False), "formato_comprovante": serializers.ChoiceField(choices=["termica80", "termica58", "a4"], required=False),
             "rodape_comprovante": serializers.CharField(required=False, max_length=120)}),
         responses={200: OpenApiTypes.OBJECT},
     )
@@ -433,13 +435,13 @@ class ComandaViewSet(viewsets.ViewSet):
 
     def _comanda(self, request, pk):
         try:
-            return _vendas_visiveis(request.user).select_related("cliente", "caixa", "mesa").get(pk=pk, origem=Venda.ORIGEM_MESA)
+            return _vendas_visiveis(request.user).select_related("cliente", "caixa", "mesa").get(pk=pk, origem__in=[Venda.ORIGEM_MESA, Venda.ORIGEM_PEDIDO])
         except Venda.DoesNotExist:
             raise NotFound from None
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT}, summary="Comandas abertas")
     def list(self, request):
-        return resposta([_venda_dict(v, detalhe=True) for v in _vendas_visiveis(request.user).filter(status=Venda.ABERTA, origem=Venda.ORIGEM_MESA).select_related("mesa")])
+        return resposta([_venda_dict(v, detalhe=True) for v in _vendas_visiveis(request.user).filter(status=Venda.ABERTA, origem__in=[Venda.ORIGEM_MESA, Venda.ORIGEM_PEDIDO]).select_related("mesa")])
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def retrieve(self, request, pk=None):

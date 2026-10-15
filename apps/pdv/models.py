@@ -175,6 +175,8 @@ class VendaItem(models.Model):
     total = models.PositiveBigIntegerField(verbose_name="Total (centavos)")
     quantidade_devolvida = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal("0"), editable=False, verbose_name="Quantidade devolvida")
     preparado = models.BooleanField(default=False, db_default=False, verbose_name="Já preparado")
+    # Estoque baixado UMA vez por item (na confirmação do pedido ou no recebimento, o que vier primeiro).
+    baixa_estoque_em = models.DateTimeField(null=True, blank=True, editable=False)
     observacao = models.CharField(max_length=120, blank=True, default="", verbose_name="Observação")
     criado_em = models.DateTimeField(auto_now_add=True)
 

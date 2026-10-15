@@ -126,6 +126,14 @@ class ConfiguracaoPdv(models.Model):
     FORMATO_CHOICES = [("termica80", "Térmica 80 mm"), ("termica58", "Térmica 58 mm"), ("a4", "Folha A4")]
     formato_comprovante = models.CharField(max_length=10, choices=FORMATO_CHOICES, default="termica80", db_default="termica80", verbose_name="Formato padrão do comprovante")
     rodape_comprovante = models.CharField(max_length=120, blank=True, default="", verbose_name="Mensagem no rodapé do comprovante")
+    # Pedidos/cozinha (apps/pedido): quando o pedido é CONFIRMADO (entra na fila e baixa o estoque dos seus itens).
+    CONFIRMA_AO_LANCAR, CONFIRMA_NO_PAGAMENTO, CONFIRMA_MANUAL = "lancado", "pagamento", "manual"
+    CONFIRMACAO_CHOICES = [
+        (CONFIRMA_AO_LANCAR, "Ao lançar o pedido"), (CONFIRMA_NO_PAGAMENTO, "Quando a venda for paga"), (CONFIRMA_MANUAL, "Manualmente (alguém confirma)"),
+    ]
+    confirmacao_pedido = models.CharField(
+        max_length=10, choices=CONFIRMACAO_CHOICES, default=CONFIRMA_NO_PAGAMENTO, db_default=CONFIRMA_NO_PAGAMENTO, verbose_name="Confirmação do pedido",
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

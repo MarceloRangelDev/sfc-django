@@ -76,12 +76,17 @@ class MesaForm(UnidadeFormMixin, forms.ModelForm):
 class ConfiguracaoPdvForm(forms.ModelForm):
     class Meta:
         model = ConfiguracaoPdv
-        fields = ["controla_estoque", "formato_comprovante", "rodape_comprovante"]
+        fields = ["controla_estoque", "confirmacao_pedido", "formato_comprovante", "rodape_comprovante"]
         widgets = {
             "controla_estoque": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "confirmacao_pedido": forms.Select(attrs={"class": "form-select"}),
             "formato_comprovante": forms.Select(attrs={"class": "form-select"}),
             "rodape_comprovante": forms.TextInput(attrs={**CONTROLE, "maxlength": 120}),
         }
 
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["confirmacao_pedido"].required = False  # vazio = mantém a regra atual (clientes antigos da API/tela)
+
+    def clean_confirmacao_pedido(self):
+        return self.cleaned_data.get("confirmacao_pedido") or self.instance.confirmacao_pedido

@@ -25,6 +25,7 @@ SCREEN_APPS = [
     "compras",
     "cotacao",
     "pdv",
+    "pedido",
     "ficha",
     "precificacao",
     "custo",
@@ -53,6 +54,7 @@ PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, sup
     ("pdv", "cancelar_venda"), ("pdv", "devolver_item"), ("pdv", "conceder_desconto"), ("pdv", "sangria"), ("pdv", "suprimento"),
     ("pdv", "conferir_caixa"), ("pdv", "abrir_caixa"),
 ]
+PEDIDO_PERMISSOES = [("pedido", "mover_pedido"), ("pedido", "cancelar_pedido")]  # mover: todos os perfis que operam; cancelar: Gestor e Administrador
 PDV_CONFIG_GESTOR = [
     (app, f"{acao}_{modelo}") for app, modelo in (("pdvconfig", "formapagamento"), ("pdvconfig", "mesa"), ("pdvconfig", "configuracaopdv"))
     for acao in ("view", "add", "change")
@@ -60,11 +62,11 @@ PDV_CONFIG_GESTOR = [
 
 EXTRAS = {
     # PDV: o Operador só vende (e abre/fecha o PRÓPRIO caixa); o resto é de Gestor e Administrador.
-    "Operador": [("pdv", "abrir_caixa")],
+    "Operador": [("pdv", "abrir_caixa"), ("pedido", "mover_pedido")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS],
+    "Administrador": [("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES],
     "Gestor": [
-        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR,
+        ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),

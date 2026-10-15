@@ -1,0 +1,5 @@
+{% load i18n %}
+<ul class="nav nav-pills mb-4 flex-wrap">
+  <li class="nav-item"><a class="nav-link {% if ativa == 'cozinha' %}active{% endif %}" href="{% url 'cozinha' %}">{% translate "Cozinha (fila)" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if ativa == 'pedidos' %}active{% endif %}" href="{% url 'pedidos' %}">{% translate "Todos os pedidos" %}</a></li>
+</ul>
