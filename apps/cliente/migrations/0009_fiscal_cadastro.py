@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='cliente',
             name='regime_tributario',
-            field=models.CharField(blank=True, choices=[('mei', 'MEI'), ('simples', 'Simples Nacional'), ('presumido', 'Lucro Presumido'), ('real', 'Lucro Real')], default='', max_length=10, verbose_name='Regime tributário'),
+            field=models.CharField(blank=True, choices=[('mei', 'MEI'), ('simples', 'Simples Nacional'), ('presumido', 'Lucro Presumido'), ('real', 'Lucro Real')], db_default='', default='', max_length=10, verbose_name='Regime tributário'),
         ),
     ]

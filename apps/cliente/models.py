@@ -68,7 +68,7 @@ class Cliente(models.Model):
     )
     # Fiscal (apps/fiscal): regime tributário e opção de emitir nota. A emissão real depende de configuração e provedor (ver README do fiscal).
     REGIME_CHOICES = [("mei", "MEI"), ("simples", "Simples Nacional"), ("presumido", "Lucro Presumido"), ("real", "Lucro Real")]
-    regime_tributario = models.CharField(max_length=10, blank=True, default="", choices=REGIME_CHOICES, verbose_name="Regime tributário")
+    regime_tributario = models.CharField(max_length=10, blank=True, default="", db_default="", choices=REGIME_CHOICES, verbose_name="Regime tributário")
     emite_nota_fiscal = models.BooleanField(default=False, db_default=False, verbose_name="Emite nota fiscal")
     # Marca o cliente dono do sistema ("SISTEMA FATURANDO CERTO SERVIÇOS
     # LTDA"): único ao qual um usuário Admin pode estar vinculado.
