@@ -1,0 +1,100 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Cotações" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Cotações" %}</h4>
+  {% if perms.cotacao.add_cotacao %}
+  <a href="{% url 'cotacao-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova cotação" %}</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-4">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Título ou loja...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in status_opcoes %}<option value="{{ valor }}" {% if status == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Título" as label %}{% include "_th_ordenavel.html" with campo="titulo" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th class="text-end">{% translate "Itens" %}</th>
+          <th class="text-end">{% translate "Lojas" %}</th>
+          <th>{% translate "Status" as label %}{% include "_th_ordenavel.html" with campo="status" label=label %}</th>
+          <th>{% translate "Criada em" as label %}{% include "_th_ordenavel.html" with campo="criado_em" label=label %}</th>
+          <th>{% translate "Ações" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cotacao in cotacoes %}
+        <tr>
+          <td><a href="{% url 'cotacao-detail' cotacao.pk %}">{{ cotacao.titulo }}</a></td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=cotacao %}</td>{% endif %}
+          <td class="text-end">{{ cotacao.qtd_itens }}</td>
+          <td class="text-end">{{ cotacao.qtd_lojas }}</td>
+          <td>
+            {% if cotacao.status == "fechada" %}<span class="badge bg-label-success">{{ cotacao.get_status_display }}</span>
+            {% elif cotacao.status == "cancelada" %}<span class="badge bg-label-secondary">{{ cotacao.get_status_display }}</span>
+            {% elif cotacao.status == "enviada" %}<span class="badge bg-label-info">{{ cotacao.get_status_display }}</span>
+            {% else %}<span class="badge bg-label-warning">{{ cotacao.get_status_display }}</span>{% endif %}
+          </td>
+          <td>{{ cotacao.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>
+            <a href="{% url 'cotacao-detail' cotacao.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Abrir' %}"><i class="icon-base ti tabler-eye"></i></a>
+            {% if perms.cotacao.delete_cotacao and cotacao.cliente_id == user.profile.cliente_id or perms.cotacao.delete_cotacao and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'cotacao-excluir' cotacao.pk %}" class="d-inline" data-confirmar="{% translate 'Excluir esta cotação com todos os itens, lojas e preços?' %}">
+              {% csrf_token %}<button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhuma cotação encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

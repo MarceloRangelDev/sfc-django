@@ -1,0 +1,32 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Itens da lista de compras" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2">{% translate "Adicionar itens da lista de compras" %}</h4>
+<p class="text-muted mb-6">{% translate "Cotação" %}: <a href="{% url 'cotacao-detail' cotacao.pk %}">{{ cotacao.titulo }}</a></p>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {% if form.itens.field.choices %}
+      <p class="text-muted">{% translate "Marque os itens a copiar. Itens já presentes na cotação não aparecem." %}</p>
+      {% for opcao in form.itens %}
+      <div class="form-check mb-2"><label class="form-check-label">{{ opcao.tag }} {{ opcao.choice_label }}</label></div>
+      {% endfor %}
+      {% if form.itens.errors %}<div class="text-danger small mt-1">{{ form.itens.errors|striptags }}</div>{% endif %}
+      <div class="mt-6 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{% translate "Copiar para a cotação" %}</button>
+        <a href="{% url 'cotacao-detail' cotacao.pk %}" class="btn btn-text-secondary">{% translate "Cancelar" %}</a>
+      </div>
+      {% else %}
+      <p class="mb-4">{% translate "Não há itens novos na lista de compras desta unidade." %}</p>
+      <a href="{% url 'cotacao-detail' cotacao.pk %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

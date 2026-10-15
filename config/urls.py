@@ -34,6 +34,8 @@ urlpatterns = [
     path("", include("apps.produto.urls")),
     # processados urls
     path("", include("apps.processado.urls")),
+    # cotacao urls (cotações de preços entre lojas)
+    path("", include("apps.cotacao.urls")),
     # compras urls (lista de compras e sugestões do estoque)
     path("", include("apps.compras.urls")),
     # consumidor urls (clientes finais da empresa)

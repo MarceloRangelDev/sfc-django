@@ -1,0 +1,44 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ titulo_form }} - {{ cotacao.titulo }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2">{{ titulo_form }}</h4>
+<p class="text-muted mb-6">{% translate "Cotação" %}: <a href="{% url 'cotacao-detail' cotacao.pk %}">{{ cotacao.titulo }}</a></p>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" data-form-salvar novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        {% for campo in form.visible_fields %}
+        <div class="{% if campo.field.widget.input_type == 'checkbox' %}col-12{% else %}col-md-6{% endif %}">
+          {% if campo.field.widget.input_type == 'checkbox' %}
+          <div class="form-check">{{ campo }} <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label></div>
+          {% else %}
+          <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}{% if not campo.field.required %} <small class="text-muted">({% translate "opcional" %})</small>{% endif %}</label>
+          {{ campo }}
+          {% endif %}
+          {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+          {% if campo.name == "preco_e_atacado" %}<div class="form-text">{% translate "Marque quando o preço unitário informado já é o preço de atacado (a loja só vende assim); nesse caso deixe o preço no atacado em branco." %}</div>{% endif %}
+          {% if campo.name == "marca" %}<div class="form-text">{% translate "Obrigatória, exceto para serviços." %}</div>{% endif %}
+          {% if campo.name == "observacao" %}<div class="form-text">{% translate "Até 255 caracteres." %}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-6">
+        {% url 'cotacao-detail' cotacao.pk as url_voltar %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_voltar %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

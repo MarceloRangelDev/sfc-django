@@ -104,7 +104,7 @@ def _alinha_a_direita(valor):
     return bool(texto) and (texto[:2] == "R$" or texto[-1:] == "%" or texto[:1] in "+-" and texto[1:2].isdigit())
 
 
-def exportar_pdf(nome_arquivo, titulo, usuario, cabecalho, linhas, filtros=""):
+def exportar_pdf(nome_arquivo, titulo, usuario, cabecalho, linhas, filtros="", textos_finais=None):
     """PDF padrão de relatórios tabulares (todos os módulos usam esta função).
 
     Layout (segue o relatório de referência): nome do sistema centralizado, título do relatório, data/hora
@@ -178,6 +178,11 @@ def exportar_pdf(nome_arquivo, titulo, usuario, cabecalho, linhas, filtros=""):
         estilo.append(("SPAN", (0, 1), (-1, 1)))
     tabela.setStyle(TableStyle(estilo))
     elementos.append(tabela)
+    # Blocos de texto depois da tabela (ex.: observações gerais de uma cotação): [(título, texto)], texto simples.
+    for titulo_texto, texto in textos_finais or []:
+        elementos.append(Spacer(1, 0.3 * cm))
+        elementos.append(Paragraph(f"<b>{_escapar(titulo_texto)}</b>", celula))
+        elementos.append(Paragraph("<br/>".join(_escapar(linha) for linha in str(texto).splitlines()), celula))
 
     documento.build(
         elementos, onFirstPage=lambda c, d: pagina(c, d, True), onLaterPages=lambda c, d: pagina(c, d, False), canvasmaker=_CanvasNumerado,

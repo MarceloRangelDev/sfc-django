@@ -23,6 +23,7 @@ SCREEN_APPS = [
     "categoria",
     "consumidor",
     "compras",
+    "cotacao",
     "ficha",
     "precificacao",
     "custo",

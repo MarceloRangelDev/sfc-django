@@ -1,0 +1,153 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ cotacao.titulo }} - {% translate "Cotação" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+{% with editavel=cotacao.editavel %}
+<div class="d-flex justify-content-between align-items-start py-4 mb-2 flex-wrap gap-3">
+  <div>
+    <h4 class="mb-1">{{ cotacao.titulo }}
+      {% if cotacao.status == "fechada" %}<span class="badge bg-label-success">{{ cotacao.get_status_display }}</span>
+      {% elif cotacao.status == "cancelada" %}<span class="badge bg-label-secondary">{{ cotacao.get_status_display }}</span>
+      {% elif cotacao.status == "enviada" %}<span class="badge bg-label-info">{{ cotacao.get_status_display }}</span>
+      {% else %}<span class="badge bg-label-warning">{{ cotacao.get_status_display }}</span>{% endif %}
+    </h4>
+    <small class="text-muted">{{ cotacao.cliente.nome_razao_social }} · {% translate "criada em" %} {{ cotacao.criado_em|date:"d/m/Y H:i" }}</small>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'cotacao-exportar' cotacao.pk %}?formato=pdf" class="btn btn-outline-secondary"><i class="icon-base ti tabler-printer me-1"></i>PDF / {% translate "imprimir" %}</a>
+    <a href="{% url 'cotacao-exportar' cotacao.pk %}?formato=xlsx" class="btn btn-outline-secondary"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>Excel</a>
+    {% if pode_alterar %}
+      {% if editavel %}<a href="{% url 'cotacao-edit' cotacao.pk %}" class="btn btn-outline-primary">{% translate "Editar" %}</a>{% endif %}
+      {% if cotacao.status == "rascunho" %}
+      <form method="post" action="{% url 'cotacao-status' cotacao.pk %}">{% csrf_token %}<input type="hidden" name="acao" value="enviar"><button class="btn btn-primary">{% translate "Marcar como enviada" %}</button></form>
+      {% endif %}
+      {% if editavel %}
+      <form method="post" action="{% url 'cotacao-status' cotacao.pk %}" data-confirmar="{% translate 'Fechar a cotação? Depois disso ela não aceita mais alterações (pode ser reaberta se não houver conta a pagar).' %}">{% csrf_token %}<input type="hidden" name="acao" value="fechar"><button class="btn btn-success">{% translate "Fechar cotação" %}</button></form>
+      {% endif %}
+      {% if cotacao.status == "fechada" %}
+      <form method="post" action="{% url 'cotacao-status' cotacao.pk %}">{% csrf_token %}<input type="hidden" name="acao" value="reabrir"><button class="btn btn-outline-warning">{% translate "Reabrir" %}</button></form>
+      {% if pode_gerar_contas %}<a href="{% url 'cotacao-contas' cotacao.pk %}" class="btn btn-primary">{% translate "Gerar contas a pagar" %}</a>{% endif %}
+      {% endif %}
+      {% if cotacao.status != "cancelada" %}
+      <form method="post" action="{% url 'cotacao-status' cotacao.pk %}" data-confirmar="{% translate 'Cancelar esta cotação?' %}">{% csrf_token %}<input type="hidden" name="acao" value="cancelar"><button class="btn btn-outline-danger">{% translate "Cancelar" %}</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if cotacao.observacoes %}
+<div class="card mb-6"><div class="card-body"><h6 class="mb-2">{% translate "Observações gerais" %}</h6><p class="mb-0">{{ cotacao.observacoes|linebreaksbr }}</p></div></div>
+{% endif %}
+
+<div class="card mb-6">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">{% translate "Lojas" %}</h5>
+    {% if pode_alterar and editavel %}<a href="{% url 'cotacao-loja-create' cotacao.pk %}" class="btn btn-sm btn-outline-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar loja" %}</a>{% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Loja" %}</th><th>{% translate "Endereço" %}</th><th>{% translate "Telefone" %}</th><th>{% translate "E-mail" %}</th><th>{% translate "Conta a pagar" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for loja in lojas %}
+        <tr>
+          <td>{{ loja.nome }}</td><td>{{ loja.endereco|default:"—" }}</td><td>{{ loja.telefone|default:"—" }}</td><td>{{ loja.email|default:"—" }}</td>
+          <td>{% if loja.conta_pagar_id %}<span class="badge bg-label-success">#{{ loja.conta_pagar_id }} {{ loja.conta_pagar.valor_formatado }}</span>{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap">
+            {% if pode_alterar and editavel %}
+            <a href="{% url 'cotacao-loja-edit' cotacao.pk loja.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            <form method="post" action="{% url 'cotacao-loja-excluir' cotacao.pk loja.pk %}" class="d-inline" data-confirmar="{% translate 'Remover a loja e todos os preços dela nesta cotação?' %}">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Remover' %}"><i class="icon-base ti tabler-trash"></i></button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-center py-4">{% translate "Nenhuma loja cadastrada." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">{% translate "Itens e comparativo" %}</h5>
+  {% if pode_alterar and editavel %}
+  <div class="d-flex gap-2">
+    <a href="{% url 'cotacao-importar' cotacao.pk %}" class="btn btn-sm btn-outline-secondary">{% translate "Da lista de compras" %}</a>
+    <a href="{% url 'cotacao-item-create' cotacao.pk %}" class="btn btn-sm btn-outline-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar item / serviço" %}</a>
+  </div>
+  {% endif %}
+</div>
+
+{% for bloco in comparativo %}
+{% with item=bloco.item %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h6 class="mb-0">{{ item.descricao }} {% if item.servico %}<span class="badge bg-label-info">{% translate "serviço" %}</span>{% endif %}</h6>
+      <small class="text-muted">{{ item.quantidade|floatformat:"-4" }} {{ item.medida.sigla }}{% if item.observacao %} · {{ item.observacao }}{% endif %}</small>
+    </div>
+    {% if pode_alterar and editavel %}
+    <div class="text-nowrap">
+      <a href="{% url 'cotacao-preco-create' cotacao.pk item.pk %}" class="btn btn-sm btn-outline-primary">{% translate "Adicionar preço" %}</a>
+      {% if bloco.escolhida %}<form method="post" action="{% url 'cotacao-limpar-escolha' cotacao.pk item.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-text-secondary">{% translate "Limpar vencedor" %}</button></form>{% endif %}
+      <a href="{% url 'cotacao-item-edit' cotacao.pk item.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar item' %}"><i class="icon-base ti tabler-edit"></i></a>
+      <form method="post" action="{% url 'cotacao-item-excluir' cotacao.pk item.pk %}" class="d-inline" data-confirmar="{% translate 'Remover o item e todos os preços dele?' %}">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Remover item' %}"><i class="icon-base ti tabler-trash"></i></button></form>
+    </div>
+    {% endif %}
+  </div>
+  {% if bloco.ofertas %}
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>{% translate "Loja" %}</th><th>{% translate "Marca" %}</th><th class="text-end">{% translate "Qtd." %}</th><th class="text-end">{% translate "Preço aplicado" %}</th><th class="text-end">{% translate "Total" %}</th><th class="text-end">{% translate "Por KG/L/UN" %}</th><th>{% translate "Situação" %}</th><th>{% translate "Obs." %}</th><th></th></tr></thead>
+      <tbody>
+        {% for o in bloco.ofertas %}
+        <tr class="{% if o.preco.escolhido %}table-success{% endif %}">
+          <td>{{ o.preco.loja.nome }}</td><td>{{ o.preco.marca|default:"—" }}</td>
+          <td class="text-end">{{ o.preco.quantidade|floatformat:"-4" }} {{ o.preco.medida.sigla }}</td>
+          <td class="text-end">{{ o.valor_unitario_formatado }}/{{ o.preco.medida.sigla }} <span class="badge bg-label-{% if o.tipo == 'atacado' %}primary{% else %}secondary{% endif %}">{{ o.tipo }}</span></td>
+          <td class="text-end">{{ o.total_formatado }}</td>
+          <td class="text-end">{{ o.por_base_formatado }}/{{ o.unidade_base }}</td>
+          <td>
+            {% if o.preco.escolhido %}<span class="badge bg-success">{% translate "Vencedor" %}</span>{% endif %}
+            {% if o.melhor %}<span class="badge bg-label-success">{% translate "Menor preço" %}</span>{% endif %}
+            {% if not o.atende %}<span class="badge bg-label-danger">{% translate "Não atende" %}</span>{% endif %}
+            {% if o.motivo %}<div class="small text-muted">{{ o.motivo }}</div>{% endif %}
+          </td>
+          <td class="small text-wrap" style="max-width:16rem">{{ o.preco.observacao|default:"—" }}</td>
+          <td class="text-end text-nowrap">
+            {% if pode_alterar and editavel %}
+            {% if not o.preco.escolhido and o.atende %}<form method="post" action="{% url 'cotacao-preco-escolher' cotacao.pk o.preco.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-success">{% translate "Escolher" %}</button></form>{% endif %}
+            <a href="{% url 'cotacao-preco-edit' cotacao.pk o.preco.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            <form method="post" action="{% url 'cotacao-preco-excluir' cotacao.pk o.preco.pk %}" class="d-inline" data-confirmar="{% translate 'Remover este preço?' %}">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Remover' %}"><i class="icon-base ti tabler-trash"></i></button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">{% translate "Nenhum preço informado ainda." %}</div>
+  {% endif %}
+</div>
+{% endwith %}
+{% empty %}
+<div class="card mb-4"><div class="card-body text-center text-muted">{% translate "Nenhum item na cotação. Adicione itens manualmente ou copie da lista de compras." %}</div></div>
+{% endfor %}
+
+<div class="card mb-6">
+  <div class="card-header"><h5 class="mb-0">{% translate "Resumo dos vencedores" %}</h5></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>{% translate "Loja" %}</th><th>{% translate "Itens" %}</th><th class="text-end">{% translate "Total" %}</th></tr></thead>
+      <tbody>
+        {% for b in resumo %}
+        <tr><td>{{ b.loja.nome }}</td><td>{% for l in b.linhas %}{{ l.item.descricao }}{% if not forloop.last %}, {% endif %}{% endfor %}</td><td class="text-end">{{ b.total_formatado }}</td></tr>
+        {% empty %}<tr><td colspan="3" class="text-center py-4">{% translate "Nenhum vencedor escolhido." %}</td></tr>{% endfor %}
+      </tbody>
+      {% if resumo %}<tfoot><tr><th colspan="2" class="text-end">{% translate "Total geral" %}</th><th class="text-end">{{ total_formatado }}</th></tr></tfoot>{% endif %}
+    </table>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}

@@ -7,11 +7,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center py-4 mb-2">
   <h4 class="mb-0">{% translate "Lista de compras" %}</h4>
-  {% if perms.compras.add_itemcompra %}
-  <a href="{% url 'compras-create' %}" class="btn btn-primary">
-    <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo item" %}
-  </a>
-  {% endif %}
+  <div class="d-flex gap-2">
+    {% if perms.cotacao.add_cotacao and itens %}<a href="{% url 'cotacao-create' %}?da_lista=1" class="btn btn-outline-secondary"><i class="icon-base ti tabler-report-search me-1"></i>{% translate "Criar cotação com a lista" %}</a>{% endif %}
+    {% if perms.compras.add_itemcompra %}
+    <a href="{% url 'compras-create' %}" class="btn btn-primary">
+      <i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo item" %}
+    </a>
+    {% endif %}
+  </div>
 </div>
 
 {% if sugestoes %}
