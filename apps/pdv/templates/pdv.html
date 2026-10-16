@@ -35,7 +35,11 @@
       <div class="card h-100">
         <div class="card-body">
           <label class="form-label" for="pdvBusca">{% translate "Buscar produto" %}</label>
-          <input type="search" id="pdvBusca" class="form-control mb-4" placeholder="{% translate 'Digite o nome do produto...' %}" autocomplete="off">
+          <div class="input-group mb-4">
+            <input type="search" id="pdvBusca" class="form-control" placeholder="{% translate 'Nome do produto ou leia o código de barras / QR Code...' %}" autocomplete="off" autofocus>
+            <button type="button" class="btn btn-outline-secondary d-none" id="leitorCamera">{% translate "Câmera" %}</button>
+          </div>
+          <div id="pdvLeitorMsg" class="small mb-2" role="status" aria-live="polite"></div>
           <div class="row g-2" id="pdvProdutos" aria-live="polite"></div>
         </div>
       </div>
@@ -84,5 +88,5 @@
 
 {% block page_js %}
 {{ block.super }}
-{% if caixa and formas %}<script src="{% static_v 'js/pdv.js' %}"></script>{% endif %}
+{% if caixa and formas %}<script src="{% static_v 'js/pdv.js' %}"></script><script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}
 {% endblock %}

@@ -564,3 +564,31 @@ class TelasEPermissoesTests(PdvBase):
         caixa = Caixa.objects.get(operador=self.operador)
         self.assertEqual(self.client.post(reverse("pdv-caixa-conferir", args=[caixa.pk]), {"observacao": "ok"}).status_code, 302)
         self.assertIsNotNone(Caixa.objects.get(pk=caixa.pk).conferido_em)
+
+
+class LeitorDeCodigoTests(PdvBase):
+    """Leitor de código de barras/QR: o código lido encontra o produto do PDV e lança na comanda."""
+
+    def test_busca_por_codigo_e_json(self):
+        self.assertTrue(self.bolo.codigo_barras)
+        achado = s.produto_por_codigo(self.cliente, self.bolo.codigo_barras)
+        self.assertEqual(achado.produto_id, self.bolo.pk)
+        self.assertIsNone(s.produto_por_codigo(self.cliente, "0000000000000"))
+        self.assertIsNone(s.produto_por_codigo(self.outro, self.bolo.codigo_barras))  # outra unidade
+        self.abrir()
+        self.client.force_login(self.operador)
+        dados = self.client.get(reverse("pdv-api-produtos"), {"q": self.bolo.codigo_barras}).json()
+        self.assertEqual([i["codigo"] for i in dados["itens"]], [self.bolo.codigo_barras])
+
+    def test_comanda_adiciona_item_pelo_codigo(self):
+        caixa = self.abrir()
+        mesa = Mesa.objects.create(cliente=self.cliente, nome="Mesa 1")
+        venda = s.abrir_comanda(self.req_o, caixa, mesa)
+        self.client.force_login(self.operador)
+        url = reverse("pdv-comanda-itens", args=[venda.pk])
+        self.client.post(url, {"codigo": self.bolo.codigo_barras})
+        self.client.post(url, {"codigo": self.bolo.codigo_barras})
+        venda.refresh_from_db()
+        self.assertEqual(venda.itens.get().quantidade, D("2"))
+        resposta = self.client.post(url, {"codigo": "inexistente"}, follow=True)
+        self.assertContains(resposta, "Nenhum produto com este código")

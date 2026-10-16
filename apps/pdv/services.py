@@ -13,7 +13,7 @@ PRINCÍPIOS
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Sum
+from django.db.models import Max, Q, Sum
 from django.utils import timezone
 
 from apps.auditoria.models import ACAO_CRIAR
@@ -60,8 +60,17 @@ def produtos_do_pdv(cliente, termo="", limite=80):
     ).select_related("produto", "ficha", "produto__categoria")
     termo = (termo or "").strip()
     if termo:
-        consulta = consulta.filter(produto__nome__icontains=termo)
+        # nome contém o texto OU o código de barras/QR lido é exatamente o digitado
+        consulta = consulta.filter(Q(produto__nome__icontains=termo) | Q(produto__codigo_barras=termo))
     return consulta.order_by("produto__nome")[:limite]
+
+
+def produto_por_codigo(cliente, codigo):
+    """Produto ativo da unidade com o código de barras/QR lido; None se não houver (ou não tiver preço no PDV)."""
+    codigo = (codigo or "").strip()
+    if not codigo:
+        return None
+    return next(iter(p for p in produtos_do_pdv(cliente, codigo, limite=5) if p.produto.codigo_barras == codigo), None)
 
 
 def _precificacao_do_produto(cliente, produto_id):

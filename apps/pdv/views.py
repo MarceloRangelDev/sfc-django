@@ -18,7 +18,7 @@ from .forms import AbrirCaixaForm, CancelarForm, ComandaForm, ConferenciaForm, D
 from .models import Caixa, MovimentoCaixa, Venda, VendaItem
 from .services import (
     abrir_caixa, abrir_comanda, adicionar_item, cancelar_venda, caixa_aberto_do, conferir_caixa, devolver_item, dividir_em_partes, fechar_caixa,
-    pagar_comanda, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
+    pagar_comanda, produto_por_codigo, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
 )
 
 MAX_CORPO_JSON = 64 * 1024
@@ -92,7 +92,7 @@ class ProdutosJsonView(View):
         if caixa is None:
             return JsonResponse({"erro": "Abra o caixa."}, status=409)
         itens = [
-            {"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado}
+            {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado}
             for p in produtos_do_pdv(caixa.cliente, request.GET.get("q", ""))
         ]
         return JsonResponse({"itens": itens})
@@ -266,6 +266,12 @@ class ComandaItemView(View):
         try:
             if request.POST.get("remover", "").isdigit():
                 remover_item(request, venda, int(request.POST["remover"]))
+            elif request.POST.get("codigo", "").strip():
+                lido = produto_por_codigo(venda.cliente, request.POST["codigo"])
+                if lido is None:
+                    raise RegraNegocioError("Nenhum produto com este código (ou sem preço no PDV).")
+                adicionar_item(request, venda, lido.produto_id, 1, "")
+                messages.success(request, f"{lido.produto.nome} adicionado.")
             else:
                 form = ItemComandaForm(request.POST)
                 if not form.is_valid():

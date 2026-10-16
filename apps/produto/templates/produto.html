@@ -53,6 +53,7 @@
       </div>
       <div class="col-md-auto d-flex gap-2">
         <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+        <a href="{% url 'produto-etiquetas' %}?{{ request.GET.urlencode }}" target="_blank" rel="noopener" class="btn btn-outline-secondary"><i class="icon-base ti tabler-barcode me-1"></i>{% translate "Etiquetas" %}</a>
         <a href="{% querystring export='xlsx' %}" class="btn btn-outline-success"><i class="icon-base ti tabler-file-spreadsheet me-1"></i>{% translate "Excel" %}</a>
         <a href="{% querystring export='pdf' %}" class="btn btn-outline-danger"><i class="icon-base ti tabler-file-type-pdf me-1"></i>PDF</a>
       </div>
@@ -65,6 +66,7 @@
         <tr>
           <th>{% translate "Produto" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
           <th>{% translate "Categoria" as label %}{% include "_th_ordenavel.html" with campo="categoria" label=label %}</th>
+          <th>{% translate "Código" %}</th>
           <th>{% translate "Descrição" %}</th>
           {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
           <th>{% translate "Status" %}</th>
@@ -77,6 +79,7 @@
         <tr>
           <td>{{ produto.nome }}</td>
           <td>{{ produto.categoria.nome }}{% if not produto.categoria.ativo %} <span class="badge bg-label-secondary">{% translate "inativa" %}</span>{% endif %}</td>
+          <td><code>{{ produto.codigo_barras|default:"—" }}</code></td>
           <td>{{ produto.descricao|default:"—" }}</td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=produto %}</td>{% endif %}
           <td>
@@ -85,6 +88,7 @@
           </td>
           <td>{{ produto.criado_em|date:"d/m/Y H:i" }}</td>
           <td>
+            {% if produto.codigo_barras %}<a href="{% url 'produto-etiquetas' %}?ids={{ produto.pk }}" target="_blank" rel="noopener" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Etiqueta (código de barras e QR Code)' %}"><i class="icon-base ti tabler-barcode"></i></a>{% endif %}
             {% if perms.produto.change_produto and produto.cliente_id == user.profile.cliente_id or perms.produto.change_produto and perms.cliente.change_itensfilial %}
             <a href="{% url 'produto-edit' produto.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
             {% endif %}
@@ -97,7 +101,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhum produto encontrado." %}</td></tr>
+        <tr><td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhum produto encontrado." %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

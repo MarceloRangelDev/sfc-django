@@ -154,3 +154,46 @@ class ProdutoTests(TestCase):
     def test_exportacao_exige_permissao_de_ver(self):
         self.client.force_login(User.objects.create_user(username="sem", email="sem@t.local", password="SenhaForte123!"))
         self.assertEqual(self.client.get(reverse("produto"), {"export": "xlsx"}).status_code, 403)
+
+
+class CodigoBarrasTests(ProdutoTests):
+    """Código de barras e QR Code: gerado no cadastro, único por unidade, com imagens SVG e etiqueta."""
+
+    def test_codigo_interno_e_ean13_valido(self):
+        from .codigos import ean13_valido
+
+        self.assertTrue(ean13_valido(self.suco.codigo_barras))
+        self.assertTrue(self.suco.codigo_barras.startswith("2"))
+        self.assertNotEqual(self.suco.codigo_barras, self.bolo.codigo_barras)
+
+    def test_cadastro_gera_codigo_ou_aceita_o_do_fabricante(self):
+        dados = {"nome": "Água", "categoria": self.bebidas.pk, "descricao": "", "codigo_barras": "", "ativo": "on"}
+        self.client.post(reverse("produto-create"), dados)
+        self.assertTrue(Produto.objects.get(nome="Água").codigo_barras)
+        self.client.post(reverse("produto-create"), {**dados, "nome": "Cola", "codigo_barras": "7891234567895"})
+        self.assertEqual(Produto.objects.get(nome="Cola").codigo_barras, "7891234567895")
+        resposta = self.client.post(reverse("produto-create"), {**dados, "nome": "Cola 2", "codigo_barras": "7891234567895"})
+        self.assertContains(resposta, "já pertence a outro produto")
+        resposta = self.client.post(reverse("produto-create"), {**dados, "nome": "Cola 3", "codigo_barras": "ab cd!"})
+        self.assertFalse(Produto.objects.filter(nome="Cola 3").exists())
+
+    def test_editar_em_branco_mantem_o_codigo(self):
+        antes = self.suco.codigo_barras
+        self.client.post(reverse("produto-edit", args=[self.suco.pk]), {"nome": "Suco", "categoria": self.bebidas.pk, "descricao": "", "codigo_barras": "", "ativo": "on"})
+        self.suco.refresh_from_db()
+        self.assertEqual(self.suco.codigo_barras, antes)
+
+    def test_imagens_svg_e_isolamento(self):
+        for tipo in ("barras", "qr"):
+            resposta = self.client.get(reverse("produto-codigo", args=[self.suco.pk, tipo]))
+            self.assertEqual(resposta.status_code, 200)
+            self.assertEqual(resposta["Content-Type"], "image/svg+xml")
+            self.assertIn(b"<svg", resposta.content)
+        externo = Produto.objects.create(cliente=self.outra, nome="X", categoria=Categoria.objects.create(cliente=self.outra, nome="C"))
+        self.assertEqual(self.client.get(reverse("produto-codigo", args=[externo.pk, "qr"])).status_code, 404)
+
+    def test_etiquetas_e_busca_por_codigo(self):
+        resposta = self.client.get(reverse("produto-etiquetas"), {"ids": f"{self.suco.pk}"})
+        self.assertContains(resposta, "Suco")
+        self.assertNotContains(resposta, "Bolo")
+        self.assertEqual(self.nomes(q=self.bolo.codigo_barras), ["Bolo"])

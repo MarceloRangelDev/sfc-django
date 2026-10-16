@@ -8,7 +8,9 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.mixins import AuditoriaFormMixin
 from apps.auditoria.utils import registrar_criacao
+from apps.cliente.models import Cliente
 from web_project import TemplateLayout
+from web_project.acesso import clientes_dos_itens
 from web_project.mixins import ClienteScopedMixin, ListaPaginadaMixin, ListaPorUnidadeMixin, SalvarEAdicionarMixin
 
 from .forms import ConfiguracaoPdvForm, FormaPagamentoForm, MesaForm
@@ -37,6 +39,11 @@ class FormaPagamentoListView(_Lista):
     model = FormaPagamento
     template_name = "forma_pagamento.html"
     context_object_name = "formas"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["filiais_padrao"] = filiais_para_formas(self.request.user) if self.request.user.profile.cliente else []
+        return contexto
 
 
 class MesaListView(_Lista):
@@ -90,18 +97,41 @@ class MesaUpdateView(_Form, AuditoriaFormMixin, ClienteScopedMixin, UpdateView):
         return super().form_valid(form)
 
 
+def filiais_para_formas(user):
+    """Filiais ativas que o usuário pode abastecer com as formas padrão (só matriz com `cliente.add_itensfilial`)."""
+    cliente = user.profile.cliente
+    return clientes_dos_itens(user, "add").exclude(pk=cliente.pk) if cliente else Cliente.objects.none()
+
+
+def _criar_formas_padrao(request, cliente):
+    criadas = 0
+    for nome, tipo in FORMAS_PADRAO:
+        if not FormaPagamento.objects.filter(cliente=cliente, nome__iexact=nome).exists():
+            registrar_criacao(request, FormaPagamento.objects.create(cliente=cliente, nome=nome, tipo=tipo))
+            criadas += 1
+    return criadas
+
+
 class FormasPadraoView(View):
-    """POST: cria Dinheiro, PIX, Débito e Crédito (sem taxa) na unidade do usuário, pulando as que já existem pelo nome."""
+    """POST: cria Dinheiro, PIX, Débito e Crédito (sem taxa) na unidade do usuário, pulando as que já existem pelo nome.
+    `filiais` = "todas" | "escolher" (com `filial` = ids) estende às filiais que o usuário alcança; qualquer outro valor = só a unidade."""
 
     def post(self, request):
         cliente = request.user.profile.cliente
+        alvos = [cliente]
+        modo = request.POST.get("filiais", "")
+        if modo in ("todas", "escolher"):
+            disponiveis = filiais_para_formas(request.user)
+            if modo == "escolher":
+                ids = [int(i) for i in request.POST.getlist("filial") if i.isdigit()]
+                disponiveis = disponiveis.filter(pk__in=ids)
+            alvos += list(disponiveis)
         criadas = 0
         with transaction.atomic():
-            for nome, tipo in FORMAS_PADRAO:
-                if not FormaPagamento.objects.filter(cliente=cliente, nome__iexact=nome).exists():
-                    registrar_criacao(request, FormaPagamento.objects.create(cliente=cliente, nome=nome, tipo=tipo))
-                    criadas += 1
-        messages.success(request, f"{criadas} forma(s) de pagamento criada(s). Ajuste as taxas em cada uma." if criadas else "As formas padrão já existem.")
+            for alvo in alvos:
+                criadas += _criar_formas_padrao(request, alvo)
+        unidades = f" em {len(alvos)} unidade(s)" if len(alvos) > 1 else ""
+        messages.success(request, f"{criadas} forma(s) de pagamento criada(s){unidades}. Ajuste as taxas em cada uma." if criadas else "As formas padrão já existem.")
         return redirect("forma-pagamento-list")
 
 

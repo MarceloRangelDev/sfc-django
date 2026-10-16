@@ -1,0 +1,38 @@
+{% load i18n %}<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% translate "Etiquetas de produtos" %}</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #111; }
+  .barra { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .barra button, .barra a { padding: 8px 14px; border: 1px solid #555; border-radius: 6px; background: #fff; color: #111; text-decoration: none; cursor: pointer; font-size: 14px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .etiqueta { border: 1px dashed #888; border-radius: 6px; padding: 8px; break-inside: avoid; display: flex; gap: 8px; align-items: center; }
+  .etiqueta .nome { font-weight: 600; font-size: 13px; line-height: 1.2; margin-bottom: 4px; }
+  .etiqueta .barras { max-width: 170px; height: auto; display: block; }
+  .etiqueta .qr { width: 80px; height: 80px; flex: none; }
+  .vazio { color: #555; }
+  @media print { .barra { display: none; } body { padding: 0; } .grade { gap: 4px; } }
+</style>
+</head>
+<body>
+<div class="barra">
+  <button type="button" onclick="window.print()">{% translate "Imprimir" %}</button>
+  <a href="{% url 'produto' %}">{% translate "Voltar aos produtos" %}</a>
+  <span>{{ produtos|length }} {% translate "etiqueta(s)" %}</span>
+</div>
+<div class="grade">
+  {% for p in produtos %}
+  <div class="etiqueta">
+    <div>
+      <div class="nome">{{ p.nome }}</div>
+      <img class="barras" src="{% url 'produto-codigo' p.pk 'barras' %}" alt="{% translate 'Código de barras' %} {{ p.codigo_barras }}">
+    </div>
+    <img class="qr" src="{% url 'produto-codigo' p.pk 'qr' %}" alt="QR Code {{ p.codigo_barras }}">
+  </div>
+  {% empty %}<p class="vazio">{% translate "Nenhum produto para imprimir." %}</p>{% endfor %}
+</div>
+</body>
+</html>

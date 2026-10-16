@@ -37,6 +37,14 @@
     </div>
     {% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}
     <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Lançar item" %}</h6></div><div class="card-body">
+      <form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}" class="mb-3" id="formLeitor">{% csrf_token %}
+        <label class="form-label" for="leitorCodigo">{% translate "Ler código de barras / QR Code" %}</label>
+        <div class="input-group">
+          <input type="text" id="leitorCodigo" name="codigo" class="form-control" autocomplete="off" autofocus placeholder="{% translate 'Aponte o leitor e leia o produto' %}" data-leitor-camera>
+          <button type="button" class="btn btn-outline-secondary d-none" id="leitorCamera">{% translate "Câmera" %}</button>
+          <button class="btn btn-primary">{% translate "Adicionar" %}</button>
+        </div>
+      </form>
       <div class="row g-2">
         {% for p in produtos %}
         <div class="col-6 col-lg-4">
@@ -48,6 +56,15 @@
         {% empty %}<div class="col-12 text-muted">{% translate "Nenhum produto com preço do PDV." %}</div>{% endfor %}
       </div>
     </div></div>
+    {% elif venda.status == "aberta" %}
+    <div class="alert alert-warning mb-0" role="alert">
+      {% if not caixa %}
+      {% translate "Para lançar itens nesta comanda você precisa ter um caixa aberto." %}
+      {% if perms.pdv.abrir_caixa %}<a href="{% url 'pdv' %}" class="alert-link">{% translate "Abrir meu caixa" %}</a>{% else %}{% translate "Seu papel não tem a permissão \"Abrir e fechar o próprio caixa\"; peça ao administrador." %}{% endif %}
+      {% else %}
+      {% translate "Esta comanda foi aberta em outro caixa; só o operador desse caixa pode lançar itens." %}
+      {% endif %}
+    </div>
     {% endif %}
   </div>
 
@@ -81,4 +98,5 @@
 {% block page_js %}
 {{ block.super }}
 {% if venda.status == "aberta" %}<script src="{% static_v 'js/pdv.js' %}"></script>{% endif %}
+{% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}
 {% endblock %}

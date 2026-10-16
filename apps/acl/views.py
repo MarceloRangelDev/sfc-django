@@ -9,7 +9,7 @@ from django.views.generic import ListView
 from web_project import TemplateLayout
 from web_project.acesso import perfis_visiveis
 
-from .permissions_matrix import montar_matriz_permissoes
+from .permissions_matrix import montar_matriz_permissoes, montar_permissoes_adicionais
 from .services import excluir_papel, salvar_papel
 
 
@@ -43,6 +43,7 @@ class PapelFormView(View):
         context = TemplateLayout.init(self, {
             "grupo": grupo,
             "matriz": montar_matriz_permissoes(marcadas),
+            "adicionais": montar_permissoes_adicionais(marcadas),
         })
         return render(request, self.template_name, context)
 
@@ -52,14 +53,14 @@ class PapelFormView(View):
 
         if not nome:
             messages.error(request, "Informe um nome para o papel.")
-            context = TemplateLayout.init(self, {"grupo": grupo, "matriz": montar_matriz_permissoes()})
+            context = TemplateLayout.init(self, {"grupo": grupo, "matriz": montar_matriz_permissoes(), "adicionais": montar_permissoes_adicionais()})
             return render(request, self.template_name, context)
 
         # Verifica duplicidade de nome (Group.name é único no Django).
         conflito = Group.objects.filter(name=nome).exclude(pk=grupo.pk if grupo else None)
         if conflito.exists():
             messages.error(request, f'Já existe um papel chamado "{nome}".')
-            context = TemplateLayout.init(self, {"grupo": grupo, "matriz": montar_matriz_permissoes()})
+            context = TemplateLayout.init(self, {"grupo": grupo, "matriz": montar_matriz_permissoes(), "adicionais": montar_permissoes_adicionais()})
             return render(request, self.template_name, context)
 
         # Validação dos ids de permissão, transação e auditoria: apps/acl/services.py
@@ -96,5 +97,5 @@ class PermissaoListView(View):
     template_name = "acl_permissao_list.html"
 
     def get(self, request):
-        context = TemplateLayout.init(self, {"matriz": montar_matriz_permissoes()})
+        context = TemplateLayout.init(self, {"matriz": montar_matriz_permissoes(), "adicionais": montar_permissoes_adicionais()})
         return render(request, self.template_name, context)

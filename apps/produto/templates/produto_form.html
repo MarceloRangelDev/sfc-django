@@ -32,6 +32,21 @@
           {{ form.descricao }}
           {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}
         </div>
+        <div class="col-md-6">
+          <label for="{{ form.codigo_barras.id_for_label }}" class="form-label">{% translate "Código de barras" %}</label>
+          {{ form.codigo_barras }}
+          {% if form.codigo_barras.errors %}<div class="text-danger small mt-1">{{ form.codigo_barras.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Informe o código do fabricante (leia com o leitor) ou deixe em branco para o sistema gerar. O QR Code usa o mesmo código." %}</div>
+        </div>
+        {% if object.codigo_barras %}
+        <div class="col-md-6">
+          <div class="d-flex gap-3 align-items-center flex-wrap">
+            <img src="{% url 'produto-codigo' object.pk 'barras' %}" alt="{% translate 'Código de barras' %}" style="max-width:200px;height:auto">
+            <img src="{% url 'produto-codigo' object.pk 'qr' %}" alt="QR Code" width="90" height="90">
+            <a href="{% url 'produto-etiquetas' %}?ids={{ object.pk }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">{% translate "Imprimir etiqueta" %}</a>
+          </div>
+        </div>
+        {% endif %}
         <div class="col-md-12">
           <div class="form-check form-switch">
             {{ form.ativo }}

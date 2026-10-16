@@ -158,6 +158,29 @@
           if (!d.itens || !d.itens.length) lista.appendChild(el('div', { 'class': 'col-12 text-muted', text: 'Nenhum produto com preço do PDV encontrado.' }));
         });
     }
+    // Leitor de código de barras/QR (digita o código e dá Enter) ou câmera: o produto com esse código entra direto no carrinho.
+    function lerCodigo(codigo) {
+      codigo = String(codigo || '').trim();
+      if (!codigo) return;
+      var msg = $('pdvLeitorMsg');
+      fetch(app.dataset.urlProdutos + '?q=' + encodeURIComponent(codigo), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var achado = (d.itens || []).filter(function (p) { return p.codigo === codigo; })[0];
+          if (achado) {
+            adicionar(achado); msg.className = 'small mb-2 text-success'; msg.textContent = achado.nome + ' adicionado.';
+            $('pdvBusca').value = ''; buscar();
+          } else if (d.itens && d.itens.length === 1) {
+            // texto digitado que bate com um único produto pelo nome: Enter adiciona
+            adicionar(d.itens[0]); msg.className = 'small mb-2 text-success'; msg.textContent = d.itens[0].nome + ' adicionado.'; $('pdvBusca').value = ''; buscar();
+          } else {
+            msg.className = 'small mb-2 text-danger'; msg.textContent = 'Nenhum produto com o código ou nome "' + codigo + '".';
+            $('pdvBusca').select();
+          }
+        });
+    }
+    $('pdvBusca').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(temporizador); lerCodigo(this.value); } });
+    document.addEventListener('codigo-lido', function (e) { lerCodigo(e.detail); });
     $('pdvBusca').addEventListener('input', function () { clearTimeout(temporizador); temporizador = setTimeout(buscar, 250); });
     $('pdvAddPagamento').addEventListener('click', function () { pag.adicionar(Math.max(0, total() - pag.pagos())); });
     document.querySelectorAll('[data-dividir]').forEach(function (b) { b.addEventListener('click', function () { pag.dividir(total(), parseInt(b.dataset.dividir, 10)); }); });

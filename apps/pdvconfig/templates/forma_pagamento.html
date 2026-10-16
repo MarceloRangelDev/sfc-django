@@ -9,7 +9,11 @@
   <h4 class="mb-0">{% translate "Formas de pagamento" %}</h4>
   <div class="d-flex gap-2">
     {% if perms.pdvconfig.add_formapagamento %}
+    {% if filiais_padrao %}
+    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalFormasPadrao">{% translate "Criar formas padrão" %}</button>
+    {% else %}
     <form method="post" action="{% url 'forma-pagamento-padrao' %}">{% csrf_token %}<button class="btn btn-outline-secondary">{% translate "Criar formas padrão" %}</button></form>
+    {% endif %}
     <a href="{% url 'forma-pagamento-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova forma" %}</a>
     {% endif %}
   </div>
@@ -70,4 +74,54 @@
   </div>
   {% endif %}
 </div>
+
+{% if filiais_padrao %}
+<div class="modal fade" id="modalFormasPadrao" tabindex="-1" aria-labelledby="modalFormasPadraoTitulo" aria-hidden="true">
+  <div class="modal-dialog"><form method="post" action="{% url 'forma-pagamento-padrao' %}" class="modal-content">{% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title" id="modalFormasPadraoTitulo">{% translate "Criar formas padrão" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Fechar' %}"></button></div>
+    <div class="modal-body">
+      <p>{% translate "Serão criadas Dinheiro, PIX, Cartão de débito e Cartão de crédito (as que já existem são mantidas)." %}</p>
+      <p class="fw-medium mb-2">{% translate "Deseja criar também para as filiais?" %}</p>
+      <div class="form-check"><input class="form-check-input" type="radio" name="filiais" id="fpNao" value="nao" checked><label class="form-check-label" for="fpNao">{% translate "Não, só para esta unidade" %}</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" name="filiais" id="fpSim" value="sim"><label class="form-check-label" for="fpSim">{% translate "Sim, também para filiais" %}</label></div>
+      <div id="fpEscopo" class="ms-4 mt-3 d-none">
+        <p class="fw-medium mb-2">{% translate "Para quais filiais?" %}</p>
+        <div class="form-check"><input class="form-check-input" type="radio" name="escopo" id="fpTodas" value="todas" checked><label class="form-check-label" for="fpTodas">{% translate "Todas as filiais" %} ({{ filiais_padrao|length }})</label></div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="escopo" id="fpEscolher" value="escolher"><label class="form-check-label" for="fpEscolher">{% translate "Escolher quais" %}</label></div>
+        <div id="fpLista" class="ms-4 mt-2 d-none">
+          {% for f in filiais_padrao %}<div class="form-check"><input class="form-check-input" type="checkbox" name="filial" id="fpF{{ f.pk }}" value="{{ f.pk }}"><label class="form-check-label" for="fpF{{ f.pk }}">{{ f.nome_razao_social }}</label></div>{% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{% translate "Cancelar" %}</button><button type="submit" class="btn btn-primary">{% translate "Criar" %}</button></div>
+  </form></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  var f = document.querySelector('#modalFormasPadrao form');
+  if (!f) return;
+  var escopo = f.querySelector('#fpEscopo'), lista = f.querySelector('#fpLista');
+  function valor(nome) { var r = f.querySelector('input[name="' + nome + '"]:checked'); return r ? r.value : ''; }
+  function atualizar() {
+    var sim = valor('filiais') === 'sim', escolher = valor('escopo') === 'escolher';
+    escopo.classList.toggle('d-none', !sim);
+    lista.classList.toggle('d-none', !(sim && escolher));
+  }
+  f.addEventListener('change', atualizar);
+  f.addEventListener('submit', function () {
+    // "sim" + escopo vira o valor que o servidor entende (todas | escolher)
+    if (valor('filiais') === 'sim') {
+      var h = document.createElement('input'); h.type = 'hidden'; h.name = 'filiais'; h.value = valor('escopo');
+      f.querySelectorAll('input[name="filiais"]').forEach(function (r) { r.disabled = true; });
+      f.appendChild(h);
+    }
+  });
+  atualizar();
+})();
+</script>
 {% endblock %}

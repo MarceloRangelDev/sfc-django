@@ -77,9 +77,51 @@ def montar_matriz_permissoes(permissoes_marcadas_ids=None):
     return matriz
 
 
+def _permissoes_adicionais():
+    """Permissões dos apps de negócio/administração que não estão na matriz
+    (ex.: abrir caixa, ver caixas, sangria, mover pedido, outros modelos).
+    Apps do próprio Django (auth, admin, sessions...) ficam de fora de propósito."""
+    from django.apps import apps
+
+    from .padroes import ADMIN_APPS, SCREEN_APPS
+
+    na_matriz = {p.pk for p in _permissoes_por_chave(_modulos_da_matriz()).values()}
+    permissoes = Permission.objects.filter(content_type__app_label__in=[*SCREEN_APPS, *ADMIN_APPS]).select_related("content_type")
+    resultado = []
+    for perm in permissoes:
+        if perm.pk in na_matriz:
+            continue
+        acao, _, modelo = perm.codename.partition("_")
+        modelo_cls = perm.content_type.model_class()
+        if acao in ACOES and modelo_cls is not None:
+            rotulo = f"{ACOES_LABEL[acao]} — {modelo_cls._meta.verbose_name}"
+        else:
+            rotulo = perm.name  # permissão personalizada: usa a descrição do model
+        app_config = apps.get_app_config(perm.content_type.app_label)
+        resultado.append((app_config.verbose_name, perm, rotulo))
+    return resultado
+
+
+def montar_permissoes_adicionais(permissoes_marcadas_ids=None):
+    """Permissões que não cabem na matriz módulo x ação, agrupadas por app:
+    [{"grupo": "Pdv", "permissoes": [{"permissao_id", "label", "codigo", "marcada"}]}]."""
+    marcadas = set(permissoes_marcadas_ids or [])
+    grupos = {}
+    for grupo, perm, rotulo in _permissoes_adicionais():
+        grupos.setdefault(grupo, []).append(
+            {"permissao_id": perm.pk, "label": rotulo, "codigo": f"{perm.content_type.app_label}.{perm.codename}", "marcada": perm.pk in marcadas}
+        )
+    return [
+        {"grupo": grupo, "permissoes": sorted(itens, key=lambda i: i["label"])}
+        for grupo, itens in sorted(grupos.items())
+    ]
+
+
 def ids_validos_da_matriz():
-    """Todos os ids de Permission que a matriz conhece — usado para nunca
-    aceitar, ao salvar um papel, um id de permissão que não pertença a
-    nenhum módulo delegável (ex: alguém tentando, via POST manipulado,
-    conceder "auth.delete_group" marcando um id arbitrário)."""
-    return {perm.pk for perm in _permissoes_por_chave(_modulos_da_matriz()).values()}
+    """Todos os ids de Permission que a matriz conhece (módulos delegáveis +
+    permissões adicionais dos apps do sistema) — usado para nunca aceitar,
+    ao salvar um papel, um id fora disso (ex: alguém tentando, via POST
+    manipulado, conceder "auth.delete_group" marcando um id arbitrário)."""
+    ids = {perm.pk for perm in _permissoes_por_chave(_modulos_da_matriz()).values()}
+    ids.update(perm.pk for _, perm, _ in _permissoes_adicionais())
+    return ids

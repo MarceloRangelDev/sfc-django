@@ -41,4 +41,20 @@
     </table>
   </div>
 </div>
+
+{% if adicionais %}
+<h6 class="mt-6 mb-3">{% translate "Outras permissões" %}</h6>
+<div class="row g-4">
+  {% for g in adicionais %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100"><div class="card-body">
+      <div class="fw-medium mb-2">{{ g.grupo }}</div>
+      <ul class="list-unstyled mb-0">
+        {% for p in g.permissoes %}<li>{{ p.label }} <code class="small text-muted">{{ p.codigo }}</code></li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}

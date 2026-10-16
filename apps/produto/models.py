@@ -20,6 +20,8 @@ class Produto(models.Model):
     categoria = models.ForeignKey(
         "categoria.Categoria", on_delete=models.PROTECT, related_name="produtos", verbose_name="Categoria",
     )
+    # EAN do fabricante ou o código interno gerado no cadastro (ver codigos.py); lido no PDV por leitor de barras/QR.
+    codigo_barras = models.CharField(max_length=32, blank=True, default="", db_default="", verbose_name="Código de barras")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -30,6 +32,19 @@ class Produto(models.Model):
         ordering = ["nome"]
         unique_together = ("cliente", "nome")
         indexes = [models.Index(fields=["cliente", "ativo"], name="produto_cliente_ativo_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cliente", "codigo_barras"], condition=~models.Q(codigo_barras=""), name="produto_codigo_unico_por_unidade",
+            ),
+        ]
 
     def __str__(self):
         return self.nome
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.codigo_barras:  # produto novo (ou sem código): gera o código interno a partir do id
+            from .codigos import codigo_interno
+
+            self.codigo_barras = codigo_interno(self.pk)
+            Produto.objects.filter(pk=self.pk).update(codigo_barras=self.codigo_barras)

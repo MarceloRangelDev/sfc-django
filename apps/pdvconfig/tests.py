@@ -99,6 +99,33 @@ class FormaPagamentoTelaTests(ConfigBase):
         self.assertEqual(set(FormaPagamento.objects.values_list("nome", flat=True)), {"Dinheiro", "PIX", "Cartão de débito", "Cartão de crédito"})
         self.assertEqual(FormaPagamento.objects.filter(tipo="dinheiro").count(), 1)
 
+    def _filiais(self):
+        self.cliente.tipo_estabelecimento = Cliente.TIPO_MATRIZ
+        self.cliente.save()
+        f1 = Cliente.objects.create(tipo_pessoa="PJ", cpf_cnpj="52998224725", nome_razao_social="F1", tipo_estabelecimento=Cliente.TIPO_FILIAL, matriz=self.cliente)
+        f2 = Cliente.objects.create(tipo_pessoa="PJ", cpf_cnpj="11222333000262", nome_razao_social="F2", tipo_estabelecimento=Cliente.TIPO_FILIAL, matriz=self.cliente)
+        return f1, f2
+
+    def test_formas_padrao_sem_filiais_so_a_unidade(self):
+        f1, _ = self._filiais()
+        self.client.post(reverse("forma-pagamento-padrao"), {"filiais": "nao"})
+        self.assertEqual(FormaPagamento.objects.filter(cliente=self.cliente).count(), 4)
+        self.assertFalse(FormaPagamento.objects.filter(cliente=f1).exists())
+
+    def test_formas_padrao_todas_as_filiais(self):
+        f1, f2 = self._filiais()
+        resposta = self.client.get(reverse("forma-pagamento-list"))
+        self.assertContains(resposta, "Deseja criar também para as filiais?")
+        self.client.post(reverse("forma-pagamento-padrao"), {"filiais": "todas"})
+        for unidade in (self.cliente, f1, f2):
+            self.assertEqual(FormaPagamento.objects.filter(cliente=unidade).count(), 4)
+
+    def test_formas_padrao_filiais_escolhidas_e_alheias_ignoradas(self):
+        f1, f2 = self._filiais()
+        self.client.post(reverse("forma-pagamento-padrao"), {"filiais": "escolher", "filial": [f2.pk, self.outro.pk]})
+        self.assertEqual(FormaPagamento.objects.filter(cliente=f2).count(), 4)
+        self.assertFalse(FormaPagamento.objects.filter(cliente__in=[f1, self.outro]).exists())
+
     def test_lista_mostra_a_taxa(self):
         self.criar_forma(nome="Cartão", taxa_modo="ambas", taxa_percentual="3", taxa_fixa="0,50")
         self.assertIn("3% + R$ 0,50 por transação", self.client.get(reverse("forma-pagamento-list")).content.decode())
