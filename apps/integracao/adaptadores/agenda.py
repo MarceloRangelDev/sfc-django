@@ -102,7 +102,8 @@ class GoogleCalendar(Adaptador):
             raise _erro(erro) from None
 
     def testar(self, conexao, credenciais):
-        self._chamar("GET", f"{self.URL_API}/{self._cal(conexao)}", credenciais)
+        # O escopo pedido (calendar.events) não permite ler os metadados do calendário (calendars.get → 403); listar 1 evento permite.
+        self._chamar("GET", f"{self.URL_API}/{self._cal(conexao)}/events?maxResults=1", credenciais)
 
     def criar_evento(self, conexao, credenciais, evento):
         _, _, dados = self._chamar("POST", f"{self.URL_API}/{self._cal(conexao)}/events", credenciais, self._corpo(evento))
