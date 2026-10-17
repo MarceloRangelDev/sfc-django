@@ -17,6 +17,11 @@
     var inteiro = s.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     return (c < 0 ? '-' : '') + 'R$ ' + inteiro + ',' + s.slice(-2);
   }
+  // O select2 (dropdowns com pesquisa de todo o sistema) dispara "change" só pelo jQuery, que NÃO aciona addEventListener nativo.
+  // jQuery.on recebe os dois tipos de evento; sem jQuery, usa o evento nativo.
+  function escutarMudanca(select, fn) {
+    if (window.jQuery) window.jQuery(select).on('change', fn); else select.addEventListener('change', fn);
+  }
   function novaChave() {
     return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'k' + Date.now() + Math.random().toString(16).slice(2);
   }
@@ -49,7 +54,7 @@
         var forma = formaDe(l.forma) || {};
         var select = el('select', { 'class': 'form-select form-select-sm', 'aria-label': 'Forma de pagamento' });
         formas.forEach(function (f) { var o = el('option', { value: f.id, text: f.nome }); if (f.id === l.forma) o.selected = true; select.appendChild(o); });
-        select.addEventListener('change', function () { l.forma = parseInt(select.value, 10); if (!formaDe(l.forma) || formaDe(l.forma).tipo !== 'dinheiro') l.recebido = 0; desenhar(); aoMudar(); });
+        escutarMudanca(select, function () { l.forma = parseInt(select.value, 10); if (!formaDe(l.forma) || formaDe(l.forma).tipo !== 'dinheiro') l.recebido = 0; desenhar(); aoMudar(); });
         var valor = el('input', { type: 'text', 'class': 'form-control form-control-sm text-end', inputmode: 'numeric', value: l.valor ? moeda(l.valor).replace('R$ ', '') : '', placeholder: '0,00', 'aria-label': 'Valor' });
         valor.addEventListener('input', function () { l.valor = centavos(valor.value); valor.value = l.valor ? moeda(l.valor).replace('R$ ', '') : ''; aoMudar(); });
         var linha = el('div', { 'class': 'd-flex gap-2 mb-2 align-items-center flex-wrap' }, [select, valor]);

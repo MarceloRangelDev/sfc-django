@@ -1,17 +1,24 @@
+import logging
+import threading
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import connection
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_date
 from django.views import View
 from django.views.generic import TemplateView
 
+from apps.integracao.models import Conexao
+from apps.integracao.services import sincronizar_automatico
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
 
 from .presenca import MINUTOS_ONLINE, usuarios_online
 from .services import PRESETS, indicadores, periodo
 
+logger = logging.getLogger(__name__)
 PERMISSAO_VER_USUARIOS = "auth.view_user"
 
 
@@ -21,6 +28,29 @@ class DashboardView(TemplateView):
     só com o que o usuário tem permissão de ver."""
 
     template_name = "dashboard.html"
+
+    def get(self, request, *args, **kwargs):
+        self._sincronizar_agenda_em_segundo_plano(request.user)
+        return super().get(request, *args, **kwargs)
+
+    @staticmethod
+    def _sincronizar_agenda_em_segundo_plano(usuario):
+        """Ao abrir o sistema, sincroniza as agendas da unidade (máx. a cada 5 min) numa thread: a página não espera o provedor externo."""
+        cliente = getattr(getattr(usuario, "profile", None), "cliente", None)
+        if cliente is None or not usuario.has_perm("integracao.view_compromisso"):
+            return
+        if not Conexao.objects.filter(cliente=cliente, status=Conexao.CONECTADA).exists():
+            return  # nada conectado: não abre thread
+
+        def rodar():
+            try:
+                sincronizar_automatico(cliente)
+            except Exception:
+                logger.exception("Sincronização da agenda ao abrir o sistema falhou")
+            finally:
+                connection.close()  # a thread tem a própria conexão com o banco
+
+        threading.Thread(target=rodar, daemon=True).start()
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))

@@ -18,7 +18,7 @@ from apps.auditoria.mixins import AuditoriaFormMixin
 from auth import ratelimit
 from auth.ratelimit import get_client_ip
 from web_project import TemplateLayout
-from web_project.acesso import clientes_dos_itens
+from web_project.acesso import cliente_do_usuario, clientes_dos_itens
 from web_project.mixins import ClienteScopedMixin, ListaPaginadaMixin, ListaPorUnidadeMixin, SalvarEAdicionarMixin
 from web_project.regras import RegraNegocioError
 
@@ -299,6 +299,13 @@ class CompromissoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         if tipo in dict(Compromisso.TIPO_CHOICES):
             queryset = queryset.filter(tipo=tipo)
         return self.ordenar(self.filtrar_status(queryset))
+
+    def get(self, request, *args, **kwargs):
+        # Abrir a Agenda sincroniza antes de listar (no máximo a cada 5 min por conexão; falhas não impedem a tela).
+        cliente = cliente_do_usuario(request.user)
+        if cliente is not None:
+            s.sincronizar_automatico(cliente)
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))

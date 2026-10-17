@@ -380,6 +380,25 @@ def _interpretar_data(valor, todo_o_dia):
         return None
 
 
+def sincronizar_automatico(cliente, minutos=5):
+    """Sincronização "oportunista": chamada ao abrir o sistema e a Agenda. No máximo uma vez a cada `minutos` por conexão (o cache também
+    impede duas execuções simultâneas) e NUNCA levanta erro: falha de rede/provedor só fica no log da conexão. Devolve quantas rodaram."""
+    from django.core.cache import cache
+
+    rodadas = 0
+    for conexao in Conexao.objects.filter(cliente=cliente, status=Conexao.CONECTADA):
+        if not conexao.adaptador.sincroniza_agenda:
+            continue
+        if not cache.add(f"integracao:sync-auto:{conexao.pk}", 1, minutos * 60):
+            continue
+        try:
+            sincronizar_agenda(conexao)
+            rodadas += 1
+        except Exception:
+            logger.exception("Sincronização automática da conexão %s falhou", conexao.pk)
+    return rodadas
+
+
 def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
     """Sincroniza UMA conexão de agenda. Ordem: (1) renova credencial se preciso, (2) PUXA alterações de compromissos, (3) EMPURRA o que
     mudou no sistema. Regras de conflito: vencimentos são do sistema (edição externa é sobrescrita); em compromissos vale a alteração

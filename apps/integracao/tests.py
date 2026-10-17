@@ -778,3 +778,27 @@ class ComandosTests(Base):
             self.assertTrue(s.credenciais_de(Conexao.objects.get(pk=c.pk))["token"].startswith("novo-"))
         with override_settings(INTEGRACAO_CRYPTO_KEYS=nova):  # a chave antiga pode ser removida depois da rotação
             self.assertTrue(s.credenciais_de(Conexao.objects.get(pk=c.pk)))
+
+
+class SincronizacaoAutomaticaTests(TestCase):
+    """Abrir a Agenda/o sistema sincroniza as conexões conectadas, no máximo a cada 5 minutos, sem nunca quebrar a tela."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.cliente = Cliente.objects.create(tipo_pessoa="PJ", cpf_cnpj="11222333000181", nome_razao_social="Empresa A")
+        self.conexao = Conexao.objects.create(cliente=self.cliente, provedor="google_calendar", nome="Google", status=Conexao.CONECTADA)
+
+    def test_roda_uma_vez_por_janela_e_nao_propaga_erro(self):
+        from unittest import mock
+
+        with mock.patch.object(s, "sincronizar_agenda", return_value={}) as sinc:
+            self.assertEqual(s.sincronizar_automatico(self.cliente), 1)
+            self.assertEqual(s.sincronizar_automatico(self.cliente), 0)  # dentro dos 5 min
+        self.assertEqual(sinc.call_count, 1)
+        from django.core.cache import cache
+
+        cache.clear()
+        with mock.patch.object(s, "sincronizar_agenda", side_effect=RuntimeError("rede")):
+            self.assertEqual(s.sincronizar_automatico(self.cliente), 0)  # erro vira log, não exceção
