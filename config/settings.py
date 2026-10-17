@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "apps.maodeobra",
     "apps.integracao",
     "apps.fiscal",
+    "apps.imagens",
     "apps.canal",
     "apps.custo",
     "apps.estoque",
@@ -376,6 +377,7 @@ REST_FRAMEWORK = {
         # Endpoints sensíveis (ver throttle_scope nas views).
         "cadastro": os.environ.get("API_THROTTLE_CADASTRO", default="10/hour"),
         "senha": os.environ.get("API_THROTTLE_SENHA", default="10/hour"),
+        "imagens": os.environ.get("API_THROTTLE_IMAGENS", default="300/hour"),
     },
     "NON_FIELD_ERRORS_KEY": "non_field_errors",
 }
@@ -417,3 +419,26 @@ WEBPUSH_SETTINGS = {
     "VAPID_PRIVATE_KEY": os.environ.get("VAPID_PRIVATE_KEY", ""),
     "VAPID_ADMIN_EMAIL": os.environ.get("VAPID_ADMIN_EMAIL", MAIL_FROM_EMAIL or "admin@example.com"),
 }
+
+
+# Imagens (apps/imagens) - Cloudflare R2
+# ------------------------------------------------------------------------------
+# Credenciais SOMENTE por variável de ambiente (nunca no código/banco/log). Sem elas o envio de imagens fica indisponível (erro claro).
+# Crie um token de API do R2 restrito a UM bucket (Object Read & Write). Passo a passo: apps/imagens/README_CLOUDFLARE.md
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", default="")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", default="")
+R2_BUCKET = os.environ.get("R2_BUCKET", default="")
+R2_ENDPOINT = os.environ.get("R2_ENDPOINT", default=f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else "")
+# Limites de envio (validados pelo conteúdo real da imagem).
+IMAGENS_MAX_BYTES = int(os.environ.get("IMAGENS_MAX_BYTES", default=5 * 1024 * 1024))
+IMAGENS_MAX_LADO = int(os.environ.get("IMAGENS_MAX_LADO", default=8000))  # px, em cada lado
+IMAGENS_MAX_PIXELS = int(os.environ.get("IMAGENS_MAX_PIXELS", default=40_000_000))  # proteção contra bomba de descompressão
+IMAGENS_RETENCAO_DIAS = int(os.environ.get("IMAGENS_RETENCAO_DIAS", default=7))  # originais substituídos ficam no R2 por este prazo
+IMAGENS_URL_LEITURA_SEGUNDOS = int(os.environ.get("IMAGENS_URL_LEITURA_SEGUNDOS", default=300))
+# Entrega: "local" (o Django gera as variantes; padrão, não exige zona Cloudflare) ou "cloudflare" (Image Transformations do domínio:
+# só imagens de CATÁLOGO; perfil/cliente continuam sempre "local"). Em "cloudflare" informe IMAGENS_CF_BASE_URL (https://seudominio).
+IMAGENS_ENTREGA = os.environ.get("IMAGENS_ENTREGA", default="local").lower()
+IMAGENS_CF_BASE_URL = os.environ.get("IMAGENS_CF_BASE_URL", default="").rstrip("/")
+IMAGENS_LIMITE_LEITURA_MIN = int(os.environ.get("IMAGENS_LIMITE_LEITURA_MIN", default=600))  # leituras por usuário por minuto
+IMAGENS_LIMITE_ENVIO_MIN = int(os.environ.get("IMAGENS_LIMITE_ENVIO_MIN", default=20))

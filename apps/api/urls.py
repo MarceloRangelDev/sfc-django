@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import cadastros, compras, consumidores, cotacoes, fiscal, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -75,6 +75,10 @@ urlpatterns = [
     path("api/v1/fiscal/configuracao/", fiscal.FiscalConfiguracaoViewSet.as_view({"get": "list"}), name="api-fiscal-config"),
     path("api/v1/mao-de-obra/regras/", maodeobra.ConfiguracaoMaoDeObraView.as_view(), name="api-mao-obra-config"),
     path("api/v1/mao-de-obra/relatorio/", maodeobra.RelatorioMaoDeObraView.as_view(), name="api-mao-obra-relatorio"),
+    path("api/v1/imagens/<str:tipo>/<int:pk>/", imagens.ImagemEntidadeView.as_view(), name="api-imagem"),
+    path("api/v1/plataforma/imagens/configuracao/", imagens.ConfiguracaoImagensView.as_view(), name="api-imagens-config"),
+    path("api/v1/plataforma/imagens/custos/", imagens.CustosImagensView.as_view(), name="api-imagens-custos"),
+    path("api/v1/plataforma/imagens/tarifas/", imagens.TarifasImagensView.as_view(), name="api-imagens-tarifas"),
     path("api/v1/auth/login/", views.LoginView.as_view(), name="api-login"),
     path("api/v1/auth/logout/", views.LogoutView.as_view(), name="api-logout"),
     path("api/v1/auth/me/", views.MeView.as_view(), name="api-me"),

@@ -46,6 +46,8 @@ urlpatterns = [
     path("", include("apps.integracao.urls")),
     # fiscal urls (configuração fiscal, certificado e documentos fiscais)
     path("", include("apps.fiscal.urls")),
+    # imagens urls (envio, entrega autorizada e painel do proprietário)
+    path("", include("apps.imagens.urls")),
     # cotacao urls (cotações de preços entre lojas)
     path("", include("apps.cotacao.urls")),
     # compras urls (lista de compras e sugestões do estoque)

@@ -1,0 +1,52 @@
+{% load i18n imagens %}
+{% comment %}
+Campo de imagem reutilizável. Uso (DEPOIS do </form> principal, só na edição):
+  {% include "imagens/_campo.html" with tipo="produto" objeto=object %}
+Envia/remove por fetch para as rotas imagens-enviar/imagens-excluir (a autorização é feita no servidor).
+{% endcomment %}
+{% if objeto %}
+{% imagem_url tipo objeto.pk "lista" as imagem_atual %}
+<div class="card mt-4" data-imagem-campo data-url-enviar="{% url 'imagens-enviar' tipo objeto.pk %}" data-url-excluir="{% url 'imagens-excluir' tipo objeto.pk %}">
+  <div class="card-body">
+    <h6 class="mb-3">{% translate "Imagem" %}</h6>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <img data-imagem-previa src="{{ imagem_atual }}" alt="" style="max-width:160px;max-height:160px;object-fit:cover" class="rounded border {% if not imagem_atual %}d-none{% endif %}">
+      <div>
+        <input type="file" class="form-control mb-2" data-imagem-arquivo accept="image/jpeg,image/png,image/webp">
+        <button type="button" class="btn btn-outline-primary btn-sm" data-imagem-enviar>{% translate "Enviar imagem" %}</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-imagem-remover>{% translate "Remover" %}</button>
+        <div class="small text-muted mt-1">{% translate "JPEG, PNG ou WebP, até 5 MB." %}</div>
+        <div class="small mt-1" data-imagem-msg role="status"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var campo = document.currentScript.previousElementSibling;
+    var previa = campo.querySelector('[data-imagem-previa]'), msg = campo.querySelector('[data-imagem-msg]');
+    var csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+    function aviso(t, erro) { msg.textContent = t; msg.className = 'small mt-1 ' + (erro ? 'text-danger' : 'text-success'); }
+    function chamar(url, corpo) {
+      return fetch(url, {method: 'POST', body: corpo, headers: {'X-CSRFToken': csrf}, credentials: 'same-origin'})
+        .then(function (r) { return r.json().catch(function () { return {ok: false, erro: 'Falha inesperada.'}; }); });
+    }
+    campo.querySelector('[data-imagem-enviar]').addEventListener('click', function () {
+      var arq = campo.querySelector('[data-imagem-arquivo]').files[0];
+      if (!arq) { aviso('Selecione uma imagem.', true); return; }
+      var f = new FormData(); f.append('imagem', arq);
+      chamar(campo.dataset.urlEnviar, f).then(function (d) {
+        if (d.ok) { previa.src = d.url + '?t=' + Date.now(); previa.classList.remove('d-none'); aviso('Imagem salva.'); } else { aviso(d.erro, true); }
+      });
+    });
+    campo.querySelector('[data-imagem-remover]').addEventListener('click', function () {
+      if (!confirm('Remover a imagem?')) return;
+      chamar(campo.dataset.urlExcluir, new FormData()).then(function (d) {
+        if (d.ok) { previa.classList.add('d-none'); previa.removeAttribute('src'); aviso('Imagem removida.'); } else { aviso(d.erro, true); }
+      });
+    });
+  })();
+</script>
+{% else %}
+<p class="text-muted small mt-3">{% translate "Salve o registro para poder enviar uma imagem." %}</p>
+{% endif %}

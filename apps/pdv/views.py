@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from apps.consumidor.models import Consumidor
+from apps.imagens.servico import url_da_entidade
 from apps.pdvconfig.models import ConfiguracaoPdv, FormaPagamento
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
@@ -92,7 +93,7 @@ class ProdutosJsonView(View):
         if caixa is None:
             return JsonResponse({"erro": "Abra o caixa."}, status=409)
         itens = [
-            {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado}
+            {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
             for p in produtos_do_pdv(caixa.cliente, request.GET.get("q", ""))
         ]
         return JsonResponse({"itens": itens})

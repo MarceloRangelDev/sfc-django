@@ -1,6 +1,6 @@
 {% extends layout_path %}
 {% load static %}
-{% load i18n %}
+{% load i18n imagens %}
 
 {% block title %}{% translate "Comanda" %} {{ venda.mesa.nome }} - PDV - Sistema Faturando Certo{% endblock title %}
 
@@ -50,7 +50,7 @@
         <div class="col-6 col-lg-4">
           <form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}">{% csrf_token %}
             <input type="hidden" name="produto" value="{{ p.produto_id }}"><input type="hidden" name="quantidade" value="1">
-            <button class="btn btn-outline-primary w-100 text-start"><div class="fw-medium">{{ p.produto.nome }}</div><small class="text-muted">{{ p.preco_venda|moeda }}</small></button>
+            <button class="btn btn-outline-primary w-100 text-start">{% imagem_url "produto" p.produto_id "miniatura" as foto %}{% if foto %}<img src="{{ foto }}" alt="" width="48" height="48" class="rounded mb-1 d-block" style="object-fit:cover">{% endif %}<div class="fw-medium">{{ p.produto.nome }}</div><small class="text-muted">{{ p.preco_venda|moeda }}</small></button>
           </form>
         </div>
         {% empty %}<div class="col-12 text-muted">{% translate "Nenhum produto com preço do PDV." %}</div>{% endfor %}

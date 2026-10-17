@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.consumidor.models import Consumidor
+from apps.imagens.servico import url_da_entidade
 from apps.pdv import comprovante as comp
 from apps.pdv import services as s
 from apps.pdv.forms import DevolucaoForm
@@ -261,7 +262,7 @@ class ProdutoPdvViewSet(viewsets.ViewSet):
     @extend_schema(parameters=[OpenApiParameter("q", str)], responses={200: OpenApiTypes.OBJECT})
     def list(self, request):
         caixa = _caixa_do_usuario(request)
-        itens = [{"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado}
+        itens = [{"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
                  for p in s.produtos_do_pdv(caixa.cliente, request.query_params.get("q", ""))]
         return resposta({"itens": itens})
 

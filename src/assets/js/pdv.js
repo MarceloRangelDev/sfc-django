@@ -150,7 +150,7 @@
           lista.innerHTML = '';
           (d.itens || []).forEach(function (p) {
             var b = el('button', { type: 'button', 'class': 'btn btn-outline-primary text-start', 'aria-label': 'Adicionar ' + p.nome }, [
-              el('div', { 'class': 'fw-medium', text: p.nome }), el('small', { 'class': 'text-muted', text: p.categoria + ' · ' + p.preco_formatado }),
+              (p.imagem_url ? el('img', { src: p.imagem_url, alt: '', width: 48, height: 48, 'class': 'rounded mb-1 d-block', style: 'object-fit:cover' }) : document.createTextNode('')), el('div', { 'class': 'fw-medium', text: p.nome }), el('small', { 'class': 'text-muted', text: p.categoria + ' · ' + p.preco_formatado }),
             ]);
             b.addEventListener('click', function () { adicionar(p); });
             lista.appendChild(el('div', { 'class': 'col-6 col-lg-4' }, [b]));

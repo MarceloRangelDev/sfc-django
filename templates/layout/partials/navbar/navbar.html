@@ -141,6 +141,11 @@
               <li>
                 <a class="dropdown-item" href="{% url 'profile' %}"> <i class="icon-base ti tabler-user me-3 icon-md"></i><span class="align-middle">{% translate "Meu perfil" %}</span> </a>
               </li>
+              {% if request.user.is_superuser %}
+              <li>
+                <a class="dropdown-item" href="{% url 'imagens-painel' %}"> <i class="icon-base ti tabler-photo-cog me-3 icon-md"></i><span class="align-middle">{% translate "Imagens e custos (R2)" %}</span> </a>
+              </li>
+              {% endif %}
               <li>
                 <a class="dropdown-item" href="javascript:void(0);"> <i class="icon-base ti tabler-settings me-3 icon-md"></i><span class="align-middle">{% translate "Configurações" %}</span> </a>
               </li>

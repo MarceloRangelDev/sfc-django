@@ -22,3 +22,7 @@ drf-spectacular-sidecar==2026.10.1
 
 # Notificações push no navegador (Web Push)
 django-webpush==0.3.6
+
+# Imagens: armazenamento no Cloudflare R2 (API compatível com S3) e validação do conteúdo
+boto3==1.43.114
+Pillow==12.3.0

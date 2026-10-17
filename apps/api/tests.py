@@ -683,7 +683,7 @@ class DocumentacaoTests(BaseAPITests):
         api = [r for r in rotas if r.startswith("api/v1/")]
         self.assertGreater(len(api), 30)
         for rota in api:
-            caminho = "/" + rota.replace("(?P<pk>[^/.]+)", "1").replace("^", "").replace("$", "").replace("\\.(?P<format>[a-z0-9]+)/?", "").rstrip("/") + "/"
+            caminho = "/" + rota.replace("(?P<pk>[^/.]+)", "1").replace("<int:pk>", "1").replace("<str:tipo>", "insumo").replace("^", "").replace("$", "").replace("\\.(?P<format>[a-z0-9]+)/?", "").rstrip("/") + "/"
             if "(" in caminho or any(caminho.endswith("v1/" + p) for p in publicas):
                 continue
             resposta = self.anonimo.get(caminho)

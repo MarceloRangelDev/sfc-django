@@ -1,6 +1,6 @@
 {% extends layout_path %}
 {% load static %}
-{% load i18n %}
+{% load i18n imagens %}
 
 {% block title %}{{ cotacao.titulo }} - {% translate "Cotação" %} - Sistema Faturando Certo{% endblock title %}
 
@@ -83,7 +83,7 @@
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div>
-      <h6 class="mb-0">{{ item.descricao }} {% if item.servico %}<span class="badge bg-label-info">{% translate "serviço" %}</span>{% endif %}</h6>
+      <h6 class="mb-0">{% if item.insumo_id %}{% imagem_url "insumo" item.insumo_id "miniatura" as foto %}{% if foto %}<img src="{{ foto }}" alt="" width="32" height="32" class="rounded me-2" style="object-fit:cover">{% endif %}{% endif %}{{ item.descricao }} {% if item.servico %}<span class="badge bg-label-info">{% translate "serviço" %}</span>{% endif %}</h6>
       <small class="text-muted">{{ item.quantidade|floatformat:"-4" }} {{ item.medida.sigla }}{% if item.observacao %} · {{ item.observacao }}{% endif %}</small>
     </div>
     {% if pode_alterar and editavel %}

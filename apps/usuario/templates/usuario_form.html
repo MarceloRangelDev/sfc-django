@@ -75,6 +75,7 @@
     </form>
   </div>
 </div>
+{% include "imagens/_campo.html" with tipo="usuario" objeto=usuario %}
 
 {{ form.perfis_por_cliente|json_script:"perfis-por-cliente" }}
 {% endblock %}
