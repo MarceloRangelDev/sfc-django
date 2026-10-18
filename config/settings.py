@@ -65,6 +65,8 @@ INSTALLED_APPS = [
     "apps.sample",
     "apps.pages",
     "apps.insumoglobal",
+    "apps.kanban",  # quadro Kanban (somente administrador)
+    "apps.assinatura",  # assinatura e cobrança (Pagar.me)
     "apps.insumo",
     "apps.produto",
     "apps.processado",
@@ -446,3 +448,19 @@ IMAGENS_ENTREGA = os.environ.get("IMAGENS_ENTREGA", default="local").lower()
 IMAGENS_CF_BASE_URL = os.environ.get("IMAGENS_CF_BASE_URL", default="").rstrip("/")
 IMAGENS_LIMITE_LEITURA_MIN = int(os.environ.get("IMAGENS_LIMITE_LEITURA_MIN", default=600))  # leituras por usuário por minuto
 IMAGENS_LIMITE_ENVIO_MIN = int(os.environ.get("IMAGENS_LIMITE_ENVIO_MIN", default=20))
+
+# Assinatura / Pagar.me (apps/assinatura) — ver apps/assinatura/README_PAGARME.md
+# ------------------------------------------------------------------------------
+# Chave SECRETA (sk_test_... = sandbox; sk_... = produção). Sem ela a cobrança fica indisponível (nada é simulado).
+PAGARME_SECRET_KEY = os.environ.get("PAGARME_SECRET_KEY", default="")
+PAGARME_API_URL = os.environ.get("PAGARME_API_URL", default="https://api.pagar.me/core/v5")
+# Chave PÚBLICA (pk_...): usada no navegador para tokenizar o cartão direto no provedor (o servidor nunca vê o número).
+PAGARME_PUBLIC_KEY = os.environ.get("PAGARME_PUBLIC_KEY", default="")
+# Segredo da URL do webhook (/assinatura/webhook/<token>/). Gere um valor longo e aleatório; sem ele o webhook responde 404.
+PAGARME_WEBHOOK_TOKEN = os.environ.get("PAGARME_WEBHOOK_TOKEN", default="")
+# Confirma na API do provedor (GET /charges/{id}) antes de marcar um pagamento vindo de webhook. Mantenha ligado.
+PAGARME_CONFIRMAR_PAGAMENTO = os.environ.get("PAGARME_CONFIRMAR_PAGAMENTO", default="1") == "1"
+# Dias de tolerância depois da falha/vencimento antes de bloquear o acesso.
+ASSINATURA_CARENCIA_DIAS = int(os.environ.get("ASSINATURA_CARENCIA_DIAS", default="7"))
+# Se "1", cliente SEM assinatura também é bloqueado. Padrão "0": só quem tem assinatura bloqueada perde o acesso.
+ASSINATURA_OBRIGATORIA = os.environ.get("ASSINATURA_OBRIGATORIA", default="0") == "1"

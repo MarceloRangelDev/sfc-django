@@ -37,13 +37,17 @@ class MensagemForm(forms.Form):
     texto = forms.CharField(max_length=2000, label="Mensagem", widget=forms.Textarea(attrs={**CONTROLE, "rows": 3, "maxlength": 2000}))
 
 
+LEMBRETES = [("", "Sem lembrete"), ("0", "Na hora"), ("15", "15 minutos antes"), ("60", "1 hora antes"), ("1440", "1 dia antes")]
+
+
 class CompromissoForm(forms.ModelForm):
+    lembrete_minutos = forms.TypedChoiceField(label="Lembrete", required=False, choices=LEMBRETES, coerce=int, empty_value=None, widget=forms.Select(attrs={"class": "form-select"}))
     inicio = forms.DateTimeField(label="Início", input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"], widget=forms.DateTimeInput(attrs={**CONTROLE, "type": "datetime-local"}, format="%Y-%m-%dT%H:%M"))
     fim = forms.DateTimeField(label="Fim", input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"], widget=forms.DateTimeInput(attrs={**CONTROLE, "type": "datetime-local"}, format="%Y-%m-%dT%H:%M"))
 
     class Meta:
         model = Compromisso
-        fields = ["tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "concluido", "ativo"]
+        fields = ["tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "lembrete_minutos", "concluido", "ativo"]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}), "titulo": forms.TextInput(attrs=CONTROLE), "descricao": forms.TextInput(attrs={**CONTROLE, "maxlength": 500}),
             "todo_o_dia": forms.CheckboxInput(attrs={"class": "form-check-input"}), "concluido": forms.CheckboxInput(attrs={"class": "form-check-input"}), "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
@@ -58,6 +62,12 @@ class CompromissoForm(forms.ModelForm):
         if not titulo:
             raise forms.ValidationError("Informe o título.")
         return titulo
+
+    def save(self, commit=True):
+        # Mudou o início ou a antecedência: o lembrete volta a valer (será enviado de novo no novo horário).
+        if self.instance.pk and ({"inicio", "lembrete_minutos"} & set(self.changed_data)):
+            self.instance.lembrete_enviado_em = None
+        return super().save(commit)
 
     def clean(self):
         dados = super().clean()

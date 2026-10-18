@@ -129,6 +129,10 @@ class Compromisso(models.Model):
     ativo = models.BooleanField(default=True, db_default=True, verbose_name="Ativo")
     # Concluído (tarefas, entregas, compromissos...): continua na agenda, marcado (não altera a sincronização com calendários externos).
     concluido = models.BooleanField(default=False, db_default=False, verbose_name="Concluído")
+    # Lembrete: minutos ANTES do início (0 = na hora; nulo = sem lembrete). `lembrete_enviado_em` garante que o aviso
+    # sai uma única vez (comando enviar_lembretes_agenda); mudar início ou antecedência o zera para avisar de novo.
+    lembrete_minutos = models.PositiveIntegerField(null=True, blank=True, verbose_name="Lembrete")
+    lembrete_enviado_em = models.DateTimeField(null=True, blank=True, editable=False)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

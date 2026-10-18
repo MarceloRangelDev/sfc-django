@@ -526,7 +526,7 @@ class PainelViewSet(viewsets.ViewSet):
     @extend_schema(parameters=[OpenApiParameter("periodo", str, enum=[p for p, _ in PRESETS], description="Padrão: mes_atual"), OpenApiParameter("inicio", str, description="AAAA-MM-DD (periodo=personalizado)"),
                                OpenApiParameter("fim", str, description="AAAA-MM-DD (periodo=personalizado)")],
                    responses={200: inline_serializer("Painel", {"periodo": inline_serializer("PeriodoDoPainel", {"inicio": serializers.DateField(), "fim": serializers.DateField(), "tipo": serializers.CharField(), "rotulo": serializers.CharField()}),
-                                                                  "blocos": serializers.DictField(help_text="resultado, contas, estoque, cadastros, precificacao e categorias (conforme as permissões).")})})
+                                                                  "blocos": serializers.DictField(help_text="resultado, contas, estoque, cadastros, precificacao, valor_minimo (mínimo a cobrar mensal/quinzenal/semanal/diário/hora, só segmentos de serviço) e categorias (conforme as permissões).")})})
     def list(self, request):
         cliente = _cliente_ou_erro(request)
         params = request.query_params

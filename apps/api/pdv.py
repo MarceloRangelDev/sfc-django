@@ -25,7 +25,7 @@ from apps.pdv.models import Caixa, MovimentoCaixa, Venda, VendaItem
 from apps.pdv.views import _caixas_visiveis, _vendas_visiveis
 from apps.pdvconfig.forms import ConfiguracaoPdvForm, FormaPagamentoForm, MesaForm
 from apps.pdvconfig.models import ConfiguracaoPdv, FormaPagamento, Mesa
-from web_project.acesso import cliente_do_usuario
+from web_project.acesso import cliente_do_usuario, motivo_modulo_indisponivel
 from web_project.decorators import modulo_habilitado_para
 from web_project.regras.dinheiro import DinheiroService
 
@@ -45,7 +45,7 @@ class PermissaoPorAcao(BasePermission):
         if not (usuario and usuario.is_authenticated):
             return False
         if not modulo_habilitado_para(usuario, view.modulo_slug):
-            self.message = "Este módulo não está habilitado para o seu cliente."
+            self.message = motivo_modulo_indisponivel(usuario)
             return False
         chave = getattr(view, "action", None) or request.method.lower()  # ViewSet: ação; APIView: método HTTP
         permissao = getattr(view, "permissoes", {}).get(chave)

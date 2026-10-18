@@ -44,7 +44,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 
-from .acesso import modulos_habilitados
+from .acesso import modulos_habilitados, motivo_modulo_indisponivel
 
 
 def screen_required(permission, raise_exception=True):
@@ -77,7 +77,7 @@ def module_required(modulo_slug, permission, raise_exception=True):
             request.modulo_slug = modulo_slug
             if request.user.is_authenticated and not modulo_habilitado_para(request.user, modulo_slug):
                 if raise_exception:
-                    raise PermissionDenied("Este módulo não está habilitado para o seu cliente.")
+                    raise PermissionDenied(motivo_modulo_indisponivel(request.user))
                 return redirect("pages-misc-not-authorized")
             return protected(request, *args, **kwargs)
 

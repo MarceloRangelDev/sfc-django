@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.mixins import AuditoriaFormMixin
-from apps.auditoria.utils import registrar_edicao, registrar_exclusao, tirar_foto
+from apps.auditoria.utils import registrar_criacao, registrar_edicao, registrar_exclusao, tirar_foto
 from auth import ratelimit
 from auth.ratelimit import get_client_ip
 from web_project import TemplateLayout
@@ -171,15 +171,21 @@ class CredenciaisView(View):
 SAL_OAUTH = "integracao-google"
 
 
+PROVEDORES_GOOGLE = {"google_calendar": ("Google Agenda", {"calendar_id": "primary", "incluir_valores": "0"}), "google_tasks": ("Google Tarefas", {"tasklist": "@default"})}
+
+
 class GoogleIniciarView(View):
     def post(self, request):
-        adaptador = obter("google_calendar")
+        provedor = request.POST.get("provedor", "google_calendar")
+        if provedor not in PROVEDORES_GOOGLE:  # lista fechada: nunca aceita provedor arbitrário do navegador
+            raise Http404
+        adaptador = obter(provedor)
         if not adaptador.configurado():
-            messages.error(request, "O Google Agenda não está configurado neste sistema (faltam GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET no .env).")
+            messages.error(request, "O Google não está configurado neste sistema (faltam GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET no .env).")
             return redirect("integracoes")
         nonce = secrets.token_urlsafe(16)
         request.session["integracao_oauth_nonce"] = nonce
-        estado = signing.dumps({"u": request.user.pk, "n": nonce}, salt=SAL_OAUTH)
+        estado = signing.dumps({"u": request.user.pk, "n": nonce, "p": provedor}, salt=SAL_OAUTH)
         return redirect(adaptador.url_autorizacao(estado, _url_base(request) + reverse("integracao-google-retorno")))
 
 
@@ -188,27 +194,29 @@ class GoogleRetornoView(View):
     (cifrados) e cria a conexão. Qualquer divergência cancela o fluxo."""
 
     def get(self, request):
-        adaptador = obter("google_calendar")
         nonce = request.session.pop("integracao_oauth_nonce", None)
         try:
             estado = signing.loads(request.GET.get("state", ""), salt=SAL_OAUTH, max_age=600)
         except signing.BadSignature:
             estado = None
-        if not estado or not nonce or estado.get("n") != nonce or estado.get("u") != request.user.pk:
+        provedor = (estado or {}).get("p", "google_calendar")
+        if not estado or not nonce or estado.get("n") != nonce or estado.get("u") != request.user.pk or provedor not in PROVEDORES_GOOGLE:
             messages.error(request, "Autorização inválida ou expirada. Tente conectar de novo.")
             return redirect("integracoes")
         if request.GET.get("error") or not request.GET.get("code"):
             messages.warning(request, "A autorização foi negada ou cancelada no Google.")
             return redirect("integracoes")
+        adaptador = obter(provedor)
+        rotulo, config = PROVEDORES_GOOGLE[provedor]
         try:
             credenciais, expira = adaptador.trocar_codigo(request.GET["code"], _url_base(request) + reverse("integracao-google-retorno"))
-            conexao = s.conectar(request, request.user.profile.cliente, "google_calendar", "Google Agenda", credenciais, {"calendar_id": "primary", "incluir_valores": "0"}, testar=True)
+            conexao = s.conectar(request, request.user.profile.cliente, provedor, rotulo, credenciais, dict(config), testar=True)
             conexao.expira_em = expira
             conexao.save(update_fields=["expira_em"])
         except (RegraNegocioError, Exception) as erro:  # noqa: BLE001 (nunca vaza detalhe do provedor)
             messages.error(request, f"Não foi possível concluir a conexão: {erro if isinstance(erro, RegraNegocioError) else 'erro ao falar com o Google.'}")
             return redirect("integracoes")
-        messages.success(request, "Google Agenda conectado.")
+        messages.success(request, f"{rotulo} conectado.")
         return redirect("integracao-detalhe", pk=conexao.pk)
 
 
@@ -337,13 +345,50 @@ class CompromissoEventosView(View):
         eventos = [
             {
                 "id": c.pk, "title": c.titulo, "start": c.inicio.isoformat(), "end": c.fim.isoformat(), "allDay": c.todo_o_dia,
-                "url": reverse("compromisso-edit", args=[c.pk]) if c.pk in editaveis else "", "editable": c.pk in editaveis,
+                "editable": c.pk in editaveis,
                 "classNames": [f"tipo-{c.tipo}"] + (["concluido"] if c.concluido else []),
-                "extendedProps": {"tipo": c.get_tipo_display(), "concluido": c.concluido, "origem": c.origem},
+                "extendedProps": {
+                    "tipo": c.get_tipo_display(), "concluido": c.concluido, "origem": c.origem,
+                    # Dados para o modal de edição (horário local, formato do <input datetime-local>).
+                    "form": {
+                        "tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "todo_o_dia": c.todo_o_dia,
+                        "inicio": timezone.localtime(c.inicio).strftime("%Y-%m-%dT%H:%M"), "fim": timezone.localtime(c.fim).strftime("%Y-%m-%dT%H:%M"),
+                        "lembrete_minutos": "" if c.lembrete_minutos is None else str(c.lembrete_minutos),
+                    },
+                },
             }
             for c in queryset.order_by("inicio")[:1000]
         ]
         return JsonResponse(eventos, safe=False)
+
+
+class CompromissoSalvarView(View):
+    """POST (form-encoded, CSRF) usado pelo modal do calendário: cria (sem `pk`) ou edita, com o MESMO CompromissoForm
+    da tela completa (validação, auditoria e escopo de unidade iguais). Devolve {ok} ou {erros: {campo: [msgs]}} (400).
+    A permissão (add/change) é exigida na rota; o dono do novo compromisso é sempre a unidade do usuário autenticado."""
+
+    def post(self, request, pk=None):
+        if pk is None:
+            instancia, cliente = None, cliente_do_usuario(request.user)
+            if cliente is None:
+                return JsonResponse({"erros": {"__all__": ["Seu usuário não está vinculado a uma unidade."]}}, status=400)
+        else:
+            instancia = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
+            cliente = instancia.cliente
+        antes = tirar_foto(instancia) if instancia else None
+        form = CompromissoForm(request.POST, instance=instancia, cliente=cliente)
+        if not form.is_valid():
+            return JsonResponse({"erros": {k: [str(e) for e in v] for k, v in form.errors.items()}}, status=400)
+        with transaction.atomic():
+            compromisso = form.save(commit=False)
+            if instancia is None:
+                compromisso.cliente = cliente
+            compromisso.save()
+            if instancia is None:
+                registrar_criacao(request, compromisso, modulo="integracao")
+            else:
+                registrar_edicao(request, compromisso, antes, modulo="integracao")
+        return JsonResponse({"ok": True, "id": compromisso.pk})
 
 
 class CompromissoMoverView(View):
@@ -370,6 +415,7 @@ class CompromissoMoverView(View):
         antes = tirar_foto(compromisso)
         with transaction.atomic():
             compromisso.inicio, compromisso.fim = novo_inicio, novo_fim
+            compromisso.lembrete_enviado_em = None  # novo horário: o lembrete vale de novo
             if "todo_o_dia" in dados:
                 compromisso.todo_o_dia = bool(dados["todo_o_dia"])
             compromisso.save()

@@ -40,3 +40,32 @@ Crie a classe em `adaptadores/` herdando de `Adaptador` (`base.py`), implemente 
 ## Variáveis de ambiente
 
 `INTEGRACAO_CRYPTO_KEYS`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `BASE_URL` (para montar o endereço de retorno OAuth e dos webhooks).
+
+## Agenda: lembretes, resumo do dia e modal do calendário
+
+**Lembretes** (`lembretes.py`, comando `manage.py enviar_lembretes_agenda`): cada compromisso tem `lembrete_minutos` (nulo = sem; 0 = na hora; 15; 60; 1440). O comando envia pelo sino/push web (`apps.notificacao.enviar_para_usuarios`) aos usuários **da unidade do compromisso** que têm `integracao.view_compromisso` e o módulo `agenda`. Idempotente: antes de enviar, reserva com `UPDATE ... WHERE lembrete_enviado_em IS NULL`; reagendar (mover no calendário ou mudar início/antecedência) zera a marca. Compromissos concluídos/inativos ou que começaram há mais de 24 h são ignorados. **Agendar a cada 5 min:** cron `*/5 * * * * python manage.py enviar_lembretes_agenda` ou Agendador de Tarefas do Windows (ação: `.venv\Scripts\python.exe manage.py enviar_lembretes_agenda`, repetir a cada 5 minutos).
+
+**Resumo ao entrar**: sinal `user_logged_in` (`apps.py`) chama `resumo_do_dia`: uma notificação por usuário/dia ("N para hoje e M em atraso"), só da própria unidade; falhas são registradas e nunca impedem o login.
+
+**Calendário**: clicar no dia abre o modal já com a data; clicar no evento edita; concluir/reabrir e excluir (lógico) no modal. Salvar usa `agenda/salvar` (cria) e `agenda/<id>/salvar` (edita), POST com CSRF e o mesmo `CompromissoForm` (validação, auditoria e escopo de unidade da tela completa). Permissões: `add_compromisso`/`change_compromisso`. Arrastar e soltar e a visão em tabela continuam iguais.
+
+| Coluna nova `integracao_compromisso` | Tipo | Nulo | Padrão | Finalidade |
+|---|---|---|---|---|
+| `lembrete_minutos` | int ≥ 0 | sim | null | antecedência do lembrete |
+| `lembrete_enviado_em` | datetime | sim | null | quando o lembrete saiu (idempotência) |
+
+Migração `0003_compromisso_lembrete`: colunas nulas, sem efeito nos dados existentes (nenhum compromisso antigo ganha lembrete); reversível. API: `lembrete_minutos` em `/api/v1/compromissos/`. Testes: `tests_lembretes.py`.
+
+## Google Tarefas (no lugar do Google Keep)
+
+**Por que não o Keep:** a documentação oficial da Google Keep API (consultada em 18/10/2026) a descreve para **administradores de domínio Google Workspace** (delegação em todo o domínio), com operações de criar/listar/excluir notas e **sem edição**; não há confirmação de uso por contas Google comuns. Foi aprovada a alternativa **Google Tarefas** (Tasks API v1, escopo `https://www.googleapis.com/auth/tasks`), que atende contas comuns e tem leitura e escrita.
+
+**O que sincroniza** (`adaptadores/agenda.py::GoogleTasks`): os compromissos do tipo **Tarefa** ⇄ tarefas da lista configurada (`@default` = principal), nos dois sentidos: título, observações, data e **concluído**. Vencimentos de contas e demais tipos **não** vão para o Google Tarefas. Tarefa criada no Google (com data) vira Tarefa na agenda (origem "externa"); tarefa sem data é ignorada.
+
+**Regra de conflito:** a mesma da agenda — vence a alteração **mais recente**; empate, o sistema. **Limite da API:** o campo `due` guarda só a data (a hora é descartada), então a tarefa é "dia inteiro" no Google; ao importar, a data vira dia inteiro. Excluir no sistema remove do Google; excluir no Google desativa a tarefa local (dentro da janela de sincronização).
+
+**Como conectar:** em Integrações, "Conectar com o Google" no cartão *Google Tarefas* (mesmo OAuth e mesma URL de retorno do Google Agenda; habilite a **Tasks API** no projeto do Google Cloud e adicione o escopo na tela de consentimento — o Google pode exigir verificação do app para uso público). Sem `GOOGLE_OAUTH_CLIENT_ID/SECRET` a conexão fica indisponível com mensagem. A rotina é a mesma `sincronizar_integracoes` (agendar a cada 15 min).
+
+**Status:** implementado pela documentação, **não homologado** com conta real (⚠ `@default` como id de lista não aparece na página de `insert`; `dueMin/dueMax/showHidden` confirmados na página de `list`). Docs: https://developers.google.com/workspace/tasks/reference/rest/v1/tasks · https://developers.google.com/workspace/keep/api/guides.
+
+Mudanças de código: `Adaptador.so_tarefas`/`sincroniza_conclusao` (base), `services.eventos_locais` (filtra e inclui `concluido` só nesses adaptadores; o hash dos outros provedores não muda) e OAuth parametrizado por provedor (lista fechada `PROVEDORES_GOOGLE`). Sem tabelas novas. Testes: `tests_tarefas.py`.

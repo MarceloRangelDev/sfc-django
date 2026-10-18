@@ -134,6 +134,72 @@ class GoogleCalendar(Adaptador):
         return eventos
 
 
+class GoogleTasks(GoogleCalendar):
+    """Google Tarefas (Tasks API v1) no lugar do Google Keep: a API do Keep é voltada a administradores Workspace e não edita notas.
+
+    Sincroniza os compromissos do tipo TAREFA nos dois sentidos (título, notas, data e concluído). Limite da API: o campo `due` guarda
+    só a DATA (a hora é descartada), então a tarefa vira "dia inteiro" no Google. Escopo `tasks` (leitura e escrita).
+    STATUS: implementado pela documentação (consultada em 18/10/2026); NÃO homologado com conta real."""
+
+    chave = "google_tasks"
+    rotulo = "Google Tarefas"
+    tipo = "agenda"
+    descricao = "Sincroniza as tarefas da agenda com o Google Tarefas, nos dois sentidos (inclui marcar como concluída)."
+    escopos = ("https://www.googleapis.com/auth/tasks",)
+    campos_config = (("tasklist", "ID da lista de tarefas (use @default para a lista principal)"),)
+    so_tarefas = True
+    sincroniza_conclusao = True
+    URL_API = "https://tasks.googleapis.com/tasks/v1/lists"
+
+    def _lista(self, conexao):
+        return urllib.parse.quote(conexao.config.get("tasklist") or "@default", safe="@")
+
+    def _corpo(self, evento):
+        concluido = bool(evento.get("concluido"))
+        corpo = {"title": evento["titulo"][:1000], "notes": (evento.get("descricao") or "")[:8000],
+                 "due": evento["inicio"].strftime("%Y-%m-%dT00:00:00.000Z"), "status": "completed" if concluido else "needsAction"}
+        if not concluido:
+            corpo["completed"] = None  # reabrir exige limpar a data de conclusão
+        return corpo
+
+    def testar(self, conexao, credenciais):
+        self._chamar("GET", f"{self.URL_API}/{self._lista(conexao)}/tasks?maxResults=1", credenciais)
+
+    def criar_evento(self, conexao, credenciais, evento):
+        _, _, dados = self._chamar("POST", f"{self.URL_API}/{self._lista(conexao)}/tasks", credenciais, self._corpo(evento))
+        return dados["id"], dados.get("etag", "")
+
+    def atualizar_evento(self, conexao, credenciais, id_externo, evento):
+        _, _, dados = self._chamar("PATCH", f"{self.URL_API}/{self._lista(conexao)}/tasks/{urllib.parse.quote(id_externo, safe='')}", credenciais, self._corpo(evento))
+        return dados.get("etag", "")
+
+    def remover_evento(self, conexao, credenciais, id_externo):
+        try:
+            self._chamar("DELETE", f"{self.URL_API}/{self._lista(conexao)}/tasks/{urllib.parse.quote(id_externo, safe='')}", credenciais)
+        except ErroIntegracao as erro:
+            if "404" not in str(erro) and "410" not in str(erro):
+                raise
+
+    def listar_eventos(self, conexao, credenciais, desde, ate):
+        """Tarefas com data dentro da janela (as sem data são ignoradas: não há onde mostrá-las na agenda). Até 5 páginas de 100."""
+        eventos, token = [], ""
+        for _ in range(5):
+            params = {"maxResults": 100, "showCompleted": "true", "showHidden": "true", "dueMin": _iso(desde), "dueMax": _iso(ate)}
+            if token:
+                params["pageToken"] = token
+            _, _, dados = self._chamar("GET", f"{self.URL_API}/{self._lista(conexao)}/tasks?{urllib.parse.urlencode(params)}", credenciais)
+            for item in dados.get("items", []):
+                if not item.get("due") or item.get("deleted"):
+                    continue
+                dia = item["due"][:10]
+                eventos.append({"id": item["id"], "titulo": item.get("title") or "(sem título)", "descricao": item.get("notes", ""), "todo_o_dia": True,
+                                "inicio": dia, "fim": dia, "atualizado_em": item.get("updated"), "etag": item.get("etag", ""), "concluido": item.get("status") == "completed"})
+            token = dados.get("nextPageToken", "")
+            if not token:
+                break
+        return eventos
+
+
 class ICloudCalendar(Adaptador):
     chave = "icloud_calendar"
     rotulo = "Calendário do iCloud (CalDAV)"

@@ -8,6 +8,7 @@ from django.contrib.auth.models import Group, User
 from django.db.models import Q
 
 GRUPO_ADMINISTRADOR = "Administrador"  # perfil "Admin": acesso global, só no cliente do sistema
+MODULOS_LIBERADOS_COM_BLOQUEIO = ("assinatura", "painel", "perfil-foto")  # acessíveis mesmo com a assinatura bloqueada
 PERFIS_PADRAO = ("Gestor", "Operador")  # sempre visíveis na configuração de perfis
 
 
@@ -16,6 +17,17 @@ def administrador_global(user):
     administra o sistema inteiro (todos os Clientes). Qualquer outro usuário
     enxerga/gerencia apenas a estrutura (matriz/filiais) do PRÓPRIO Cliente."""
     return bool(user.is_authenticated and (user.is_superuser or user.groups.filter(name=GRUPO_ADMINISTRADOR).exists()))
+
+
+def motivo_modulo_indisponivel(user):
+    """Mensagem para módulo indisponível: distingue o bloqueio por assinatura (para o usuário saber como regularizar)."""
+    cliente = cliente_do_usuario(user)
+    if cliente is not None and not administrador_global(user):
+        from apps.assinatura.services import acesso_bloqueado
+
+        if acesso_bloqueado(cliente):
+            return "Acesso bloqueado por falta de pagamento da assinatura. Regularize em Assinatura."
+    return "Este módulo não está habilitado para o seu cliente."
 
 
 def cliente_do_usuario(user):
@@ -116,5 +128,12 @@ def modulos_habilitados(user):
                     clientes_habilitados__cliente=cliente, clientes_habilitados__ativo=True,
                 )
             filtro = ativos.filter(permitidos)
+            # Assinatura bloqueada/expirada: ÚNICO ponto do bloqueio (telas, menu e API passam por aqui). Sobram só o painel
+            # e a tela de regularização; administrador global nunca cai neste ramo.
+            if cliente is not None:
+                from apps.assinatura.services import acesso_bloqueado
+
+                if acesso_bloqueado(cliente):
+                    filtro = ativos.filter(slug__in=MODULOS_LIBERADOS_COM_BLOQUEIO)
         user._modulos_habilitados = set(filtro.values_list("slug", flat=True))
     return user._modulos_habilitados

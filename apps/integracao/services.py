@@ -334,7 +334,8 @@ def tratar_webhook(conexao, cabecalhos, corpo):
 # --------------------------------------------------------------------------
 
 def _hash(evento):
-    base = {k: str(evento.get(k)) for k in ("titulo", "descricao", "inicio", "fim", "todo_o_dia")}
+    # "concluido" só entra no hash dos adaptadores que o sincronizam (os demais mantêm o hash antigo: nada é reenviado à toa).
+    base = {k: str(evento.get(k)) for k in ("titulo", "descricao", "inicio", "fim", "todo_o_dia", "concluido") if k != "concluido" or k in evento}
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
 
 
@@ -357,8 +358,21 @@ def eventos_locais(conexao, hoje=None):
             titulo = f"{rotulo}: {conta.descricao}" + (f" ({conta.saldo_formatado})" if mostrar_valor else "")
             eventos[(tipo, conta.pk)] = {"titulo": titulo[:200], "descricao": f"Vencimento (sistema SFC). {conta.contraparte}".strip()[:500], "inicio": _dia(conta.vencimento), "fim": _dia(conta.vencimento, True), "todo_o_dia": True}
     janela_inicio, janela_fim = _dia(inicio), _dia(fim, True)
-    for c in Compromisso.objects.filter(cliente=conexao.cliente, ativo=True, inicio__lte=janela_fim, fim__gte=janela_inicio):
-        eventos[("compromisso", c.pk)] = {"titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia}
+    adaptador = conexao.adaptador
+    if adaptador.so_tarefas:  # ex.: Google Tarefas — só tarefas, sem vencimentos de contas
+        eventos = {}
+    compromissos = Compromisso.objects.filter(cliente=conexao.cliente, ativo=True, inicio__lte=janela_fim, fim__gte=janela_inicio)
+    if adaptador.so_tarefas:
+        compromissos = compromissos.filter(tipo=Compromisso.TAREFA)
+    for c in compromissos:
+        evento = {"titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia}
+        if adaptador.so_tarefas:  # a API de tarefas só guarda a DATA: publica como dia inteiro (data local) para o hash bater com o que volta
+            # Dia inteiro (inclusive o importado do provedor, guardado em 00:00 UTC) usa a data UTC; compromisso com hora usa a data local.
+            dia = _dia((c.inicio.astimezone(tz.utc) if c.todo_o_dia else timezone.localtime(c.inicio)).date())
+            evento.update(inicio=dia, fim=dia, todo_o_dia=True)
+        if adaptador.sincroniza_conclusao:
+            evento["concluido"] = c.concluido
+        eventos[("compromisso", c.pk)] = evento
     return eventos
 
 
@@ -438,8 +452,13 @@ def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
             if externo["todo_o_dia"] and externo["fim"] and fim > inicio:
                 fim = fim - timedelta(days=1)  # o fim externo de dia inteiro é exclusivo
             conteudo = {"titulo": externo["titulo"], "descricao": externo.get("descricao", ""), "inicio": inicio, "fim": fim, "todo_o_dia": externo["todo_o_dia"]}
+            extras = {}
+            if adaptador.sincroniza_conclusao:  # tarefas: o estado "concluído" também vem do provedor
+                conteudo["concluido"] = extras["concluido"] = bool(externo.get("concluido"))
+            if adaptador.so_tarefas:
+                extras["tipo"] = Compromisso.TAREFA
             if item is None:
-                c = Compromisso.objects.create(cliente=conexao.cliente, titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim, todo_o_dia=conteudo["todo_o_dia"], origem=Compromisso.EXTERNA)
+                c = Compromisso.objects.create(cliente=conexao.cliente, titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim, todo_o_dia=conteudo["todo_o_dia"], origem=Compromisso.EXTERNA, **extras)
                 ItemSincronizado.objects.create(conexao=conexao, tipo_local="compromisso", id_local=c.pk, id_externo=str(externo["id"]), hash_conteudo=_hash(conteudo), etag=externo.get("etag", ""))
                 resumo["importados"] += 1
                 operacoes += 1
@@ -447,7 +466,8 @@ def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
                 c = Compromisso.objects.filter(pk=item.id_local, cliente=conexao.cliente).first()
                 alterado_externo = _interpretar_data(externo.get("atualizado_em"), False) if externo.get("atualizado_em") else None
                 if c is not None and alterado_externo and alterado_externo > c.atualizado_em:  # externo mais recente vence
-                    Compromisso.objects.filter(pk=c.pk).update(titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim, todo_o_dia=conteudo["todo_o_dia"], atualizado_em=alterado_externo)
+                    Compromisso.objects.filter(pk=c.pk).update(titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim, todo_o_dia=conteudo["todo_o_dia"], atualizado_em=alterado_externo,
+                                                               **({"concluido": extras["concluido"]} if "concluido" in extras else {}))
                     ItemSincronizado.objects.filter(pk=item.pk).update(hash_conteudo=_hash(conteudo), etag=externo.get("etag", ""))
                     resumo["puxados"] += 1
                     operacoes += 1

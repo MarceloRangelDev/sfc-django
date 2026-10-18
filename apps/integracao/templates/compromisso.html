@@ -25,8 +25,35 @@
 </style>
 <div class="card"><div class="card-body">
   <p class="text-muted small mb-3">{% translate "Arraste um compromisso para outro dia para reagendá-lo (a duração é mantida). Clique para editar." %}</p>
-  <div id="agendaCalendario" data-url-eventos="{% url 'compromisso-eventos' %}" data-pode-mover="{% if perms.integracao.change_compromisso %}1{% endif %}"></div>
+  <div id="agendaCalendario" data-url-eventos="{% url 'compromisso-eventos' %}" data-pode-mover="{% if perms.integracao.change_compromisso %}1{% endif %}" data-pode-criar="{% if perms.integracao.add_compromisso %}1{% endif %}"
+       data-url-salvar="{% url 'compromisso-salvar' %}" data-url-salvar-edit="{% url 'compromisso-salvar-edit' 0 %}" data-url-concluir="{% url 'compromisso-concluir' 0 %}" data-url-excluir="{% url 'compromisso-excluir' 0 %}"></div>
 </div></div>
+
+<div class="modal fade" id="modalCompromisso" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><form class="modal-content" id="formCompromisso" novalidate>
+    <div class="modal-header"><h5 class="modal-title" id="tituloCompromisso">{% translate "Compromisso" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Fechar' %}"></button></div>
+    <div class="modal-body vstack gap-3">
+      <div class="alert alert-danger d-none" id="erroCompromisso" role="alert"></div>
+      <div class="row g-3">
+        <div class="col-md-4"><label class="form-label">{% translate "Tipo" %}</label><select class="form-select" name="tipo">{% for v, r in tipos %}<option value="{{ v }}">{{ r }}</option>{% endfor %}</select></div>
+        <div class="col-md-8"><label class="form-label">{% translate "Título" %}</label><input class="form-control" name="titulo" maxlength="150" required></div>
+        <div class="col-md-6"><label class="form-label">{% translate "Início" %}</label><input type="datetime-local" class="form-control" name="inicio" required></div>
+        <div class="col-md-6"><label class="form-label">{% translate "Fim" %}</label><input type="datetime-local" class="form-control" name="fim" required></div>
+        <div class="col-md-6"><label class="form-label">{% translate "Lembrete" %}</label><select class="form-select" name="lembrete_minutos"><option value="">{% translate "Sem lembrete" %}</option><option value="0">{% translate "Na hora" %}</option><option value="15">{% translate "15 minutos antes" %}</option><option value="60">{% translate "1 hora antes" %}</option><option value="1440">{% translate "1 dia antes" %}</option></select></div>
+        <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="todo_o_dia" id="mcDia"><label class="form-check-label" for="mcDia">{% translate "Dia inteiro" %}</label></div></div>
+        <div class="col-12"><label class="form-label">{% translate "Descrição" %}</label><input class="form-control" name="descricao" maxlength="500"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span id="acoesCompromisso" class="me-auto d-none">
+        <button type="button" class="btn btn-outline-success" id="btnConcluirCompromisso">{% translate "Concluir/reabrir" %}</button>
+        <button type="button" class="btn btn-outline-danger" id="btnExcluirCompromisso">{% translate "Excluir" %}</button>
+      </span>
+      <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">{% translate "Cancelar" %}</button>
+      <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+    </div>
+  </form></div>
+</div>
 {% else %}
 <div class="card">
   <div class="card-body">
@@ -86,6 +113,18 @@
         fetch(alvo.dataset.urlEventos + '?start=' + encodeURIComponent(info.startStr) + '&end=' + encodeURIComponent(info.endStr), { credentials: 'same-origin' })
           .then(function (r) { return r.json(); }).then(ok).catch(falha);
       },
+      // Clicar no dia cria; clicar no evento edita — tudo no modal, sem sair do calendário.
+      dateClick: function (info) {
+        if (alvo.dataset.podeCriar !== '1') return;
+        var dia = info.dateStr.slice(0, 10), h = info.dateStr.length > 10 ? info.dateStr.slice(11, 16) : '09:00';
+        var fimH = ('0' + (parseInt(h.slice(0, 2), 10) + 1) % 24).slice(-2) + h.slice(2);
+        abrirModal(null, { tipo: 'compromisso', titulo: '', descricao: '', todo_o_dia: false, inicio: dia + 'T' + h, fim: dia + 'T' + fimH, lembrete_minutos: '' });
+      },
+      eventClick: function (info) {
+        info.jsEvent.preventDefault();
+        if (alvo.dataset.podeMover !== '1' || !info.event.extendedProps.form) return;
+        abrirModal(info.event.id, info.event.extendedProps.form);
+      },
       eventDrop: function (info) {
         var e = info.event;
         fetch('/agenda/' + e.id + '/mover', {
@@ -94,6 +133,37 @@
         }).then(function (r) { if (!r.ok) { info.revert(); return r.json().then(function (d) { window.SFC && SFC.alerta('error', 'Não foi possível mover', d.erro || ''); }); } })
           .catch(function () { info.revert(); });
       }
+    });
+    var modalEl = document.getElementById('modalCompromisso'), modal = new bootstrap.Modal(modalEl);
+    var form = document.getElementById('formCompromisso'), erro = document.getElementById('erroCompromisso'), idAtual = null;
+    function abrirModal(id, d) {
+      idAtual = id; erro.classList.add('d-none');
+      ['tipo', 'titulo', 'descricao', 'inicio', 'fim', 'lembrete_minutos'].forEach(function (n) { form.elements[n].value = d[n]; });
+      form.elements.todo_o_dia.checked = !!d.todo_o_dia;
+      document.getElementById('acoesCompromisso').classList.toggle('d-none', !id);
+      modal.show();
+    }
+    function urlCom(modelo, id) { return modelo.replace('/0/', '/' + id + '/'); }
+    function postar(url, corpo) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf }, body: corpo || new URLSearchParams() });
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var corpo = new URLSearchParams(new FormData(form));
+      if (!form.elements.todo_o_dia.checked) corpo.delete('todo_o_dia');
+      var url = idAtual ? urlCom(alvo.dataset.urlSalvarEdit, idAtual) : alvo.dataset.urlSalvar;
+      postar(url, corpo).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (res) {
+        if (res.ok) { modal.hide(); calendario.refetchEvents(); return; }
+        var msgs = []; Object.keys(res.j.erros || {}).forEach(function (k) { msgs = msgs.concat(res.j.erros[k]); });
+        erro.textContent = msgs.join(' ') || 'Não foi possível salvar.'; erro.classList.remove('d-none');
+      }).catch(function () { erro.textContent = 'Erro de comunicação. Tente novamente.'; erro.classList.remove('d-none'); });
+    });
+    document.getElementById('btnConcluirCompromisso').addEventListener('click', function () {
+      postar(urlCom(alvo.dataset.urlConcluir, idAtual)).then(function () { modal.hide(); calendario.refetchEvents(); });
+    });
+    document.getElementById('btnExcluirCompromisso').addEventListener('click', function () {
+      if (!window.confirm('Excluir este registro da agenda?')) return;
+      postar(urlCom(alvo.dataset.urlExcluir, idAtual)).then(function () { modal.hide(); calendario.refetchEvents(); });
     });
     calendario.render();
   })();

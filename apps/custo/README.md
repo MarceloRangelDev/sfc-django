@@ -70,3 +70,19 @@ Escopo de unidades e permissões de filial: `apps/acl/README.md`. Criação é n
 Migrations: `0001` (tabelas), `0002` (catálogo global, idempotente), `0003` (custo comum por cliente, constraints novas e `custo_custoajustecategoria`), `0004` (rateios por percentual → ajustes manuais em R$; reversível, o rollback só apaga os ajustes criados), `modulo/0006_modulo_custo_operacional` (módulo de negócio) e `modulo/0009_modulo_custo_comum` (módulo essencial "Custos comuns" em Configurações).
 
 Testes: `apps/custo/tests.py` (exemplo de R$ 300 em 3 categorias, volumes diferentes, centavos residuais, maior resto, sem vendas, ajuste manual e restauração, auditoria, custos comuns CRUD/filtros/escopo/permissões, telas, exportação, matriz/filial e a sugestão na Precificação) e `apps/api/tests_operacao.py`.
+
+## Valor mínimo a cobrar (segmentos de serviço)
+
+`apps/custo/valor_minimo.py` calcula, a partir do custo operacional ativo da unidade, o **piso** a cobrar por período (o usuário soma a margem de lucro por cima; por isso não há margem no cálculo). Só vale quando `Cliente.segmento.tipo_precificacao` é `servico` ou `ambos`.
+
+| Período | Fórmula (centavos) |
+|---|---|
+| mensal | custo operacional mensal |
+| quinzenal | mensal ÷ 2 |
+| semanal | mensal × 7 ÷ `dias_mes` |
+| diário | mensal ÷ `dias_mes` |
+| hora | mensal ÷ `horas_mes` |
+
+`horas_mes` (padrão 220) e `dias_mes` (padrão 30) vêm de `ConfiguracaoMaoDeObra` da unidade e as contas reaproveitam `maodeobra.calculo.derivados_do_mes`. Arredondamento meio-para-cima uma vez por valor. `incluir_mao_de_obra=True` soma a folha mensal dos colaboradores ativos (opcional; o painel usa só o custo operacional). Unidade sem custo: `sem_custo=True` e valores zero.
+
+Onde aparece: bloco "Valor mínimo a cobrar" do painel (permissão `custo.view_custooperacional`, módulo `custo-operacional`) e `GET /api/v1/painel/` (`blocos.valor_minimo`, valores em centavos em `centavos`). Sem tabelas/colunas novas. Testes: `apps/custo/tests_valor_minimo.py`.

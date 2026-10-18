@@ -138,5 +138,12 @@
   </div>
   {% endif %}
 </div>
+{% if assinatura_painel %}
+{# Aba "Pagamentos / Assinatura": só aparece para quem tem assinatura.view_assinatura e alcança este cliente. #}
+<div class="card mt-4" id="pagamentos-assinatura">
+  <div class="card-header"><h5 class="mb-0">{% translate "Pagamentos / Assinatura" %}</h5></div>
+  <div class="card-body">{% with assinatura_painel as ctx %}{% include "_assinatura_conteudo.html" with assinatura=ctx.assinatura planos=ctx.planos cobrancas=ctx.cobrancas eventos=ctx.eventos pode_gerenciar=False bloqueado=ctx.bloqueado chave_publica="" configurado=ctx.configurado %}{% endwith %}</div>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

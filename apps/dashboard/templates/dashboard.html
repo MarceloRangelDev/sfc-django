@@ -92,7 +92,26 @@
 {% endif %}
 
 <div class="row g-4 mb-4">
-  {% if ind.precificacao %}
+  {% if ind.valor_minimo %}
+<h5 class="mb-1">{% translate "Valor mínimo a cobrar" %}</h5>
+<p class="text-muted small mb-3">{% translate "Calculado pelo custo operacional da unidade (sem margem de lucro): é o piso para cobrir os custos. Some a sua margem por cima." %}</p>
+{% if ind.valor_minimo.sem_custo %}
+<div class="alert alert-info">{% translate "Cadastre os custos operacionais para calcular o valor mínimo." %} <a href="{% url 'custo-list' %}">{% translate "Custo operacional" %}</a></div>
+{% else %}
+<div class="row g-3 mb-4">
+  {% with v=ind.valor_minimo.valores %}
+  <div class="col-6 col-md"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Mensal" %}</div><div class="fs-4 fw-bold">{{ v.mensal }}</div></div></div></div>
+  <div class="col-6 col-md"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Quinzenal" %}</div><div class="fs-4 fw-bold">{{ v.quinzenal }}</div></div></div></div>
+  <div class="col-6 col-md"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Semanal" %}</div><div class="fs-4 fw-bold">{{ v.semanal }}</div></div></div></div>
+  <div class="col-6 col-md"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Diário" %}</div><div class="fs-4 fw-bold">{{ v.diario }}</div></div></div></div>
+  <div class="col-6 col-md"><div class="card h-100"><div class="card-body"><div class="text-muted">{% translate "Por hora" %}</div><div class="fs-4 fw-bold">{{ v.hora }}</div></div></div></div>
+  {% endwith %}
+</div>
+<div class="form-text mb-4">{% translate "Base:" %} {{ ind.valor_minimo.horas_mes }} h/{% translate "mês" %} · {{ ind.valor_minimo.dias_mes }} {% translate "dias/mês (ajustável em Mão de obra)." %}</div>
+{% endif %}
+{% endif %}
+
+{% if ind.precificacao %}
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between"><h6 class="mb-0">{% translate "Precificações ativas" %}</h6><a href="{% url 'precificacao' %}">{% translate "Ver" %}</a></div>

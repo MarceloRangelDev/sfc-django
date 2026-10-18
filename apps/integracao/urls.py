@@ -23,6 +23,8 @@ urlpatterns = [
     path("agenda/<int:pk>/mover", module_required(A, "integracao.change_compromisso")(views.CompromissoMoverView.as_view()), name="compromisso-mover"),
     path("agenda/<int:pk>/concluir", module_required(A, "integracao.change_compromisso")(views.CompromissoConcluirView.as_view()), name="compromisso-concluir"),
     path("agenda/<int:pk>/excluir", module_required(A, "integracao.change_compromisso")(views.CompromissoExcluirView.as_view()), name="compromisso-excluir"),
+    path("agenda/salvar", module_required(A, "integracao.add_compromisso")(views.CompromissoSalvarView.as_view()), name="compromisso-salvar"),
+    path("agenda/<int:pk>/salvar", module_required(A, "integracao.change_compromisso")(views.CompromissoSalvarView.as_view()), name="compromisso-salvar-edit"),
     path("agenda/novo", module_required(A, "integracao.add_compromisso")(views.CompromissoCreateView.as_view()), name="compromisso-create"),
     path("agenda/<int:pk>/editar", module_required(A, "integracao.change_compromisso")(views.CompromissoUpdateView.as_view()), name="compromisso-edit"),
 ]

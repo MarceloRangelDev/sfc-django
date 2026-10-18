@@ -32,6 +32,10 @@ urlpatterns = [
     path("", include("apps.insumo.urls")),
     # insumoglobal urls (cadastro padrão de insumos e fila de insumos fora do padrão)
     path("", include("apps.insumoglobal.urls")),
+    # assinatura (Pagar.me) e webhook público
+    path("", include("apps.assinatura.urls")),
+    # kanban urls (somente administrador)
+    path("", include("apps.kanban.urls")),
     # produto urls
     path("", include("apps.produto.urls")),
     # processados urls

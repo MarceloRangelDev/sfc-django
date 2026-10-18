@@ -2,9 +2,10 @@ import re
 
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -143,6 +144,13 @@ class ClienteUpdateView(ClienteFormKwargsMixin, AuditoriaFormMixin, UpdateView):
         # Vincular usuário sem cliente é exclusivo do Admin (a lista de
         # usuários sem cliente é global).
         context["pode_vincular"] = administrador_global(self.request.user)
+        # Aba Pagamentos/Assinatura: só com permissão e dentro da estrutura que o usuário alcança.
+        try:
+            from apps.assinatura.services import painel_do_cliente
+
+            context["assinatura_painel"] = painel_do_cliente(self.request.user, self.object.pk)
+        except (PermissionDenied, Http404):
+            context["assinatura_painel"] = None
         if context["pode_vincular"]:
             context["usuarios_disponiveis"] = User.objects.filter(profile__cliente__isnull=True).order_by("username")
         return context

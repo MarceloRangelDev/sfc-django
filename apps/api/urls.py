@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -73,6 +73,15 @@ urlpatterns = [
     # Autenticação
     path("api/v1/pdv/configuracao/", pdv.ConfiguracaoPdvView.as_view(), name="api-pdv-config"),
     path("api/v1/fiscal/configuracao/", fiscal.FiscalConfiguracaoViewSet.as_view({"get": "list"}), name="api-fiscal-config"),
+    path("api/v1/assinatura/", assinatura_api.AssinaturaView.as_view(), name="api-assinatura"),
+    path("api/v1/assinatura/assinar/", assinatura_api.AssinarView.as_view(), name="api-assinatura-assinar"),
+    path("api/v1/assinatura/cancelar/", assinatura_api.CancelarView.as_view(), name="api-assinatura-cancelar"),
+    path("api/v1/kanban/quadro/", kanban_api.QuadroView.as_view(), name="api-kanban-quadro"),
+    path("api/v1/kanban/colunas/", kanban_api.ColunasView.as_view(), name="api-kanban-colunas"),
+    path("api/v1/kanban/colunas/<int:pk>/", kanban_api.ColunaView.as_view(), name="api-kanban-coluna"),
+    path("api/v1/kanban/cartoes/", kanban_api.CartoesView.as_view(), name="api-kanban-cartoes"),
+    path("api/v1/kanban/cartoes/<int:pk>/", kanban_api.CartaoView.as_view(), name="api-kanban-cartao"),
+    path("api/v1/kanban/cartoes/<int:pk>/mover/", kanban_api.CartaoMoverView.as_view(), name="api-kanban-cartao-mover"),
     path("api/v1/mao-de-obra/regras/", maodeobra.ConfiguracaoMaoDeObraView.as_view(), name="api-mao-obra-config"),
     path("api/v1/mao-de-obra/relatorio/", maodeobra.RelatorioMaoDeObraView.as_view(), name="api-mao-obra-relatorio"),
     path("api/v1/imagens/<str:tipo>/<int:pk>/", imagens.ImagemEntidadeView.as_view(), name="api-imagem"),

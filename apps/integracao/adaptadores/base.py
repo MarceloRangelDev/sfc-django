@@ -45,6 +45,8 @@ class Adaptador:
     campos_config = ()
     usa_oauth = False
     suporta_webhook = False
+    so_tarefas = False  # publica/importa APENAS compromissos do tipo tarefa (sem vencimentos de contas) — ex.: Google Tarefas
+    sincroniza_conclusao = False  # propaga "concluído" nos dois sentidos
 
     # --- ciclo de vida ---------------------------------------------------------------
     def validar(self, credenciais, config):

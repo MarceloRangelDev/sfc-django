@@ -48,6 +48,8 @@ ADMIN_APPS = [
     "notificacao",
     "canal",
     "pdvconfig",
+    "assinatura",  # plano/pagamentos (Pagar.me): Administrador; o Gestor recebe ver+gerenciar em EXTRAS
+    "kanban",  # quadro Kanban: só o Administrador (global)
     "insumoglobal",  # cadastro global de insumos: só o Administrador (ou quem receber a permissão)
 ]
 
@@ -78,10 +80,11 @@ EXTRAS = {
     "Visualizador": [*PAINEL, *FOTO_PERFIL],
     "Operador": [*PAINEL, *FOTO_PERFIL, ("pdv", "abrir_caixa"), ("pedido", "mover_pedido"), ("integracao", "change_compromisso")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota')],
+    "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("kanban", "mover_cartao"), ("assinatura", "gerenciar_assinatura"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota')],
     "Gestor": [
         *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
+        ("assinatura", "view_assinatura"), ("assinatura", "gerenciar_assinatura"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),
         ("financeiro", "view_relatoriofinanceiro"),

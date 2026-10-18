@@ -2,13 +2,13 @@
 implemente os métodos que ele suporta e acrescente-a ao REGISTRO abaixo. Nada mais no núcleo precisa mudar."""
 from django.conf import settings
 
-from .agenda import GoogleCalendar, ICloudCalendar
+from .agenda import GoogleCalendar, GoogleTasks, ICloudCalendar
 from .base import Adaptador, ErroIntegracao, NaoSuportado  # noqa: F401
 from .instagram import InstagramGraph
 from .teste import AdaptadorTeste
 from .whatsapp import WhatsAppCloud, WhatsAppIntermediario
 
-REGISTRO = {a.chave: a for a in (WhatsAppCloud(), WhatsAppIntermediario(), GoogleCalendar(), ICloudCalendar(), InstagramGraph(), AdaptadorTeste())}
+REGISTRO = {a.chave: a for a in (WhatsAppCloud(), WhatsAppIntermediario(), GoogleCalendar(), GoogleTasks(), ICloudCalendar(), InstagramGraph(), AdaptadorTeste())}
 
 
 def obter(chave):

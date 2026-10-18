@@ -172,7 +172,7 @@ class MensagemViewSet(viewsets.ViewSet):
 class CompromissoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Compromisso
-        fields = ["id", "tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "pedido", "origem", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "lembrete_minutos", "pedido", "origem", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
@@ -183,6 +183,7 @@ class CompromissoEntrada(serializers.Serializer):
     inicio = serializers.DateTimeField()
     fim = serializers.DateTimeField()
     todo_o_dia = serializers.BooleanField(required=False)
+    lembrete_minutos = serializers.ChoiceField(choices=[0, 15, 60, 1440], required=False, allow_null=True, help_text="Minutos antes do início (0 = na hora); vazio = sem lembrete.")
     ativo = serializers.BooleanField(required=False)
 
 
@@ -199,7 +200,7 @@ class CompromissoViewSet(RecursoViewSet):
     padroes = {"tipo": "compromisso", "ativo": True}
 
     def dados_atuais(self, c):
-        return {"tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia, "ativo": c.ativo}
+        return {"tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia, "lembrete_minutos": c.lembrete_minutos, "ativo": c.ativo}
 
     def destroy(self, request, *args, **kwargs):
         from django.db import transaction

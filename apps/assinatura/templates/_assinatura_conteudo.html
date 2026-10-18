@@ -1,0 +1,84 @@
+{% load i18n %}
+{# Conteúdo compartilhado: página "Assinatura" e aba Pagamentos/Assinatura do cadastro do cliente. Contexto: services.painel_do_cliente #}
+{% if bloqueado %}<div class="alert alert-danger" role="alert">{% translate "O acesso aos módulos está bloqueado por falta de pagamento. Regularize abaixo para liberar automaticamente." %}</div>{% endif %}
+{% if not configurado %}<div class="alert alert-warning" role="alert">{% translate "A cobrança online não está configurada neste ambiente (credenciais do Pagar.me ausentes)." %}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-md-5">
+    <h6 class="mb-3">{% translate "Plano atual" %}</h6>
+    {% if assinatura %}
+    <ul class="list-group">
+      <li class="list-group-item d-flex justify-content-between"><span>{% translate "Plano" %}</span><strong>{{ assinatura.plano.nome }}</strong></li>
+      <li class="list-group-item d-flex justify-content-between"><span>{% translate "Situação" %}</span><strong>{{ assinatura.get_status_display }}</strong></li>
+      <li class="list-group-item d-flex justify-content-between"><span>{% translate "Forma de pagamento" %}</span><strong>{{ assinatura.get_forma_pagamento_display }}</strong></li>
+      <li class="list-group-item d-flex justify-content-between"><span>{% translate "Vigente até" %}</span><strong>{{ assinatura.vigente_ate|date:"d/m/Y"|default:"—" }}</strong></li>
+      <li class="list-group-item d-flex justify-content-between"><span>{% translate "Próxima cobrança" %}</span><strong>{{ assinatura.proxima_cobranca_em|date:"d/m/Y"|default:"—" }}</strong></li>
+    </ul>
+    {% if pode_gerenciar and assinatura.status != "cancelada" %}
+    <form method="post" action="{% url 'assinatura-cancelar' %}" class="mt-3" data-confirmar="{% translate 'Cancelar a assinatura? O acesso continua até o fim do período pago.' %}">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Cancelar assinatura" %}</button></form>
+    {% endif %}
+    {% else %}<p class="text-muted">{% translate "Nenhuma assinatura." %}</p>{% endif %}
+  </div>
+
+  {% if pode_gerenciar and configurado %}
+  {% if not assinatura or assinatura.status == "cancelada" or assinatura.status == "expirada" %}
+  <div class="col-md-7">
+    <h6 class="mb-3">{% translate "Assinar um plano" %}</h6>
+    <form method="post" action="{% url 'assinatura-assinar' %}" id="formAssinar" class="vstack gap-3" novalidate>
+      {% csrf_token %}
+      <div>{% for p in planos %}<div class="form-check"><input class="form-check-input" type="radio" name="plano" id="plano-{{ p.slug }}" value="{{ p.slug }}" {% if forloop.first %}checked{% endif %}><label class="form-check-label" for="plano-{{ p.slug }}">{{ p.nome }} — {{ p.valor_reais }}</label></div>{% endfor %}</div>
+      <div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="forma" id="forma-boleto" value="boleto" checked><label class="form-check-label" for="forma-boleto">{% translate "Boleto" %}</label></div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="forma" id="forma-cartao" value="credit_card" {% if not chave_publica %}disabled{% endif %}><label class="form-check-label" for="forma-cartao">{% translate "Cartão de crédito" %}{% if not chave_publica %} <small class="text-muted">({% translate "indisponível: chave pública não configurada" %})</small>{% endif %}</label></div>
+      </div>
+      <div id="blocoCartao" class="row g-2 d-none">
+        {# Estes campos NÃO têm name: nunca vão para o nosso servidor. O JS os envia direto ao Pagar.me e recebe um token. #}
+        <div class="col-12"><input class="form-control" id="cNumero" inputmode="numeric" autocomplete="cc-number" placeholder="{% translate 'Número do cartão' %}"></div>
+        <div class="col-12"><input class="form-control" id="cNome" autocomplete="cc-name" placeholder="{% translate 'Nome impresso' %}"></div>
+        <div class="col-4"><input class="form-control" id="cMes" inputmode="numeric" autocomplete="cc-exp-month" placeholder="MM"></div>
+        <div class="col-4"><input class="form-control" id="cAno" inputmode="numeric" autocomplete="cc-exp-year" placeholder="AAAA"></div>
+        <div class="col-4"><input class="form-control" id="cCvv" inputmode="numeric" autocomplete="cc-csc" placeholder="CVV"></div>
+      </div>
+      <input type="hidden" name="card_token" id="cardToken">
+      <div id="erroCartao" class="text-danger small d-none"></div>
+      <div><button type="submit" class="btn btn-primary">{% translate "Assinar" %}</button></div>
+    </form>
+    <script>
+    (function () {
+      var f = document.getElementById('formAssinar'); if (!f) return;
+      var chave = '{{ chave_publica|escapejs }}', bloco = document.getElementById('blocoCartao'), erro = document.getElementById('erroCartao');
+      f.querySelectorAll('input[name=forma]').forEach(function (r) { r.addEventListener('change', function () { bloco.classList.toggle('d-none', f.elements.forma.value !== 'credit_card'); }); });
+      f.addEventListener('submit', function (e) {
+        if (f.elements.forma.value !== 'credit_card' || f.elements.card_token.value) return;
+        e.preventDefault(); erro.classList.add('d-none');
+        // Tokenização direta no provedor (documentada: POST /tokens?appId=<chave pública>, sem cabeçalho de autorização).
+        fetch('https://api.pagar.me/core/v5/tokens?appId=' + encodeURIComponent(chave), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'card', card: { number: document.getElementById('cNumero').value.replace(/\D/g, ''), holder_name: document.getElementById('cNome').value,
+            exp_month: parseInt(document.getElementById('cMes').value, 10), exp_year: parseInt(document.getElementById('cAno').value, 10), cvv: document.getElementById('cCvv').value } })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j.id) throw new Error('token');
+          ['cNumero', 'cNome', 'cMes', 'cAno', 'cCvv'].forEach(function (i) { document.getElementById(i).value = ''; });
+          f.elements.card_token.value = j.id; f.submit();
+        }).catch(function () { erro.textContent = 'Não foi possível validar o cartão. Confira os dados.'; erro.classList.remove('d-none'); });
+      });
+    })();
+    </script>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+{% if assinatura %}
+<h6 class="mt-5 mb-3">{% translate "Cobranças" %}</h6>
+<div class="table-responsive"><table class="table table-sm align-middle">
+  <thead><tr><th>{% translate "Vencimento" %}</th><th>{% translate "Valor" %}</th><th>{% translate "Forma" %}</th><th>{% translate "Situação" %}</th><th>{% translate "Pago em" %}</th><th>{% translate "Código" %}</th><th></th></tr></thead>
+  <tbody>{% for c in cobrancas %}<tr>
+    <td>{{ c.vencimento|date:"d/m/Y"|default:"—" }}</td><td>{{ c.valor_reais }}</td><td>{{ c.forma_pagamento }}</td><td>{{ c.get_status_display }}</td><td>{{ c.pago_em|date:"d/m/Y H:i"|default:"—" }}</td><td class="text-muted small">{{ c.pagarme_invoice_id }}</td>
+    <td>{% if c.url_pagamento and c.status == "pendente" %}<a href="{{ c.url_pagamento }}" target="_blank" rel="noopener noreferrer">{% translate "2ª via / pagar" %}</a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">{% translate "Nenhuma cobrança ainda." %}</td></tr>{% endfor %}</tbody>
+</table></div>
+
+<h6 class="mt-4 mb-3">{% translate "Linha do tempo" %}</h6>
+<ul class="list-unstyled small">{% for e in eventos %}<li class="mb-1"><span class="text-muted">{{ e.criado_em|date:"d/m/Y H:i" }}</span> — {{ e.descricao }}</li>{% empty %}<li class="text-muted">{% translate "Sem eventos." %}</li>{% endfor %}</ul>
+{% endif %}

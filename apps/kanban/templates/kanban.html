@@ -1,0 +1,135 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Kanban" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block vendor_css %}{{ block.super }}<link rel="stylesheet" href="{% static 'vendor/libs/jkanban/jkanban.css' %}" />{% endblock vendor_css %}
+{% block vendor_js %}{{ block.super }}<script src="{% static 'vendor/libs/jkanban/jkanban.js' %}"></script>{% endblock vendor_js %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <h4 class="mb-0">{% translate "Kanban" %}</h4>
+  <div class="d-flex gap-2">
+    {% if perms.kanban.add_coluna %}<button type="button" class="btn btn-outline-primary" id="btnColuna"><i class="icon-base ti tabler-columns me-1"></i>{% translate "Nova coluna" %}</button>{% endif %}
+    {% if perms.kanban.add_cartao %}<button type="button" class="btn btn-primary" id="btnCartao"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo cartão" %}</button>{% endif %}
+  </div>
+</div>
+
+{% if erro_quadro %}
+<div class="alert alert-warning">{{ erro_quadro }}</div>
+{% else %}
+<div id="kanbanAlerta" class="alert alert-danger d-none" role="alert"></div>
+<div id="kanban"></div>
+
+<div class="modal fade" id="modalCartao" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><form class="modal-content" id="formCartao">
+    <div class="modal-header"><h5 class="modal-title">{% translate "Cartão" %}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Fechar' %}"></button></div>
+    <div class="modal-body vstack gap-3">
+      <input type="hidden" name="id">
+      <div><label class="form-label">{% translate "Coluna" %}</label><select class="form-select" name="coluna"></select></div>
+      <div><label class="form-label">{% translate "Título" %}</label><input class="form-control" name="titulo" maxlength="150" required></div>
+      <div><label class="form-label">{% translate "Descrição" %}</label><textarea class="form-control" name="descricao" rows="3" maxlength="2000"></textarea></div>
+      <div class="row g-3">
+        <div class="col-md-7"><label class="form-label">{% translate "Responsável" %}</label><select class="form-select" name="responsavel"><option value="">—</option>{% for u in usuarios %}<option value="{{ u.id }}">{{ u.nome }}</option>{% endfor %}</select></div>
+        <div class="col-md-5"><label class="form-label">{% translate "Prazo" %}</label><input type="date" class="form-control" name="prazo"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      {% if perms.kanban.delete_cartao %}<button type="button" class="btn btn-outline-danger me-auto d-none" id="btnExcluirCartao">{% translate "Excluir" %}</button>{% endif %}
+      <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">{% translate "Cancelar" %}</button>
+      <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
+    </div>
+  </form></div>
+</div>
+
+{{ quadro|json_script:"dadosQuadro" }}
+<script>
+(function () {
+  var quadro = JSON.parse(document.getElementById('dadosQuadro').textContent);
+  var csrf = '{{ csrf_token }}';
+  var podeMover = {% if perms.kanban.mover_cartao %}true{% else %}false{% endif %};
+  var urls = {
+    colNova: "{% url 'kanban-coluna-criar' %}", cartNovo: "{% url 'kanban-cartao-criar' %}",
+    colRen: "{% url 'kanban-coluna-renomear' 0 %}", colExc: "{% url 'kanban-coluna-excluir' 0 %}",
+    cartEd: "{% url 'kanban-cartao-editar' 0 %}", cartExc: "{% url 'kanban-cartao-excluir' 0 %}", cartMov: "{% url 'kanban-cartao-mover' 0 %}"
+  };
+  function url(base, id) { return base.replace(/0(\/[a-z]+)$/, id + '$1'); }
+  var alerta = document.getElementById('kanbanAlerta');
+
+  function post(endereco, dados) {
+    var corpo = new URLSearchParams(dados || {});
+    return fetch(endereco, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: corpo, credentials: 'same-origin' })
+      .then(function (r) { return r.json().catch(function () { return { success: false, message: 'Sem permissão ou erro inesperado.' }; }); })
+      .then(function (j) { if (!j.success) { alerta.textContent = j.message || 'Não foi possível concluir a ação.'; alerta.classList.remove('d-none'); throw new Error(j.message); } alerta.classList.add('d-none'); return j.data; });
+  }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function cartaoPorId(id) { for (var i = 0; i < quadro.length; i++) for (var j = 0; j < quadro[i].cartoes.length; j++) if (quadro[i].cartoes[j].id == id) return quadro[i].cartoes[j]; }
+
+  var boards = quadro.map(function (c) {
+    return { id: 'col-' + c.id, title: c.nome, item: c.cartoes.map(function (k) {
+      var extra = (k.responsavel ? '<div class="small text-muted">' + esc(k.responsavel) + '</div>' : '') + (k.prazo ? '<div class="small text-muted">' + esc(k.prazo.split('-').reverse().join('/')) + '</div>' : '');
+      return { id: 'cart-' + k.id, title: '<div class="fw-medium">' + esc(k.titulo) + '</div>' + extra };
+    }) };
+  });
+
+  var kanban = new jKanban({
+    element: '#kanban', gutter: '12px', widthBoard: '300px', dragBoards: false, boards: boards,
+    dragItems: podeMover,
+    click: function (el) { abrir(el.getAttribute('data-eid').replace('cart-', '')); },
+    dropEl: function (el, alvo, origem, irmao) {
+      var posicao = Array.prototype.indexOf.call(alvo.querySelectorAll('.kanban-item'), el);
+      post(url(urls.cartMov, el.getAttribute('data-eid').replace('cart-', '')), { coluna: alvo.parentElement.getAttribute('data-id').replace('col-', ''), posicao: posicao })
+        .catch(function () { window.location.reload(); });  // servidor recusou: volta ao estado salvo
+    }
+  });
+
+  // Renomear/excluir coluna: clique no título.
+  document.querySelectorAll('.kanban-title-board').forEach(function (t) {
+    t.style.cursor = 'pointer'; t.title = 'Renomear coluna';
+    t.addEventListener('click', function () {
+      var id = t.closest('.kanban-board').getAttribute('data-id').replace('col-', '');
+      var nome = window.prompt('Novo nome da coluna (deixe em branco para excluir uma coluna vazia):', t.textContent);
+      if (nome === null) return;
+      var p = nome.trim() === '' ? post(url(urls.colExc, id)) : post(url(urls.colRen, id), { nome: nome });
+      p.then(function () { window.location.reload(); }).catch(function () {});
+    });
+  });
+
+  var modalEl = document.getElementById('modalCartao'), modal = new bootstrap.Modal(modalEl), form = document.getElementById('formCartao');
+  var selCol = form.elements.coluna;
+  quadro.forEach(function (c) { selCol.add(new Option(c.nome, c.id)); });
+  function abrir(id) {
+    form.reset(); form.elements.id.value = id || '';
+    var excluir = document.getElementById('btnExcluirCartao');
+    if (excluir) excluir.classList.toggle('d-none', !id);
+    if (id) {
+      var k = cartaoPorId(id); if (!k) return;
+      form.elements.titulo.value = k.titulo; form.elements.descricao.value = k.descricao || '';
+      form.elements.responsavel.value = k.responsavel_id || ''; form.elements.prazo.value = k.prazo || '';
+      var col = quadro.filter(function (c) { return c.cartoes.indexOf(k) >= 0; })[0]; selCol.value = col.id; selCol.disabled = true;
+    } else { selCol.disabled = false; }
+    modal.show();
+  }
+  var bC = document.getElementById('btnCartao'); if (bC) bC.addEventListener('click', function () { abrir(null); });
+  var bK = document.getElementById('btnColuna');
+  if (bK) bK.addEventListener('click', function () {
+    var nome = window.prompt('Nome da nova coluna:'); if (!nome) return;
+    post(urls.colNova, { nome: nome }).then(function () { window.location.reload(); }).catch(function () {});
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var id = form.elements.id.value;
+    var dados = { titulo: form.elements.titulo.value, descricao: form.elements.descricao.value, responsavel: form.elements.responsavel.value, prazo: form.elements.prazo.value };
+    if (!id) dados.coluna = selCol.value;
+    post(id ? url(urls.cartEd, id) : urls.cartNovo, dados).then(function () { window.location.reload(); }).catch(function () {});
+  });
+  var ex = document.getElementById('btnExcluirCartao');
+  if (ex) ex.addEventListener('click', function () {
+    if (!window.confirm('Excluir este cartão?')) return;
+    post(url(urls.cartExc, form.elements.id.value)).then(function () { window.location.reload(); }).catch(function () {});
+  });
+})();
+</script>
+{% endif %}
+{% endblock content %}

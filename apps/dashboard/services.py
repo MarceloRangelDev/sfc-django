@@ -124,6 +124,17 @@ def indicadores(usuario, unidade, inicio, fim, hoje=None):
             "tem_dados": medias["preco"] is not None,
         }
 
+    # Valor mínimo a cobrar por período (só segmentos de serviço): reaproveita apps.custo.valor_minimo.
+    if pode("custo-operacional", "custo.view_custooperacional"):
+        from apps.custo.valor_minimo import valor_minimo_da_unidade
+
+        minimo = valor_minimo_da_unidade(unidade)
+        if minimo:
+            blocos["valor_minimo"] = {
+                "sem_custo": minimo["sem_custo"], "horas_mes": minimo["horas_mes"], "dias_mes": minimo["dias_mes"],
+                "centavos": minimo["valores"], "valores": {k: _reais(v) for k, v in minimo["valores"].items()},
+            }
+
     if pode("categoria", "categoria.view_categoria"):
         from apps.categoria.calculos import percentual_do_total, ticket_medio_centavos
         from apps.categoria.models import Categoria

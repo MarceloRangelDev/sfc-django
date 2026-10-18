@@ -1,6 +1,6 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from web_project.acesso import administrador_global
+from web_project.acesso import administrador_global, motivo_modulo_indisponivel
 from web_project.decorators import modulo_habilitado_para
 
 # ação do ViewSet -> permissão nativa do Django exigida
@@ -37,7 +37,7 @@ class PermissaoDoSistema(BasePermission):
 
         modulo = getattr(view, "modulo_slug", None)
         if modulo and not modulo_habilitado_para(usuario, modulo):
-            self.message = "Este módulo não está habilitado para o seu cliente."
+            self.message = motivo_modulo_indisponivel(usuario)
             return False
 
         if getattr(view, "leitura_livre", False) and request.method in SAFE_METHODS:

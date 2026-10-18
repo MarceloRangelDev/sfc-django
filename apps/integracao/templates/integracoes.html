@@ -21,7 +21,7 @@
         <p class="text-muted flex-grow-1">{{ p.descricao }}</p>
         {% if p.usa_oauth %}
           {% if google_configurado %}
-          <form method="post" action="{% url 'integracao-google-iniciar' %}">{% csrf_token %}<button class="btn btn-primary">{% translate "Conectar com o Google" %}</button></form>
+          <form method="post" action="{% url 'integracao-google-iniciar' %}">{% csrf_token %}<input type="hidden" name="provedor" value="{{ p.chave }}"><button class="btn btn-primary">{% translate "Conectar com o Google" %}</button></form>
           {% else %}<div class="small text-warning">{% translate "Indisponível: configure GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET no .env." %}</div>{% endif %}
         {% else %}
         <a href="{% url 'integracao-nova' p.chave %}" class="btn btn-outline-primary">{% translate "Conectar" %}</a>
