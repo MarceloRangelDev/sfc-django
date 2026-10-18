@@ -76,5 +76,6 @@
   "git.enableSmartCommit": true,
   "eslint.format.enable": true,
   // Extension: npm
-  "npm.packageManager": "yarn"
+  "npm.packageManager": "yarn",
+  "python.terminal.useEnvFile": true
 }
