@@ -277,3 +277,65 @@ class MenuLateralPorPapelTests(Base):
         self.assertTrue(PapelConfig.objects.get(group=grupo).ocultar_menu_lateral)
         self.assertIn('id="layout-menu"', self.client.get(reverse("index")).content.decode())
         self.assertContains(self.client.get(reverse("acl-papel-edit", args=[grupo.pk])), "ocultar_menu_lateral")
+
+
+class MarcasTests(Base):
+    """1 insumo padrão -> N marcas; cada variação tem a sua foto; o insumo do cliente que informa a marca herda a variação (e a foto)."""
+
+    def adicionar(self, marca, insumo=None):
+        self.logar(self.admin)
+        return self.client.post(reverse("insumo-global-marca-adicionar", args=[(insumo or self.acucar).pk]), {"marca": marca})
+
+    def test_adicionar_marcas_reaproveita_a_marca_global_e_nao_duplica(self):
+        from .models import InsumoGlobalMarca, MarcaGlobal
+
+        self.adicionar("União")
+        self.adicionar("Qualy")
+        self.adicionar("uniao")  # mesma marca (sem acento/caixa): não duplica
+        self.assertEqual(self.acucar.variacoes.count(), 2)
+        farinha = InsumoGlobal.objects.create(nome="Farinha")
+        self.adicionar("União", farinha)  # a mesma marca serve a outro insumo
+        self.assertEqual(MarcaGlobal.objects.filter(nome_normalizado="uniao").count(), 1)
+        self.assertEqual(InsumoGlobalMarca.objects.filter(marca__nome="União").count(), 2)
+
+    def test_so_quem_pode_alterar_o_cadastro_global_adiciona_marca(self):
+        self.logar(self.gestor)
+        self.assertEqual(self.client.post(reverse("insumo-global-marca-adicionar", args=[self.acucar.pk]), {"marca": "X"}).status_code, 403)
+
+    def test_foto_por_marca_e_inativar(self):
+        self.adicionar("União")
+        variacao = self.acucar.variacoes.get()
+        arquivo = SimpleUploadedFile("m.png", png(), content_type="image/png")
+        self.assertEqual(self.client.post(reverse("imagens-enviar", args=["insumo_global_marca", variacao.pk]), {"imagem": arquivo}).status_code, 200)
+        self.assertContains(self.client.get(reverse("insumo-global-edit", args=[self.acucar.pk])), "União")
+        self.client.post(reverse("insumo-global-marca-alternar", args=[variacao.pk]))
+        variacao.refresh_from_db()
+        self.assertFalse(variacao.ativo)
+
+    def test_insumo_do_cliente_herda_a_variacao_e_a_foto_da_marca(self):
+        self.adicionar("União")
+        variacao = self.acucar.variacoes.get()
+        arquivo = SimpleUploadedFile("m.png", png(), content_type="image/png")
+        self.client.post(reverse("imagens-enviar", args=["insumo_global_marca", variacao.pk]), {"imagem": arquivo})
+        self.logar(self.gestor)
+        self.cadastrar("acucar", marca="UNIAO")
+        insumo = Insumo.objects.get(cliente=self.a)
+        self.assertEqual((insumo.insumo_global, insumo.insumo_global_marca, insumo.marca), (self.acucar, variacao, "União"))
+        pagina = self.client.get(reverse("insumo")).content.decode()
+        self.assertIn("/imagens/", pagina)
+        self.assertNotIn("tabler-photo-off", pagina)
+
+    def test_marca_desconhecida_continua_texto_livre(self):
+        self.logar(self.gestor)
+        self.cadastrar("acucar", marca="Marca Nova")
+        insumo = Insumo.objects.get(cliente=self.a)
+        self.assertEqual((insumo.marca, insumo.insumo_global_marca), ("Marca Nova", None))
+        self.assertFalse(insumo.nao_conforme)  # marca fora do padrão não torna o insumo não conforme
+
+    def test_redirecionar_tambem_vincula_a_marca(self):
+        self.adicionar("União")
+        variacao = self.acucar.variacoes.get()
+        insumo = Insumo.objects.create(cliente=self.a, nome="Asucar", marca="uniao", medida=medida("kg"), quantidade=1, preco_pago=1000, nao_conforme=True)
+        self.client.post(reverse("insumo-nao-conforme-redirecionar", args=[insumo.pk]), {"destino": self.acucar.pk})
+        insumo.refresh_from_db()
+        self.assertEqual((insumo.insumo_global_marca, insumo.marca), (variacao, "União"))

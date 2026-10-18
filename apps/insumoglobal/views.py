@@ -14,7 +14,7 @@ from web_project.regras import RegraNegocioError
 
 from . import services
 from .forms import InsumoGlobalForm
-from .models import InsumoGlobal
+from .models import InsumoGlobal, InsumoGlobalMarca
 
 
 class InsumoGlobalListView(ListView):
@@ -23,7 +23,7 @@ class InsumoGlobalListView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = InsumoGlobal.objects.select_related("medida").annotate(usos=Count("insumos"))
+        queryset = InsumoGlobal.objects.select_related("medida").annotate(usos=Count("insumos", distinct=True), qtd_marcas=Count("variacoes", distinct=True))
         termo = self.request.GET.get("q", "").strip()
         if termo:
             queryset = queryset.filter(Q(nome__icontains=termo) | Q(descricao__icontains=termo))
@@ -58,7 +58,35 @@ class InsumoGlobalCreateView(_Formulario, AuditoriaFormMixin, CreateView):
 
 
 class InsumoGlobalUpdateView(_Formulario, AuditoriaFormMixin, UpdateView):
-    pass
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["variacoes"] = self.object.variacoes.select_related("marca")
+        return context
+
+
+class VariacaoAdicionarView(View):
+    """POST `marca` (nome): cria a marca global se não existir e a variação deste insumo padrão com ela."""
+
+    def post(self, request, pk):
+        item = get_object_or_404(InsumoGlobal, pk=pk)
+        try:
+            variacao, criada = services.adicionar_marca(request, item, request.POST.get("marca", ""))
+            messages.success(request, f"Marca “{variacao.marca.nome}” adicionada. Envie a foto desta marca." if criada else f"“{variacao.marca.nome}” já estava na lista.")
+        except RegraNegocioError as erro:
+            messages.error(request, str(erro))
+        return redirect("insumo-global-edit", pk=item.pk)
+
+
+class VariacaoAlternarView(View):
+    """Ativa/inativa a variação (insumos de clientes já vinculados a ela continuam; ela só deixa de ser oferecida)."""
+
+    def post(self, request, pk):
+        variacao = get_object_or_404(InsumoGlobalMarca.objects.select_related("marca"), pk=pk)
+        antes = "ativa" if variacao.ativo else "inativa"
+        variacao.ativo = not variacao.ativo
+        variacao.save(update_fields=["ativo"])
+        registrar_alteracoes(request, variacao, [{"campo": "ativo", "rotulo": "Situação", "antes": antes, "depois": "ativa" if variacao.ativo else "inativa"}], modulo="insumoglobal")
+        return redirect("insumo-global-edit", pk=variacao.insumo_global_id)
 
 
 class InsumoGlobalAlternarView(View):

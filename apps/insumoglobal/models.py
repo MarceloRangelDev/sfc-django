@@ -44,3 +44,44 @@ class InsumoGlobal(models.Model):
         self.nome = " ".join(self.nome.split())
         self.nome_normalizado = normalizar(self.nome)
         super().save(*args, **kwargs)
+
+
+class MarcaGlobal(models.Model):
+    """Marca padronizada da plataforma (ex.: "União", "Qualy"). Uma marca existe uma vez só e pode estar em vários insumos."""
+
+    nome = models.CharField(max_length=60, verbose_name="Marca")
+    nome_normalizado = models.CharField(max_length=60, unique=True, editable=False)
+    ativo = models.BooleanField(default=True, verbose_name="Ativa")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Marca global"
+        verbose_name_plural = "Marcas globais"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def save(self, *args, **kwargs):
+        self.nome = " ".join(self.nome.split())
+        self.nome_normalizado = normalizar(self.nome)
+        super().save(*args, **kwargs)
+
+
+class InsumoGlobalMarca(models.Model):
+    """Variação de um insumo global por marca: 1 insumo -> N marcas, cada uma com a SUA foto (módulo de imagens, tipo `insumo_global_marca`).
+    É o que o insumo do cliente escolhe quando informa a marca (`Insumo.insumo_global_marca`)."""
+
+    insumo_global = models.ForeignKey(InsumoGlobal, on_delete=models.CASCADE, related_name="variacoes")
+    marca = models.ForeignKey(MarcaGlobal, on_delete=models.PROTECT, related_name="variacoes")
+    ativo = models.BooleanField(default=True, verbose_name="Ativa")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Variação por marca"
+        verbose_name_plural = "Variações por marca"
+        ordering = ["marca__nome"]
+        constraints = [models.UniqueConstraint(fields=["insumo_global", "marca"], name="variacao_insumo_marca_unica")]
+
+    def __str__(self):
+        return f"{self.insumo_global} — {self.marca}"

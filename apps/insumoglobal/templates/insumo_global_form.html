@@ -22,4 +22,23 @@
   </form>
 </div></div>
 {% include "imagens/_campo.html" with tipo="insumo_global" objeto=object %}
+{% if object %}
+<div class="card mt-4"><div class="card-body">
+  <h6 class="mb-1">{% translate "Marcas deste insumo" %}</h6>
+  <p class="text-muted small">{% translate "Um insumo pode ter várias marcas, cada uma com a sua foto. O cliente que informar uma destas marcas passa a ver a foto da marca." %}</p>
+  <form method="post" action="{% url 'insumo-global-marca-adicionar' object.pk %}" class="d-flex gap-2 mb-4">{% csrf_token %}
+    <input class="form-control" name="marca" maxlength="60" placeholder="{% translate 'Nome da marca (ex.: União)' %}" aria-label="{% translate 'Marca' %}" required>
+    <button class="btn btn-primary text-nowrap">{% translate "Adicionar marca" %}</button>
+  </form>
+  {% for v in variacoes %}
+  <div class="border rounded p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-3">{% include "imagens/_thumb.html" with tipo="insumo_global_marca" pk=v.pk %}<strong>{{ v.marca.nome }}</strong>{% if not v.ativo %}<span class="badge bg-label-secondary">{% translate "inativa" %}</span>{% endif %}</div>
+      <form method="post" action="{% url 'insumo-global-marca-alternar' v.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if v.ativo %}{% translate "Inativar" %}{% else %}{% translate "Ativar" %}{% endif %}</button></form>
+    </div>
+    {% include "imagens/_campo.html" with tipo="insumo_global_marca" objeto=v %}
+  </div>
+  {% empty %}<p class="text-muted mb-0">{% translate "Nenhuma marca cadastrada para este insumo." %}</p>{% endfor %}
+</div></div>
+{% endif %}
 {% endblock %}

@@ -48,7 +48,7 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "dias_validade", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control", "list": "insumosGlobais", "autocomplete": "off"}),
-            "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60}),
+            "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60, "list": "marcasGlobais", "autocomplete": "off"}),
             "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
             "dias_validade": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 32000, "placeholder": "Opcional (ex.: 5)"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
@@ -81,6 +81,11 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         """Nomes padrão para o autocompletar do campo (<datalist>)."""
         return list(globais.InsumoGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
 
+    @property
+    def marcas_globais(self):
+        """Marcas padrão para o autocompletar do campo Marca."""
+        return list(globais.MarcaGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
+
     def _padronizar_nome(self, nome):
         """Cadastro global: nome já padronizado -> usa o nome padrão; inexistente -> só segue se não lembrar um padrão (ou se o usuário
         confirmar), e o insumo fica FORA DO PADRÃO até o administrador padronizar. Edição sem trocar o nome não mexe em nada."""
@@ -107,6 +112,11 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         insumo = super().save(commit=False)
         if getattr(self, "_decidiu_padrao", False):
             insumo.insumo_global, insumo.nao_conforme = self._padrao, self._padrao is None
+        # Marca padronizada: se o insumo é padrão e a marca digitada é uma variação dele, usa o nome padrão da marca e a foto dela.
+        variacao = globais.variacao_para(insumo.insumo_global, insumo.marca)
+        insumo.insumo_global_marca = variacao
+        if variacao is not None:
+            insumo.marca = variacao.marca.nome
         if commit:
             insumo.save()
             self.save_m2m()

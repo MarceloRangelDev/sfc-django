@@ -13,7 +13,7 @@ from apps.notificacao.services import enviar_para_usuarios
 from web_project.historico import HistoricoImutavelError
 from web_project.regras import RegraNegocioError
 
-from .models import InsumoGlobal, normalizar
+from .models import InsumoGlobal, InsumoGlobalMarca, MarcaGlobal, normalizar
 
 logger = logging.getLogger(__name__)
 LIMIAR_SEMELHANTE = 0.8  # similaridade mínima para considerar "provável erro de digitação" ao cadastrar
@@ -89,6 +89,9 @@ def redirecionar(request, insumo, destino):
 def _vincular(request, insumo, global_, nome):
     antes_nome, antes_padrao = insumo.nome, "fora do padrão" if insumo.nao_conforme else "sem vínculo"
     insumo.nome, insumo.insumo_global, insumo.nao_conforme = nome, global_, False
+    insumo.insumo_global_marca = variacao_para(global_, insumo.marca)  # a marca digitada pode já ser uma variação do padrão
+    if insumo.insumo_global_marca is not None:
+        insumo.marca = insumo.insumo_global_marca.marca.nome
     insumo.save()
     registrar_alteracoes(
         request, insumo, [
@@ -124,3 +127,38 @@ def _mesclar(request, origem, destino, padrao):
         origem.save(update_fields=["ativo", "nao_conforme", "atualizado_em"])
         registrar_alteracoes(request, origem, [{"campo": "ativo", "rotulo": "Situação", "antes": "ativo (fora do padrão)", "depois": f"inativado: mesclado em “{destino.nome}”"}], modulo="insumo")
     logger.info("Insumo fora do padrão %r mesclado em %r", nome_origem, destino.nome)
+
+
+# --------------------------------------------------------------------------
+# Marcas: variação (insumo padrão + marca), cada uma com a sua foto
+# --------------------------------------------------------------------------
+
+def adicionar_marca(request, insumo_global, nome_marca):
+    """Garante a MarcaGlobal (única por nome sem acento/caixa) e a variação do insumo com ela. Devolve (variação, criada)."""
+    nome = " ".join((nome_marca or "").split())
+    if not nome:
+        raise RegraNegocioError("Informe a marca.")
+    if len(nome) > 60:
+        raise RegraNegocioError("A marca pode ter até 60 caracteres.")
+    with transaction.atomic():
+        marca = MarcaGlobal.objects.filter(nome_normalizado=normalizar(nome)).first()
+        if marca is None:
+            marca = MarcaGlobal(nome=nome)
+            marca.save()
+            registrar_criacao(request, marca, modulo="insumoglobal")
+        variacao, criada = InsumoGlobalMarca.objects.get_or_create(insumo_global=insumo_global, marca=marca)
+        if criada:
+            registrar_criacao(request, variacao, modulo="insumoglobal")
+        elif not variacao.ativo:
+            variacao.ativo, criada = True, True
+            variacao.save(update_fields=["ativo"])
+    return variacao, criada
+
+
+def variacao_para(insumo_global, marca):
+    """Variação ATIVA do insumo padrão para o texto de marca digitado (ou None)."""
+    if insumo_global is None or not (marca or "").strip():
+        return None
+    return InsumoGlobalMarca.objects.filter(
+        insumo_global=insumo_global, ativo=True, marca__ativo=True, marca__nome_normalizado=normalizar(marca),
+    ).select_related("marca").first()

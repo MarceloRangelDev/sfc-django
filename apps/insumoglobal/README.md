@@ -14,6 +14,15 @@ Cadastro **global** (de toda a plataforma) de insumos padronizados. O usuário e
    * **Padronizar como novo**: o nome vira um novo padrão global (com a unidade do insumo) e o insumo passa a conforme.
 3. **Insumos globais**: CRUD do padrão (nome único, unidade sugerida, descrição, **foto** via módulo de imagens, ativar/inativar; nunca se apaga). A foto do padrão aparece, como miniatura, nos insumos do cliente que não têm foto própria.
 
+## Marcas (1 insumo → N marcas, com foto por marca)
+* `MarcaGlobal`: a marca padronizada (nome único sem acento/caixa; serve a vários insumos).
+* `InsumoGlobalMarca` (**variação**): insumo padrão + marca (única por par), ativa/inativa, com a **sua foto** (módulo de imagens, tipo `insumo_global_marca`).
+* O administrador gerencia as variações na **edição do insumo global**, card “Marcas deste insumo”: digitar a marca cria a `MarcaGlobal` (se nova) e a variação; cada variação recebe a foto; inativar só deixa de oferecê-la.
+* No **insumo do cliente**, o campo Marca continua texto livre (com autocompletar das marcas globais). Se o insumo é padrão e a marca digitada (sem acento/caixa) é uma variação ativa dele, o insumo ganha `insumo_global_marca`, a marca vira o nome padrão e a **foto da marca** aparece na tabela. Marca desconhecida segue como texto livre e **não** torna o insumo não conforme. Redirecionar/promover também tentam vincular a marca.
+* Ordem da miniatura: foto do próprio insumo → foto da variação (marca) → foto do insumo padrão → ícone “sem foto”.
+* Tabelas: `insumoglobal_marcaglobal` (`nome`, `nome_normalizado` único, `ativo`), `insumoglobal_insumoglobalmarca` (`insumo_global_id` CASCADE, `marca_id` PROTECT, `ativo`; único por par), e `insumo_insumo.insumo_global_marca_id` (FK null, SET NULL; migrações `insumoglobal.0003/0004`, `insumo.0012`).
+* Fora do escopo por ora: tela própria de marcas globais, fila de marcas fora do padrão para o administrador e preço/embalagem por marca.
+
 ## Permissões (Papéis e Permissões especiais do usuário)
 | Módulo (Configurações) | Permissão | Padrão |
 |---|---|---|

@@ -77,17 +77,23 @@ def _tenant_do_usuario(usuario):
 _ins_ver, _ins_alt = _catalogo("insumo.Insumo", "insumo", "insumo.view_insumo", (("cotacao", "cotacao.view_cotacao"),), "insumo.change_insumo")
 _prod_ver, _prod_alt = _catalogo("produto.Produto", "produto", "produto.view_produto", (("pdv", "pdv.add_venda"), ("pdv", "pdv.view_venda")), "produto.change_produto")
 
-def _global_ver(user, pk):
-    """Foto de um insumo padrão: quem usa insumos ou administra o cadastro global."""
-    if not (user.has_perm("insumo.view_insumo") or user.has_perm("insumoglobal.view_insumoglobal")):
-        return None
-    return apps.get_model("insumoglobal.InsumoGlobal").objects.filter(pk=pk).first()
+def _globais(modelo):
+    """Entidades do cadastro global (insumo padrão e variação por marca): sem tenant; veem quem usa insumos ou administra o cadastro global."""
+    classe = lambda: apps.get_model(modelo)
+
+    def ver(user, pk):
+        if not (user.has_perm("insumo.view_insumo") or user.has_perm("insumoglobal.view_insumoglobal")):
+            return None
+        return classe().objects.filter(pk=pk).first()
+
+    def alterar(user, pk):
+        return classe().objects.filter(pk=pk).first() if user.has_perm("insumoglobal.change_insumoglobal") else None
+
+    return ver, alterar
 
 
-def _global_alterar(user, pk):
-    if not user.has_perm("insumoglobal.change_insumoglobal"):
-        return None
-    return apps.get_model("insumoglobal.InsumoGlobal").objects.filter(pk=pk).first()
+_global_ver, _global_alterar = _globais("insumoglobal.InsumoGlobal")
+_marca_ver, _marca_alterar = _globais("insumoglobal.InsumoGlobalMarca")
 
 
 ENTIDADES = {
@@ -95,6 +101,7 @@ ENTIDADES = {
     "produto": Entidade("produto.Produto", CATALOGO, "Produto", _prod_ver, _prod_alt, lambda o: o.cliente),
     # Global (sem tenant): a imagem fica registrada na unidade de quem a enviou (ver servico.enviar).
     "insumo_global": Entidade("insumoglobal.InsumoGlobal", CATALOGO, "Insumo global", _global_ver, _global_alterar, lambda o: None),
+    "insumo_global_marca": Entidade("insumoglobal.InsumoGlobalMarca", CATALOGO, "Marca do insumo global", _marca_ver, _marca_alterar, lambda o: None),
     "usuario": Entidade("auth.User", PRIVADA, "Usuário", _usuario_ver, _usuario_alterar, _tenant_do_usuario),
     "cliente": Entidade("cliente.Cliente", PRIVADA, "Cliente", _cliente_ver, _cliente_alterar, lambda o: o),
 }
