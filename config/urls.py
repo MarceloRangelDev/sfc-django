@@ -30,6 +30,8 @@ urlpatterns = [
     path("", include("apps.pages.urls")),
     # insumo urls
     path("", include("apps.insumo.urls")),
+    # insumoglobal urls (cadastro padrão de insumos e fila de insumos fora do padrão)
+    path("", include("apps.insumoglobal.urls")),
     # produto urls
     path("", include("apps.produto.urls")),
     # processados urls

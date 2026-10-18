@@ -64,6 +64,7 @@
     <table class="table">
       <thead>
         <tr>
+          <th>{% translate "Foto" %}</th>
           <th>{% translate "Produto" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
           <th>{% translate "Categoria" as label %}{% include "_th_ordenavel.html" with campo="categoria" label=label %}</th>
           <th>{% translate "Código" %}</th>
@@ -77,6 +78,7 @@
       <tbody>
         {% for produto in produtos %}
         <tr>
+          <td>{% include "imagens/_thumb.html" with tipo="produto" pk=produto.pk %}</td>
           <td>{{ produto.nome }}</td>
           <td>{{ produto.categoria.nome }}{% if not produto.categoria.ativo %} <span class="badge bg-label-secondary">{% translate "inativa" %}</span>{% endif %}</td>
           <td><code>{{ produto.codigo_barras|default:"—" }}</code></td>
@@ -101,7 +103,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhum produto encontrado." %}</td></tr>
+        <tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhum produto encontrado." %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

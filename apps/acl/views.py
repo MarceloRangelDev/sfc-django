@@ -6,9 +6,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import ListView
 
+from apps.auditoria.utils import registrar_alteracoes
 from web_project import TemplateLayout
 from web_project.acesso import perfis_visiveis
 
+from .models import PapelConfig
 from .permissions_matrix import montar_matriz_permissoes, montar_permissoes_adicionais
 from .services import excluir_papel, salvar_papel
 
@@ -44,6 +46,7 @@ class PapelFormView(View):
             "grupo": grupo,
             "matriz": montar_matriz_permissoes(marcadas),
             "adicionais": montar_permissoes_adicionais(marcadas),
+            "ocultar_menu": bool(grupo and PapelConfig.objects.filter(group=grupo, ocultar_menu_lateral=True).exists()),
         })
         return render(request, self.template_name, context)
 
@@ -70,8 +73,19 @@ class PapelFormView(View):
             messages.error(request, erro.message)
             return redirect("acl-papel-list")
 
+        _salvar_menu_lateral(request, grupo)
         messages.success(request, f'Papel "{grupo.name}" salvo com sucesso.')
         return redirect("acl-papel-list")
+
+
+def _salvar_menu_lateral(request, grupo):
+    """Opção do papel: ocultar o menu lateral (auditada quando muda)."""
+    novo = request.POST.get("ocultar_menu_lateral") == "on"
+    config, _ = PapelConfig.objects.get_or_create(group=grupo)
+    if config.ocultar_menu_lateral != novo:
+        config.ocultar_menu_lateral = novo
+        config.save(update_fields=["ocultar_menu_lateral"])
+        registrar_alteracoes(request, grupo, [{"campo": "ocultar_menu_lateral", "rotulo": "Ocultar menu lateral", "antes": "não" if novo else "sim", "depois": "sim" if novo else "não"}], modulo="acl")
 
 
 class PapelDeleteView(View):

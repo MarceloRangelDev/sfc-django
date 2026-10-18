@@ -25,6 +25,12 @@ class TemplateLayout:
             }
         )
 
+        # Papéis que ocultam o menu lateral (ex.: Caixa): o layout nativo "sem menu" já remove a barra e ajusta a página.
+        from apps.acl.interface import menu_lateral_oculto
+
+        if menu_lateral_oculto(self.request.user):
+            context["is_menu"] = False
+
         # Map context variables
         TemplateHelper.map_context(context)
 

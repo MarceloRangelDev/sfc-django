@@ -1,0 +1,42 @@
+{% extends layout_path %}
+{% load i18n %}
+
+{% block title %}{% translate "Insumos fora do padrão" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h4 class="mb-0">{% translate "Insumos fora do padrão (não conformidade)" %}</h4>
+  {% if perms.insumoglobal.view_insumoglobal %}<a href="{% url 'insumo-global' %}" class="btn btn-outline-secondary">{% translate "Insumos globais" %}</a>{% endif %}
+</div>
+<div class="alert alert-info" role="note">{% translate "Insumos digitados pelos clientes que não existem no cadastro global. Padronize (vira um novo padrão) ou redirecione para um padrão existente: o insumo é renomeado e, se o cliente já tiver o padrão, as referências são movidas e o duplicado é excluído." %}</div>
+
+<div class="card"><div class="card-body">
+  <form method="get" class="d-flex gap-2 mb-4"><input class="form-control" name="q" value="{{ termo_pesquisa }}" placeholder="{% translate 'Buscar por insumo ou cliente...' %}"><button class="btn btn-primary" type="submit">{% translate "Buscar" %}</button></form>
+  <div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th>{% translate "Insumo digitado" %}</th><th>{% translate "Cliente" %}</th><th>{% translate "Cadastrado em" %}</th><th>{% translate "Sugestões" %}</th><th>{% translate "Ações" %}</th></tr></thead>
+    <tbody>
+      {% for i in insumos %}
+      <tr>
+        <td><strong>{{ i.nome }}</strong><div class="small text-muted">{{ i.medida.medida }}</div></td>
+        <td>{{ i.cliente.nome_razao_social }}</td>
+        <td>{{ i.criado_em|date:"d/m/Y H:i" }}</td>
+        <td>{% for s in i.sugestoes %}<span class="badge bg-label-primary me-1">{{ s.nome }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
+        <td style="min-width:22rem">
+          {% if perms.insumoglobal.padronizar_insumo %}
+          <form method="post" action="{% url 'insumo-nao-conforme-redirecionar' i.pk %}" class="d-flex gap-2 mb-2" data-confirmar="{% translate 'Redirecionar este insumo para o padrão escolhido? Se o cliente já tiver o padrão, este duplicado será excluído.' %}">{% csrf_token %}
+            <select name="destino" class="form-select form-select-sm" aria-label="{% translate 'Padrão de destino' %}">
+              <option value="">{% translate "Redirecionar para..." %}</option>
+              {% for g in globais %}<option value="{{ g.pk }}">{{ g.nome }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-sm btn-warning text-nowrap">{% translate "Redirecionar" %}</button>
+          </form>
+          <form method="post" action="{% url 'insumo-nao-conforme-promover' i.pk %}" data-confirmar="{% translate 'Tornar este nome um novo insumo padrão?' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">{% translate "Padronizar como novo" %}</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5" class="text-center py-5">{% translate "Nenhum insumo fora do padrão. Tudo conforme!" %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% if is_paginated %}<nav><ul class="pagination">{% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?q={{ termo_pesquisa }}&page={{ page_obj.previous_page_number }}">&laquo;</a></li>{% endif %}<li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>{% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?q={{ termo_pesquisa }}&page={{ page_obj.next_page_number }}">&raquo;</a></li>{% endif %}</ul></nav>{% endif %}
+</div></div>
+{% endblock %}

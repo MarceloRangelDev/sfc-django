@@ -23,6 +23,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from .marca_pdf import desenhar_logo
+
 from apps.auditoria.utils import registrar as registrar_auditoria
 from web_project.acesso import clientes_dos_itens
 from web_project.exportacao import (
@@ -118,7 +120,7 @@ def _pdf(usuario, objeto, dados):
     margem = 1.5 * cm
     empresa = _nome_da_empresa(usuario)
     emitido = f"Emitido em: {timezone.localtime().strftime('%d/%m/%Y, %H:%M:%S')} — por {usuario.get_username()}"
-    documento = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.6 * cm, bottomMargin=1.8 * cm, leftMargin=margem,
+    documento = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2.5 * cm, bottomMargin=1.8 * cm, leftMargin=margem,
                                   rightMargin=margem, title=dados["titulo"], author="Sistema Faturando Certo")
     estilos = getSampleStyleSheet()
     escuro = colors.HexColor("#1f2937")
@@ -154,6 +156,7 @@ def _pdf(usuario, objeto, dados):
 
     def pagina(canvas_, _documento):
         canvas_._empresa = empresa
+        desenhar_logo(canvas_, margem, A4[1] - 0.5 * cm, 1.8 * cm)  # logo à esquerda do cabeçalho
 
     documento.build(elementos, onFirstPage=pagina, onLaterPages=pagina, canvasmaker=_CanvasNumerado)
     buffer.seek(0)

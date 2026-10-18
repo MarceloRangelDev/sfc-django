@@ -15,6 +15,11 @@
       <div class="mb-6 col-md-6">
         <label for="nome" class="form-label">{% translate "Nome do papel" %}</label>
         <input type="text" class="form-control" id="nome" name="nome" value="{{ grupo.name|default:'' }}" required maxlength="150">
+        <div class="form-check form-switch mt-4">
+          <input class="form-check-input" type="checkbox" id="ocultar_menu_lateral" name="ocultar_menu_lateral" {% if ocultar_menu %}checked{% endif %}>
+          <label class="form-check-label" for="ocultar_menu_lateral">{% translate "Ocultar o menu lateral esquerdo para este papel" %}</label>
+          <div class="form-text">{% translate "Para perfis como Caixa: o usuário usa só a tela principal (ex.: abas do PDV), sem a barra lateral. Vale quando todos os papéis do usuário ocultam o menu." %}</div>
+        </div>
       </div>
 
       <h6 class="mb-4">{% translate "Permissões por módulo" %}</h6>

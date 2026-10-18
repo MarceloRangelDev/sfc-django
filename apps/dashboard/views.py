@@ -5,11 +5,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_date
 from django.views import View
 from django.views.generic import TemplateView
 
+from apps.acl.interface import menu_lateral_oculto
 from apps.integracao.models import Conexao
 from apps.integracao.services import sincronizar_automatico
 from web_project import TemplateLayout
@@ -30,6 +32,11 @@ class DashboardView(TemplateView):
     template_name = "dashboard.html"
 
     def get(self, request, *args, **kwargs):
+        # Papel sem menu lateral (ex.: Caixa) e sem o painel: a "tela principal" é a primeira tela do PDV que ele pode usar.
+        if menu_lateral_oculto(request.user) and not request.user.has_perm("dashboard.view_painel"):
+            for permissao, rota in (("pdv.view_telavender", "pdv"), ("pdv.view_telameucaixa", "pdv-caixa"), ("pdv.view_telacomandas", "pdv-comandas")):
+                if request.user.has_perm(permissao):
+                    return redirect(rota)
         self._sincronizar_agenda_em_segundo_plano(request.user)
         return super().get(request, *args, **kwargs)
 

@@ -26,3 +26,18 @@ class PermissaoUsuario(models.Model):
 
     def __str__(self):
         return f"{self.usuario} {self.efeito} {self.permissao.codename}"
+
+
+class PapelConfig(models.Model):
+    """Configuração de interface de um papel (Group). `ocultar_menu_lateral`: usuários cujos papéis TODOS têm isto ligado não veem a barra
+    lateral esquerda (ex.: perfil "Caixa", que só usa as abas do PDV na tela principal). Superusuários sempre veem o menu."""
+
+    group = models.OneToOneField("auth.Group", on_delete=models.CASCADE, related_name="config_menu")
+    ocultar_menu_lateral = models.BooleanField(default=False, db_default=False, verbose_name="Ocultar o menu lateral")
+
+    class Meta:
+        verbose_name = "Configuração de papel"
+        verbose_name_plural = "Configurações de papéis"
+
+    def __str__(self):
+        return f"{self.group} (menu lateral {'oculto' if self.ocultar_menu_lateral else 'visível'})"

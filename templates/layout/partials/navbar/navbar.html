@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load static %}
+{% load imagens %}
 
 {% if navbar_detached  %}
 <nav class="layout-navbar {{container_class}} navbar navbar-expand-xl {{navbar_detached_class}} align-items-center bg-navbar-theme" id="layout-navbar">
@@ -32,7 +33,7 @@
       {% endif %}
 
       <!-- ! Not required for layout-without-menu -->
-      {% if not navbar_hide_toggle %}
+      {% if not navbar_hide_toggle and is_menu %}
       <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 {{ menu_horizontal|yesno:'d-xl-none,' }} {{ content_navbar|yesno:'d-xl-none,' }}">
         <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
           <i class="icon-base ti tabler-menu-2 icon-md"></i>
@@ -44,6 +45,11 @@
 
         <ul class="navbar-nav flex-row align-items-center ms-auto">
           <!-- Notification: [Notificações] [Tema] [Avatar], alinhados à direita -->
+          <li class="nav-item me-2 d-none" id="item-tela-cheia">
+            <button type="button" id="btn-tela-cheia" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Tela cheia (como F11)' %}" aria-label="{% translate 'Alternar tela cheia' %}">
+              <i class="icon-base ti tabler-maximize icon-22px text-heading"></i>
+            </button>
+          </li>
           <li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2" id="sino-notificacoes" data-url="{% url 'notificacao-resumo' %}">
             <a class="nav-link dropdown-toggle hide-arrow btn btn-icon btn-text-secondary rounded-pill" href="javascript:void(0);" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
               <span class="position-relative">
@@ -110,7 +116,7 @@
           <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
               <div class="avatar avatar-online">
-                <img src="{% static 'img/avatars/1.png' %}" alt class="rounded-circle" />
+                {% imagem_url "usuario" request.user.pk "avatar" as foto_perfil %}<img src="{% if foto_perfil %}{{ foto_perfil }}{% else %}{% static 'img/avatars/1.png' %}{% endif %}" alt class="rounded-circle" width="40" height="40" style="object-fit:cover" />
               </div>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -119,7 +125,7 @@
                   <div class="d-flex align-items-center">
                     <div class="flex-shrink-0 me-2">
                       <div class="avatar avatar-online">
-                        <img src="{% static 'img/avatars/1.png' %}" alt class="rounded-circle" />
+                        {% imagem_url "usuario" request.user.pk "avatar" as foto_perfil %}<img src="{% if foto_perfil %}{{ foto_perfil }}{% else %}{% static 'img/avatars/1.png' %}{% endif %}" alt class="rounded-circle" width="40" height="40" style="object-fit:cover" />
                       </div>
                     </div>
                     <div class="flex-grow-1">
@@ -184,3 +190,19 @@
   {% if navbar_detached %}
 </nav>
 {% endif %}
+
+<script>
+  // Tela cheia (como F11) em qualquer navegador que suporte a Fullscreen API; sem suporte, o botão fica escondido.
+  (function () {
+    var item = document.getElementById('item-tela-cheia'), botao = document.getElementById('btn-tela-cheia');
+    if (!item || !botao || !document.fullscreenEnabled) return;
+    item.classList.remove('d-none');
+    var icone = botao.querySelector('i');
+    botao.addEventListener('click', function () {
+      if (document.fullscreenElement) { document.exitFullscreen(); } else { document.documentElement.requestFullscreen().catch(function () {}); }
+    });
+    document.addEventListener('fullscreenchange', function () {
+      icone.className = 'icon-base ti icon-22px text-heading ' + (document.fullscreenElement ? 'tabler-minimize' : 'tabler-maximize');
+    });
+  })();
+</script>

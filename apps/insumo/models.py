@@ -95,6 +95,10 @@ class Insumo(models.Model):
         null=True, blank=True, validators=[MinValueValidator(1)], verbose_name="Validade padrão (dias)",
     )
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    # Padronização (cadastro global de insumos): `insumo_global` = o padrão a que este insumo pertence; `nao_conforme` = nome digitado que
+    # NÃO existe no cadastro global, aguardando o administrador (ver apps/insumoglobal/services.py).
+    insumo_global = models.ForeignKey("insumoglobal.InsumoGlobal", null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name="insumos", verbose_name="Insumo padrão")
+    nao_conforme = models.BooleanField(default=False, db_default=False, editable=False, verbose_name="Fora do padrão")
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Cadastrado em")
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
 

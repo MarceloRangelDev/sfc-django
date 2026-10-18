@@ -55,3 +55,5 @@ class Profile(models.Model):
     class Meta:
         verbose_name = "Perfil do usuário"
         verbose_name_plural = "Perfis de usuário"
+        # Libera o usuário a trocar a PRÓPRIA foto em Meu perfil (Papéis e Permissões especiais).
+        permissions = [("change_fotoperfil", "Alterar a própria foto do perfil")]

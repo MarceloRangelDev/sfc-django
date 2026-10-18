@@ -48,6 +48,7 @@ ADMIN_APPS = [
     "notificacao",
     "canal",
     "pdvconfig",
+    "insumoglobal",  # cadastro global de insumos: só o Administrador (ou quem receber a permissão)
 ]
 
 # Permissões (app_label, codename) além das telas de negócio, concedidas
@@ -70,15 +71,16 @@ PDV_CONFIG_GESTOR = [
 ]
 
 PAINEL = [("dashboard", "view_painel")]  # indicadores do Painel: todos os perfis
+FOTO_PERFIL = [("accounts", "change_fotoperfil")]  # cada usuário troca a própria foto: todos os perfis
 
 EXTRAS = {
     # PDV: o Operador só vende (e abre/fecha o PRÓPRIO caixa); o resto é de Gestor e Administrador.
-    "Visualizador": [*PAINEL],
-    "Operador": [*PAINEL, ("pdv", "abrir_caixa"), ("pedido", "mover_pedido"), ("integracao", "change_compromisso")],
+    "Visualizador": [*PAINEL, *FOTO_PERFIL],
+    "Operador": [*PAINEL, *FOTO_PERFIL, ("pdv", "abrir_caixa"), ("pedido", "mover_pedido"), ("integracao", "change_compromisso")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [*PAINEL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota')],
+    "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota')],
     "Gestor": [
-        *PAINEL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR,
+        *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR,
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("cliente", "view_cliente"),
         ("estoque", "view_transferenciaestoque"), ("estoque", "add_transferenciaestoque"),

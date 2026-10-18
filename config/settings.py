@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "auth.apps.AuthConfig",
     "apps.sample",
     "apps.pages",
+    "apps.insumoglobal",
     "apps.insumo",
     "apps.produto",
     "apps.processado",
@@ -228,7 +229,11 @@ LANGUAGE_CODE = "pt-br"
 # no Windows o padrão de open() é cp1252 e corrompe acentos.)
 DEFAULT_CHARSET = "utf-8"
 
-TIME_ZONE = "UTC" # Fuso horário para a aplicação Django
+# TIME_ZONE = "UTC" # Fuso horário para a aplicação Django
+
+# Fuso horário padrão para a sua aplicação
+TIME_ZONE = 'America/Sao_Paulo'
+
 
 USE_I18N = True # Ativar internacionalização
 

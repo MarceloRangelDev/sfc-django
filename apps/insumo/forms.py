@@ -9,6 +9,8 @@ from apps.processado.services import mensagem_insumo_em_uso
 from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMixin
 from web_project.regras import RegraNegocioError
 
+from apps.insumoglobal import services as globais
+
 from .models import LIMITE_CENTAVOS, Insumo
 
 
@@ -38,11 +40,14 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         error_messages={"invalid": "Informe um valor válido.", "min_value": "O valor não pode ser negativo."},
     )
 
+    # Só aparece (no template) quando o nome digitado lembra um padrão existente: o usuário confirma que é mesmo um insumo novo.
+    confirmar_novo = forms.BooleanField(required=False, label="Cadastrar mesmo assim (é um insumo novo)")
+
     class Meta:
         model = Insumo
         fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "dias_validade", "ativo"]
         widgets = {
-            "nome": forms.TextInput(attrs={"class": "form-control"}),
+            "nome": forms.TextInput(attrs={"class": "form-control", "list": "insumosGlobais", "autocomplete": "off"}),
             "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60}),
             "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
             "dias_validade": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 32000, "placeholder": "Opcional (ex.: 5)"}),
@@ -69,7 +74,45 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
             raise forms.ValidationError("Este insumo já está cadastrado.")
+        return self._padronizar_nome(nome)
+
+    @property
+    def nomes_globais(self):
+        """Nomes padrão para o autocompletar do campo (<datalist>)."""
+        return list(globais.InsumoGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
+
+    def _padronizar_nome(self, nome):
+        """Cadastro global: nome já padronizado -> usa o nome padrão; inexistente -> só segue se não lembrar um padrão (ou se o usuário
+        confirmar), e o insumo fica FORA DO PADRÃO até o administrador padronizar. Edição sem trocar o nome não mexe em nada."""
+        self._padrao, self._decidiu_padrao, self.similares = None, False, []
+        if self.instance.pk and nome == self.instance.nome:
+            return nome
+        self._decidiu_padrao = True
+        padrao = globais.achar_exato(nome)
+        if padrao is not None:
+            self._padrao = padrao
+            outro = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=padrao.nome)
+            if self.instance.pk:
+                outro = outro.exclude(pk=self.instance.pk)
+            if outro.exists():
+                raise forms.ValidationError(f"“{padrao.nome}” já está cadastrado.")
+            return padrao.nome
+        self.similares = globais.semelhantes(nome)
+        if self.similares and not self.data.get("confirmar_novo"):
+            nomes = ", ".join(f"“{g.nome}”" for g in self.similares)
+            raise forms.ValidationError(f"Existe no cadastro padrão: {nomes}. Use o nome padronizado ou marque “Cadastrar mesmo assim”.")
         return nome
+
+    def save(self, commit=True):
+        insumo = super().save(commit=False)
+        if getattr(self, "_decidiu_padrao", False):
+            insumo.insumo_global, insumo.nao_conforme = self._padrao, self._padrao is None
+        if commit:
+            insumo.save()
+            self.save_m2m()
+            if insumo.nao_conforme and getattr(self, "_decidiu_padrao", False):
+                globais.avisar_novo_fora_do_padrao(insumo)
+        return insumo
 
     def clean_marca(self):
         # Opcional: espaços nas pontas e repetidos são normalizados; vazio continua válido.

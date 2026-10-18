@@ -26,7 +26,10 @@
         <div class="col-md-8">
           <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
           {{ form.nome }}
+          <datalist id="insumosGlobais">{% for n in form.nomes_globais %}<option value="{{ n }}">{% endfor %}</datalist>
           {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
+          {% if form.similares %}<div class="form-check mt-2"><input type="checkbox" name="confirmar_novo" id="confirmar_novo" class="form-check-input"><label class="form-check-label" for="confirmar_novo">{% translate "Cadastrar mesmo assim (é um insumo novo)" %}</label></div>{% endif %}
+          <div class="form-text">{% translate "Digite e escolha o nome padronizado da lista. Se o insumo não existir, ele será cadastrado e enviado para padronização." %}</div>
         </div>
         <div class="col-md-4">
           <label for="{{ form.marca.id_for_label }}" class="form-label">{% translate "Marca do produto" %} <small class="text-muted">({% translate "opcional" %})</small></label>

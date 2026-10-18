@@ -52,7 +52,7 @@ def _usuario_ver(user, pk):
 
 def _usuario_alterar(user, pk):
     if user.pk == pk:
-        return user  # cada um troca a própria foto
+        return user if user.has_perm("accounts.change_fotoperfil") else None  # cada um troca a própria foto, se o papel permitir
     if not user.has_perm("auth.change_user"):
         return None
     return usuarios_acessiveis(user).filter(pk=pk).first()
@@ -77,9 +77,24 @@ def _tenant_do_usuario(usuario):
 _ins_ver, _ins_alt = _catalogo("insumo.Insumo", "insumo", "insumo.view_insumo", (("cotacao", "cotacao.view_cotacao"),), "insumo.change_insumo")
 _prod_ver, _prod_alt = _catalogo("produto.Produto", "produto", "produto.view_produto", (("pdv", "pdv.add_venda"), ("pdv", "pdv.view_venda")), "produto.change_produto")
 
+def _global_ver(user, pk):
+    """Foto de um insumo padrão: quem usa insumos ou administra o cadastro global."""
+    if not (user.has_perm("insumo.view_insumo") or user.has_perm("insumoglobal.view_insumoglobal")):
+        return None
+    return apps.get_model("insumoglobal.InsumoGlobal").objects.filter(pk=pk).first()
+
+
+def _global_alterar(user, pk):
+    if not user.has_perm("insumoglobal.change_insumoglobal"):
+        return None
+    return apps.get_model("insumoglobal.InsumoGlobal").objects.filter(pk=pk).first()
+
+
 ENTIDADES = {
     "insumo": Entidade("insumo.Insumo", CATALOGO, "Insumo", _ins_ver, _ins_alt, lambda o: o.cliente),
     "produto": Entidade("produto.Produto", CATALOGO, "Produto", _prod_ver, _prod_alt, lambda o: o.cliente),
+    # Global (sem tenant): a imagem fica registrada na unidade de quem a enviou (ver servico.enviar).
+    "insumo_global": Entidade("insumoglobal.InsumoGlobal", CATALOGO, "Insumo global", _global_ver, _global_alterar, lambda o: None),
     "usuario": Entidade("auth.User", PRIVADA, "Usuário", _usuario_ver, _usuario_alterar, _tenant_do_usuario),
     "cliente": Entidade("cliente.Cliente", PRIVADA, "Cliente", _cliente_ver, _cliente_alterar, lambda o: o),
 }

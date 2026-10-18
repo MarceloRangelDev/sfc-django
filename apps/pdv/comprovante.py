@@ -13,6 +13,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
+from web_project.marca_pdf import desenhar_logo
+
 from apps.cliente.validators import formatar_documento
 from apps.pdvconfig.models import ConfiguracaoPdv
 from web_project.regras.dinheiro import DinheiroService
@@ -102,23 +104,26 @@ def resposta_pdf(dados, formato):
     linhas = linhas_texto(dados, largura)
     if formato == "a4":
         c = canvas.Canvas(buffer, pagesize=A4)
-        tamanho, y = 10, A4[1] - 25 * mm
+        tamanho, y = 10, A4[1] - 40 * mm  # espaço para o logo no cabeçalho
         c.setFont("Courier", tamanho)
+        desenhar_logo(c, 25 * mm, A4[1] - 10 * mm, 25 * mm)
         for linha in linhas:
             if y < 20 * mm:
                 c.showPage()
+                desenhar_logo(c, 25 * mm, A4[1] - 10 * mm, 25 * mm)
                 c.setFont("Courier", tamanho)
-                y = A4[1] - 25 * mm
+                y = A4[1] - 40 * mm
             c.drawString(25 * mm, y, linha)
             y -= tamanho + 3
     else:
         # Fonte monoespaçada cabendo na largura útil; altura da página proporcional ao número de linhas (um recibo contínuo).
         pagina_l = LARGURAS_MM[formato] * mm
         tamanho = (pagina_l - 6 * mm) / (largura * 0.6)
-        altura = len(linhas) * (tamanho + 2) + 10 * mm
+        altura = len(linhas) * (tamanho + 2) + 10 * mm + 16 * mm  # + faixa do logo
         c = canvas.Canvas(buffer, pagesize=(pagina_l, altura))
+        desenhar_logo(c, 3 * mm, altura - 2 * mm, 14 * mm)
         c.setFont("Courier", tamanho)
-        y = altura - 5 * mm - tamanho
+        y = altura - 5 * mm - 16 * mm - tamanho
         for linha in linhas:
             c.drawString(3 * mm, y, linha)
             y -= tamanho + 2

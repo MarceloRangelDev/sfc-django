@@ -19,6 +19,8 @@ from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from .marca_pdf import desenhar_logo
+
 TIPO_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -122,18 +124,19 @@ def exportar_pdf(nome_arquivo, titulo, usuario, cabecalho, linhas, filtros="", t
 
     def pagina(canvas_, documento, primeira):
         canvas_._empresa = empresa
+        largura, altura = tamanho
+        desenhar_logo(canvas_, margem, altura - 0.5 * cm, 1.8 * cm)  # logo à esquerda do cabeçalho, em todas as páginas
         if primeira:
             return
-        largura, altura = tamanho
         canvas_.saveState()
         canvas_.setFont("Helvetica", 8)
         canvas_.setFillColor(COR_TEXTO_SUAVE)
-        canvas_.drawString(margem, altura - 1.0 * cm, "Sistema Faturando Certo")
+        canvas_.drawString(margem + 2.1 * cm, altura - 1.0 * cm, "Sistema Faturando Certo")
         canvas_.drawRightString(largura - margem, altura - 1.0 * cm, titulo)
         canvas_.restoreState()
 
     documento = SimpleDocTemplate(
-        buffer, pagesize=tamanho, topMargin=1.6 * cm, bottomMargin=1.8 * cm, leftMargin=margem, rightMargin=margem,
+        buffer, pagesize=tamanho, topMargin=2.5 * cm, bottomMargin=1.8 * cm, leftMargin=margem, rightMargin=margem,
         title=titulo, author="Sistema Faturando Certo",
     )
     estilos = getSampleStyleSheet()

@@ -68,6 +68,7 @@
     <table class="table">
       <thead>
         <tr>
+          <th>{% translate "Foto" %}</th>
           <th>{% translate "Insumo" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
           <th>{% translate "Preço" as label %}{% include "_th_ordenavel.html" with campo="preco_unidade" label=label %}</th>
           {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
@@ -79,6 +80,7 @@
       <tbody>
         {% for insumo in insumos %}
         <tr>
+          <td>{% include "imagens/_thumb.html" with tipo="insumo" pk=insumo.pk global_pk=insumo.insumo_global_id %}</td>
           <td>{{ insumo.nome }}{% if insumo.marca %} <small class="text-muted">&middot; {{ insumo.marca }}</small>{% endif %}{% if insumo.processado_origem %} <span class="badge bg-label-warning" title="{% translate 'Gerado por um processado: altere pelo módulo Processados.' %}">{% translate "Processado" %}</span>{% endif %}</td>
           <td>{{ insumo.preco_unidade_formatado }} <small class="text-muted">/ {{ insumo.medida.sigla_preco }}</small></td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=insumo %}</td>{% endif %}
@@ -112,7 +114,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="{% if mostrar_unidade %}6{% else %}5{% endif %}" class="text-center py-6">{% translate "Nenhum insumo encontrado." %}</td>
+          <td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhum insumo encontrado." %}</td>
         </tr>
         {% endfor %}
       </tbody>

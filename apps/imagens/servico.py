@@ -88,7 +88,7 @@ def enviar(user, tipo, entidade_id, dados, request=None):
     if objeto is None:
         raise Http404  # não confirma a existência de entidades de outro tenant
     mime, largura, altura, checksum = processamento.validar(dados)
-    cliente = reg.cliente_de(objeto)
+    cliente = reg.cliente_de(objeto) or getattr(getattr(user, "profile", None), "cliente", None)  # entidade global: unidade de quem envia
     if cliente is None:
         raise processamento.ImagemInvalida("Este registro não está vinculado a uma unidade.")
     atual = ativa(tipo, objeto.pk)
