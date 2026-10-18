@@ -63,7 +63,6 @@ class ImagemEntidadeView(APIView):
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
-    throttle_scope = "imagens"
 
     @extend_schema(summary="Dados e URLs das variantes da imagem atual", responses={200: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT})
     def get(self, request, tipo, pk):

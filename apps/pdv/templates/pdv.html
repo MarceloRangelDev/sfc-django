@@ -28,7 +28,7 @@
 {% elif not formas %}
 <div class="alert alert-warning">{% translate "Nenhuma forma de pagamento cadastrada. Cadastre em Configurações > Formas de pagamento." %}</div>
 {% else %}
-<div id="pdvApp" data-url-produtos="{% url 'pdv-api-produtos' %}" data-url-finalizar="{% url 'pdv-api-finalizar' %}">
+<div id="pdvApp" data-url-produtos="{% url 'pdv-api-produtos' %}" data-url-finalizar="{% url 'pdv-api-finalizar' %}" data-url-autorizar="{% url 'pdv-api-autorizar' %}">
   {{ formas_json|json_script:"formasPdv" }}
   <div class="row g-4">
     <div class="col-lg-7">
@@ -88,5 +88,5 @@
 
 {% block page_js %}
 {{ block.super }}
-{% if caixa and formas %}<script src="{% static_v 'js/pdv.js' %}"></script><script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}
+{% if caixa and formas %}<script src="{% static_v 'js/pdv-autorizacao.js' %}"></script><script src="{% static_v 'js/pdv.js' %}"></script><script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}
 {% endblock %}

@@ -44,6 +44,8 @@ class Caixa(models.Model):
         permissions = [
             ("abrir_caixa", "Abrir e fechar o próprio caixa"), ("conferir_caixa", "Conferir (revisar) o fechamento de caixas"),
             ("sangria", "Registrar sangria no caixa"), ("suprimento", "Registrar suprimento no caixa"),
+            # Telas do menu do PDV (aparecem em Módulos, Papéis e Permissões especiais como linhas "Visualizar").
+            ("view_telameucaixa", "Ver a tela Meu caixa do PDV"), ("view_telacaixas", "Ver a tela Caixas do PDV"),
         ]
         constraints = [
             models.UniqueConstraint(fields=["operador"], condition=Q(status="aberto"), name="caixa_um_aberto_por_operador"),
@@ -133,6 +135,8 @@ class Venda(models.Model):
         permissions = [
             ("cancelar_venda", "Cancelar vendas"), ("devolver_item", "Registrar devolução de itens"),
             ("conceder_desconto", "Conceder desconto nas vendas"),
+            ("remover_item", "Autorizar (com senha) a exclusão de itens lançados no PDV"),
+            ("view_telavender", "Ver a tela Vender do PDV"), ("view_telacomandas", "Ver a tela Comandas do PDV"), ("view_televendas", "Ver a tela Vendas do PDV"),
         ]
         constraints = [
             models.UniqueConstraint(fields=["cliente", "numero"], name="venda_numero_unico_por_unidade"),

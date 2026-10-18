@@ -11,4 +11,7 @@ def habilitar_modulo(cliente, slug, ativo=True):
         cliente.save(update_fields=["segmento"])
     modulo = Modulo.objects.get(slug=slug)
     vinculo, _ = ClienteModulo.objects.update_or_create(cliente=cliente, modulo=modulo, defaults={"ativo": ativo})
+    if slug == "pdv":  # as telas do PDV são módulos-filhos: habilitar/desabilitar o PDV acompanha todas
+        for filho in Modulo.objects.filter(slug__startswith="pdv-"):
+            ClienteModulo.objects.update_or_create(cliente=cliente, modulo=filho, defaults={"ativo": ativo})
     return vinculo

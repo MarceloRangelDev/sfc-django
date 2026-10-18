@@ -13,7 +13,7 @@ from django.views.generic import TemplateView
 from apps.integracao.models import Conexao
 from apps.integracao.services import sincronizar_automatico
 from web_project import TemplateLayout
-from web_project.acesso import clientes_dos_itens
+from web_project.acesso import clientes_dos_itens, modulos_habilitados
 
 from .presenca import MINUTOS_ONLINE, usuarios_online
 from .services import PRESETS, indicadores, periodo
@@ -59,13 +59,15 @@ class DashboardView(TemplateView):
         cliente = getattr(usuario.profile, "cliente", None)
         unidade = next((u for u in unidades if str(u.pk) == params.get("unidade")), None) or cliente
         inicio, fim, preset, rotulo = periodo(params.get("periodo", "mes_atual"), parse_date(params.get("inicio", "")), parse_date(params.get("fim", "")))
+        # Painel é um módulo (Módulos, Papéis e Permissões especiais): sem o módulo habilitado ou a permissão, a página inicial abre sem indicadores.
+        pode_painel = usuario.has_perm("dashboard.view_painel") and "painel" in modulos_habilitados(usuario)
         context.update(
-            sem_unidade=unidade is None, unidades=unidades, mostrar_unidade=len(unidades) > 1, presets=PRESETS,
+            sem_painel=not pode_painel, sem_unidade=unidade is None, unidades=unidades, mostrar_unidade=len(unidades) > 1, presets=PRESETS,
             preset=preset, inicio=inicio, fim=fim, rotulo_periodo=rotulo,
             unidade_atual=unidade, unidade_selecionada=str(unidade.pk) if unidade else "",
             pode_ver_online=usuario.has_perm(PERMISSAO_VER_USUARIOS), minutos_online=MINUTOS_ONLINE,
         )
-        if unidade is not None:
+        if unidade is not None and pode_painel:
             context["ind"] = indicadores(usuario, unidade, inicio, fim)
             context["tem_blocos"] = bool(context["ind"])
         if context["pode_ver_online"]:

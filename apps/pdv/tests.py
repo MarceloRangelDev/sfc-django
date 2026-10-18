@@ -472,8 +472,11 @@ class TelasEPermissoesTests(PdvBase):
         r = self.finalizar()
         venda = Venda.objects.get(pk=r.json()["venda"])
         item = venda.itens.get()
-        self.assertEqual(self.client.post(reverse("pdv-venda-cancelar", args=[venda.pk]), {"motivo": "x"}).status_code, 403)
-        self.assertEqual(self.client.post(reverse("pdv-venda-devolver", args=[venda.pk, item.pk]), {}).status_code, 403)
+        # Cancelar/devolver exigem a SENHA de quem tem a permissão: o operador não a tem (nem a senha do gestor sem informá-la).
+        self.assertEqual(self.client.post(reverse("pdv-venda-cancelar", args=[venda.pk]), {"motivo": "x"}).status_code, 302)
+        self.assertEqual(self.client.post(reverse("pdv-venda-cancelar", args=[venda.pk]), {"motivo": "x", "senha_autorizacao": "SenhaForte123!"}).status_code, 302)  # própria senha, sem permissão
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "paga")
+        self.assertEqual(self.client.post(reverse("pdv-venda-devolver", args=[venda.pk, item.pk]), {}).status_code, 302)
         self.assertEqual(self.client.post(reverse("pdv-caixa-sangria"), {"valor": "1", "motivo": "x"}).status_code, 403)
         self.assertEqual(self.client.post(reverse("pdv-caixa-suprimento"), {"valor": "1", "motivo": "x"}).status_code, 403)
         self.assertEqual(self.client.post(reverse("pdv-caixa-conferir", args=[venda.caixa_id])).status_code, 403)
@@ -558,7 +561,7 @@ class TelasEPermissoesTests(PdvBase):
         self.abrir_pela_tela()
         pk = self.finalizar().json()["venda"]
         self.client.force_login(self.gestor)
-        self.assertEqual(self.client.post(reverse("pdv-venda-cancelar", args=[pk]), {"motivo": "teste"}).status_code, 302)
+        self.assertEqual(self.client.post(reverse("pdv-venda-cancelar", args=[pk]), {"motivo": "teste", "senha_autorizacao": "SenhaForte123!"}).status_code, 302)
         self.assertEqual(Venda.objects.get(pk=pk).status, "cancelada")
         s.fechar_caixa(self.req_o, Caixa.objects.get(operador=self.operador), 10000)
         caixa = Caixa.objects.get(operador=self.operador)
@@ -592,3 +595,85 @@ class LeitorDeCodigoTests(PdvBase):
         self.assertEqual(venda.itens.get().quantidade, D("2"))
         resposta = self.client.post(url, {"codigo": "inexistente"}, follow=True)
         self.assertContains(resposta, "Nenhum produto com este código")
+
+
+class AutorizacaoPorSenhaTests(PdvBase):
+    """Excluir item lançado, cancelar venda e devolver (extornar) exigem a senha de quem tem a permissão; a autorização é auditada."""
+
+    SENHA = "SenhaForte123!"
+
+    def venda_paga(self):
+        return self.vender(self.abrir())[0]
+
+    def cancelar(self, venda, **dados):
+        return self.client.post(reverse("pdv-venda-cancelar", args=[venda.pk]), {"motivo": "teste", **dados})
+
+    def test_sem_senha_ou_senha_errada_nao_cancela(self):
+        venda = self.venda_paga()
+        self.client.force_login(self.gestor)
+        self.cancelar(venda)
+        self.cancelar(venda, senha_autorizacao="errada")
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "paga")
+
+    def test_senha_do_proprio_gestor_cancela_e_audita_o_autorizador(self):
+        venda = self.venda_paga()
+        self.client.force_login(self.gestor)
+        self.cancelar(venda, senha_autorizacao=self.SENHA)
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "cancelada")
+        trilha = RegistroAuditoria.objects.filter(modulo="pdv", descricao__contains="Autorizado por gestor")
+        self.assertTrue(trilha.exists())
+        self.assertNotIn(self.SENHA, " ".join(trilha.values_list("descricao", flat=True)))
+
+    def test_operador_cancela_com_a_senha_de_um_supervisor(self):
+        venda = self.venda_paga()
+        self.client.force_login(self.operador)
+        self.cancelar(venda, usuario_autorizacao="gestor", senha_autorizacao=self.SENHA)
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "cancelada")
+
+    def test_supervisor_de_outra_unidade_nao_autoriza(self):
+        venda = self.venda_paga()
+        self.client.force_login(self.operador)
+        self.cancelar(venda, usuario_autorizacao="gestor_b", senha_autorizacao=self.SENHA)
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "paga")
+
+    def test_tentativas_erradas_bloqueiam_temporariamente(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        venda = self.venda_paga()
+        self.client.force_login(self.operador)
+        for _ in range(5):
+            self.cancelar(venda, usuario_autorizacao="gestor", senha_autorizacao="errada")
+        self.cancelar(venda, usuario_autorizacao="gestor", senha_autorizacao=self.SENHA)  # certa, mas já bloqueado
+        self.assertEqual(Venda.objects.get(pk=venda.pk).status, "paga")
+        cache.clear()
+
+    def test_endpoint_de_exclusao_de_item_do_balcao(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.abrir()
+        self.client.force_login(self.operador)
+        url = reverse("pdv-api-autorizar")
+        self.assertEqual(self.client.post(url, {"acao": "remover_item", "senha": "errada"}, content_type="application/json").status_code, 403)
+        self.assertEqual(self.client.post(url, {"acao": "remover_item", "usuario": "gestor", "senha": self.SENHA}, content_type="application/json").status_code, 200)
+        # O operador comum NÃO tem a permissão de excluir item: a própria senha não basta.
+        self.assertEqual(self.client.post(url, {"acao": "remover_item", "senha": self.SENHA}, content_type="application/json").status_code, 403)
+        self.assertEqual(self.client.post(url, {"acao": "outra", "usuario": "gestor", "senha": self.SENHA}, content_type="application/json").status_code, 403)
+        cache.clear()
+
+    def test_menu_do_pdv_agrupado_e_sem_a_tela_sem_permissao(self):
+        from web_project.menu import montar_menu
+
+        grupo = next(i for i in montar_menu(self.gestor) if i["slug"] == "pdv")
+        self.assertEqual([i["name"] for i in grupo["submenu"]], ["Vender", "Comandas", "Meu caixa", "Vendas", "Caixas"])
+        from django.contrib.auth.models import Permission
+
+        self.gestor.groups.first().permissions.remove(Permission.objects.get(codename="view_televendas"))
+        self.gestor = User.objects.get(pk=self.gestor.pk)
+        grupo = next(i for i in montar_menu(self.gestor) if i["slug"] == "pdv")
+        self.assertNotIn("Vendas", [i["name"] for i in grupo["submenu"]])
+        self.client.force_login(self.gestor)
+        self.assertEqual(self.client.get(reverse("pdv-vendas")).status_code, 403)
+        habilitar_modulo(self.cliente, "pdv-caixas", ativo=False)
+        self.assertEqual(self.client.get(reverse("pdv-caixas")).status_code, 403)

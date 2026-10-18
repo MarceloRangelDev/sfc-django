@@ -63,7 +63,7 @@
     <table class="table">
       <thead>
         <tr>
-          <th>{% translate "Ficha" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+          <th>{% translate "Categoria" as label %}{% include "_th_ordenavel.html" with campo="categoria" label=label %}</th>
           <th>{% translate "Produto" as label %}{% include "_th_ordenavel.html" with campo="produto" label=label %}</th>
           {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
           <th class="text-end">{% translate "Custo total" as label %}{% include "_th_ordenavel.html" with campo="custo" label=label %}</th>
@@ -75,7 +75,7 @@
       <tbody>
         {% for ficha in fichas %}
         <tr>
-          <td>{{ ficha.nome }}</td>
+          <td>{{ ficha.produto.categoria.nome }}</td>
           <td>{{ ficha.produto.nome }}</td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=ficha %}</td>{% endif %}
           <td class="text-end">{{ ficha.custo_total_formatado }}</td>

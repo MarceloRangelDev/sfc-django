@@ -15,8 +15,8 @@
     {% if venda.status == "aberta" and perms.pedido.add_pedido %}
     <form method="post" action="{% url 'pedido-enviar' venda.pk %}">{% csrf_token %}<input type="hidden" name="tipo" value="mesa"><button class="btn btn-primary btn-sm">{% translate "Enviar à cozinha" %}</button></form>
     {% endif %}
-    {% if venda.status == "aberta" and perms.pdv.cancelar_venda %}
-    <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" data-confirmar="{% translate 'Cancelar esta comanda?' %}">{% csrf_token %}<input type="hidden" name="motivo" value="Comanda cancelada"><button class="btn btn-outline-danger btn-sm">{% translate "Cancelar comanda" %}</button></form>
+    {% if venda.status == "aberta" %}
+    <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" data-autorizar="{% translate 'Cancelar esta comanda' %}">{% csrf_token %}<input type="hidden" name="motivo" value="Comanda cancelada"><button class="btn btn-outline-danger btn-sm">{% translate "Cancelar comanda" %}</button></form>
     {% endif %}
   </div>
 </div>
@@ -29,7 +29,7 @@
         <tbody>
           {% for i in itens %}
           <tr><td>{{ i.descricao }}{% if i.observacao %}<div class="small text-muted">{{ i.observacao }}</div>{% endif %}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.preco_unitario|moeda }}</td><td class="text-end">{{ i.total|moeda }}</td>
-            <td class="text-end">{% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="remover" value="{{ i.pk }}"><button class="btn btn-sm btn-text-danger" aria-label="{% translate 'Remover' %}">✕</button></form>{% endif %}</td></tr>
+            <td class="text-end">{% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}" class="d-inline" data-autorizar="{% translate 'Excluir item lançado' %}">{% csrf_token %}<input type="hidden" name="remover" value="{{ i.pk }}"><button class="btn btn-sm btn-text-danger" aria-label="{% translate 'Remover' %}">✕</button></form>{% endif %}</td></tr>
           {% empty %}<tr><td colspan="5" class="text-center py-4">{% translate "Nenhum item ainda." %}</td></tr>{% endfor %}
         </tbody>
         <tfoot><tr><th colspan="3" class="text-end">{% translate "Subtotal" %}</th><th class="text-end">{{ venda.subtotal|moeda }}</th><th></th></tr></tfoot>
@@ -96,6 +96,7 @@
 {% endblock %}
 
 {% block page_js %}
+<script src="{% static_v 'js/pdv-autorizacao.js' %}"></script>
 {{ block.super }}
 {% if venda.status == "aberta" %}<script src="{% static_v 'js/pdv.js' %}"></script>{% endif %}
 {% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}

@@ -123,6 +123,16 @@
       $('pdvFinalizar').disabled = enviando || !carrinho.length || falta !== 0;
     }
 
+    // Excluir item lançado exige a senha de quem tem permissão (o servidor valida; a venda só é gravada ao finalizar).
+    function excluirComSenha(item, idx) {
+      window.PdvAutorizacao.pedir('Excluir "' + item.nome + '" da venda').then(function (cred) {
+        if (!cred) return;
+        enviar(app.dataset.urlAutorizar, { acao: 'remover_item', usuario: cred.usuario, senha: cred.senha }).then(function (r) {
+          if (r.ok) { carrinho.splice(idx, 1); desenharCarrinho(); } else { window.PdvAutorizacao.erro((r.dados && r.dados.erro) || 'Não foi possível autorizar.'); }
+        });
+      });
+    }
+
     function desenharCarrinho() {
       var corpo = $('pdvCarrinho');
       corpo.innerHTML = '';
@@ -130,7 +140,7 @@
         var qtd = el('input', { type: 'text', 'class': 'form-control form-control-sm text-end', style: 'width:5rem', value: String(i.qtd).replace('.', ','), inputmode: 'decimal', 'aria-label': 'Quantidade de ' + i.nome });
         qtd.addEventListener('change', function () { var v = parseFloat(qtd.value.replace(',', '.')); if (v > 0) { i.qtd = v; } desenharCarrinho(); });
         var rm = el('button', { type: 'button', 'class': 'btn btn-sm btn-text-danger', 'aria-label': 'Remover ' + i.nome, text: '✕' });
-        rm.addEventListener('click', function () { carrinho.splice(idx, 1); desenharCarrinho(); });
+        rm.addEventListener('click', function () { excluirComSenha(i, idx); });
         corpo.appendChild(el('tr', {}, [
           el('td', { text: i.nome }), el('td', {}, [qtd]), el('td', { 'class': 'text-end', text: moeda(i.preco) }),
           el('td', { 'class': 'text-end', text: moeda(Math.round(i.preco * i.qtd)) }), el('td', {}, [rm]),

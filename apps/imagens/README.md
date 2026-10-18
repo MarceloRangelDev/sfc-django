@@ -52,7 +52,7 @@ Navegador/app ──(multipart)──▶ Django ──valida (Pillow) + autoriza
 | R2 fora na leitura | 503 sem detalhes (nada de stack/credenciais) |
 
 ## Limites (configuráveis por variável de ambiente)
-`IMAGENS_MAX_BYTES` (5 MB), `IMAGENS_MAX_LADO` (8000 px), `IMAGENS_MAX_PIXELS` (40 mi — barra bomba de descompressão **antes** de decodificar), `IMAGENS_RETENCAO_DIAS` (7), `IMAGENS_LIMITE_LEITURA_MIN` (600/usuário/min), `IMAGENS_LIMITE_ENVIO_MIN` (20/usuário/min), `API_THROTTLE_IMAGENS` (300/h). SVG, GIF, animadas e arquivos corrompidos são recusados.
+`IMAGENS_MAX_BYTES` (5 MB), `IMAGENS_MAX_LADO` (8000 px), `IMAGENS_MAX_PIXELS` (40 mi — barra bomba de descompressão **antes** de decodificar), `IMAGENS_RETENCAO_DIAS` (7), `IMAGENS_LIMITE_LEITURA_MIN` (600/usuário/min), `IMAGENS_LIMITE_ENVIO_MIN` (20/usuário/min). SVG, GIF, animadas e arquivos corrompidos são recusados.
 
 ## Segurança multi-tenant
 * O **tenant nunca vem do cliente HTTP**: é o `Cliente` dono da entidade, resolvido no servidor por `registro.py`, que reaproveita `web_project/acesso.py` (`clientes_dos_itens`, `usuarios_acessiveis`, `clientes_acessiveis`) e exige permissão **e** módulo habilitado.

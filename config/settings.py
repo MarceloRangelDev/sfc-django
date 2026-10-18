@@ -377,7 +377,6 @@ REST_FRAMEWORK = {
         # Endpoints sensíveis (ver throttle_scope nas views).
         "cadastro": os.environ.get("API_THROTTLE_CADASTRO", default="10/hour"),
         "senha": os.environ.get("API_THROTTLE_SENHA", default="10/hour"),
-        "imagens": os.environ.get("API_THROTTLE_IMAGENS", default="300/hour"),
     },
     "NON_FIELD_ERRORS_KEY": "non_field_errors",
 }

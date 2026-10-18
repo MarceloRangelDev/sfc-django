@@ -26,7 +26,16 @@ MODULOS_PADRAO = {
     "categoria": dict(nome="Categorias", descricao="Categorias usadas para organizar insumos e produtos.", icone="ti tabler-tags", rota="categoria", app="categoria", permissao="categoria.view_categoria", secao=P, ordem=30),
     "compras": dict(nome="Lista de compras", descricao="Lista de compras com sugestões do estoque, itens avulsos e serviços.", icone="ti tabler-shopping-cart-plus", rota="compras", app="compras", permissao="compras.view_itemcompra", secao=P, ordem=17),
     "cotacao": dict(nome="Cotações", descricao="Cotações de preços entre lojas, comparativo, vencedores e contas a pagar.", icone="ti tabler-report-search", rota="cotacao", app="cotacao", permissao="cotacao.view_cotacao", secao=P, ordem=18),
-    "pdv": dict(nome="PDV", descricao="Caixa, vendas, comandas de mesa e comprovantes.", icone="ti tabler-cash-register", rota="pdv", app="pdv", permissao="pdv.view_venda", secao=P, ordem=12),
+    # Painel (página inicial): os indicadores só aparecem com o módulo habilitado e a permissão dashboard.view_painel.
+    "painel": dict(nome="Painel", descricao="Indicadores da unidade (página inicial).", icone="ti tabler-layout-dashboard", rota="index", app="dashboard", permissao="dashboard.view_painel", secao=P, ordem=1),
+    # PDV: "pdv" é o módulo-pai (liga/desliga o PDV e guarda as permissões de venda); não tem item de menu próprio.
+    # Cada tela do PDV é um módulo-filho (menu "PDV" agrupado, habilitação por cliente e permissão "Visualizar" na matriz de papéis).
+    "pdv": dict(nome="PDV", descricao="Caixa, vendas, comandas de mesa e comprovantes (módulo-pai das telas do PDV).", icone="ti tabler-cash-register", rota="", app="pdv", permissao="pdv.view_venda", secao=P, ordem=12),
+    "pdv-vender": dict(nome="PDV — Vender", descricao="Tela de vendas de balcão.", icone="ti tabler-shopping-cart", rota="pdv", app="pdv", permissao="pdv.view_telavender", secao=P, ordem=12),
+    "pdv-comandas": dict(nome="PDV — Comandas", descricao="Comandas de mesa.", icone="ti tabler-armchair", rota="pdv-comandas", app="pdv", permissao="pdv.view_telacomandas", secao=P, ordem=12),
+    "pdv-caixa": dict(nome="PDV — Meu caixa", descricao="Abertura, sangria, suprimento e fechamento do próprio caixa.", icone="ti tabler-cash", rota="pdv-caixa", app="pdv", permissao="pdv.view_telameucaixa", secao=P, ordem=12),
+    "pdv-vendas": dict(nome="PDV — Vendas", descricao="Vendas realizadas, comprovantes, cancelamentos e devoluções.", icone="ti tabler-receipt", rota="pdv-vendas", app="pdv", permissao="pdv.view_televendas", secao=P, ordem=12),
+    "pdv-caixas": dict(nome="PDV — Caixas", descricao="Todos os caixas da unidade e conferência de fechamento.", icone="ti tabler-building-bank", rota="pdv-caixas", app="pdv", permissao="pdv.view_telacaixas", secao=P, ordem=12),
     "pedido": dict(nome="Pedidos e cozinha", descricao="Fila de produção da cozinha, pedidos de balcão, mesa, retirada e entrega.", icone="ti tabler-tools-kitchen-2", rota="cozinha", app="pedido", permissao="pedido.view_pedido", secao=P, ordem=13),
     "mao-de-obra": dict(nome="Mão de obra", descricao="Colaboradores e apontamentos por hora ou por dia, com hora extra e relatório.", icone="ti tabler-clock-hour-4", rota="apontamento-list", app="maodeobra", permissao="maodeobra.view_apontamento", secao=P, ordem=14),
     "agenda": dict(nome="Agenda", descricao="Compromissos, reservas e entregas; sincroniza com Google Agenda e iCloud.", icone="ti tabler-calendar-event", rota="compromisso-list", app="integracao", permissao="integracao.view_compromisso", secao=P, ordem=19, essencial=True),
@@ -61,6 +70,8 @@ MODULOS_PADRAO = {
     "modulo-cliente": dict(nome="Módulos do cliente", descricao="Habilitar módulos por cliente.", icone="ti tabler-toggle-right", rota="modulo-list", app="modulo", permissao="modulo.change_clientemodulo", secao=C, ordem=60, essencial=True),
     "medida": dict(nome="Medidas", descricao="Unidades de medida.", icone="ti tabler-ruler-measure", rota="medida-list", app="medida", permissao="medida.view_medida", secao=C, ordem=70, essencial=True),
     "auditoria": dict(nome="Auditoria", descricao="Log de auditoria.", icone="ti tabler-history", rota="auditoria-list", app="auditoria", permissao="auditoria.view_registroauditoria", secao=C, ordem=80, essencial=True, delegavel=False),
+    # Área exclusiva do proprietário da plataforma (superusuário): fica no catálogo/menu, mas NÃO é delegável a papéis nem a permissões especiais.
+    "imagens": dict(nome="Imagens e custos (R2)", descricao="Armazenamento de imagens no Cloudflare R2: conexão, uso e custo estimado (só proprietário da plataforma).", icone="ti tabler-photo-cog", rota="imagens-painel", app="imagens", permissao="imagens.view_tarifaimagens", secao=C, ordem=85, essencial=True, delegavel=False),
     "acl-papel": dict(nome="Papéis", descricao="Perfis de acesso e suas permissões.", icone="ti tabler-shield-lock", rota="acl-papel-list", app="acl", permissao="auth.view_group", secao=C, ordem=90, essencial=True, delegavel=False),
     "acl-permissao": dict(nome="Permissões", descricao="Catálogo de permissões.", icone="ti tabler-key", rota="acl-permissao-list", app="acl", permissao="auth.view_permission", secao=C, ordem=100, essencial=True, delegavel=False),
 }

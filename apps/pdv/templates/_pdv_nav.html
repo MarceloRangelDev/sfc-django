@@ -1,9 +1,9 @@
 {% load i18n %}
 {% comment %}Abas do PDV. Parâmetro: ativa (vender, comandas, caixa, vendas, caixas).{% endcomment %}
-<ul class="nav nav-pills mb-4 flex-wrap">
-  {% if perms.pdv.add_venda %}<li class="nav-item"><a class="nav-link {% if ativa == 'vender' %}active{% endif %}" href="{% url 'pdv' %}">{% translate "Vender" %}</a></li>{% endif %}
-  <li class="nav-item"><a class="nav-link {% if ativa == 'comandas' %}active{% endif %}" href="{% url 'pdv-comandas' %}">{% translate "Comandas" %}</a></li>
-  <li class="nav-item"><a class="nav-link {% if ativa == 'caixa' %}active{% endif %}" href="{% url 'pdv-caixa' %}">{% translate "Meu caixa" %}</a></li>
-  <li class="nav-item"><a class="nav-link {% if ativa == 'vendas' %}active{% endif %}" href="{% url 'pdv-vendas' %}">{% translate "Vendas" %}</a></li>
-  <li class="nav-item"><a class="nav-link {% if ativa == 'caixas' %}active{% endif %}" href="{% url 'pdv-caixas' %}">{% translate "Caixas" %}</a></li>
+<ul class="nav nav-pills mb-4 flex-wrap" data-usuario-atual="{{ request.user.username }}">
+  {% if perms.pdv.add_venda and perms.pdv.view_telavender %}<li class="nav-item"><a class="nav-link {% if ativa == 'vender' %}active{% endif %}" href="{% url 'pdv' %}">{% translate "Vender" %}</a></li>{% endif %}
+  {% if perms.pdv.view_telacomandas %}<li class="nav-item"><a class="nav-link {% if ativa == 'comandas' %}active{% endif %}" href="{% url 'pdv-comandas' %}">{% translate "Comandas" %}</a></li>{% endif %}
+  {% if perms.pdv.view_telameucaixa %}<li class="nav-item"><a class="nav-link {% if ativa == 'caixa' %}active{% endif %}" href="{% url 'pdv-caixa' %}">{% translate "Meu caixa" %}</a></li>{% endif %}
+  {% if perms.pdv.view_televendas %}<li class="nav-item"><a class="nav-link {% if ativa == 'vendas' %}active{% endif %}" href="{% url 'pdv-vendas' %}">{% translate "Vendas" %}</a></li>{% endif %}
+  {% if perms.pdv.view_telacaixas %}<li class="nav-item"><a class="nav-link {% if ativa == 'caixas' %}active{% endif %}" href="{% url 'pdv-caixas' %}">{% translate "Caixas" %}</a></li>{% endif %}
 </ul>

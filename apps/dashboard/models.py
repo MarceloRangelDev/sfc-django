@@ -13,6 +13,8 @@ class Presenca(models.Model):
     class Meta:
         verbose_name = "Presença"
         verbose_name_plural = "Presenças"
+        # Libera os indicadores do Painel (módulo "Painel" em Módulos, Papéis e Permissões especiais).
+        permissions = [("view_painel", "Ver os indicadores do Painel")]
 
     def __str__(self):
         return f"{self.usuario} em {self.ultima_atividade:%d/%m/%Y %H:%M}"

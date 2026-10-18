@@ -15,6 +15,7 @@ from web_project.acesso import clientes_dos_itens
 from web_project.regras import RegraNegocioError
 
 from . import comprovante as comp
+from .autorizacao import auditar, autorizar
 from .forms import AbrirCaixaForm, CancelarForm, ComandaForm, ConferenciaForm, DevolucaoForm, FecharCaixaForm, ItemComandaForm, MovimentoForm
 from .models import Caixa, MovimentoCaixa, Venda, VendaItem
 from .services import (
@@ -266,6 +267,7 @@ class ComandaItemView(View):
         venda = _venda(request, pk)
         try:
             if request.POST.get("remover", "").isdigit():
+                _autorizar_pelo_post(request, venda, "pdv.remover_item", "excluir item lançado na comanda")
                 remover_item(request, venda, int(request.POST["remover"]))
             elif request.POST.get("codigo", "").strip():
                 lido = produto_por_codigo(venda.cliente, request.POST["codigo"])
@@ -330,6 +332,29 @@ class VendaDetalheView(View):
         })
 
 
+def _autorizar_pelo_post(request, venda, permissao, acao):
+    """Exige a senha (campos `usuario_autorizacao`/`senha_autorizacao`) de quem tem `permissao`; audita quem autorizou."""
+    autorizador = autorizar(request, permissao, venda.cliente, request.POST.get("usuario_autorizacao", ""), request.POST.get("senha_autorizacao", ""))
+    auditar(request, autorizador, acao, venda)
+    return autorizador
+
+
+class AutorizarJsonView(View):
+    """POST JSON {acao:"remover_item", usuario?, senha}: valida a senha de quem pode excluir itens lançados (tela de vender)."""
+
+    def post(self, request):
+        try:
+            dados = _json_do_corpo(request)
+            if dados.get("acao") != "remover_item":
+                raise RegraNegocioError("Ação inválida.")
+            cliente = request.user.profile.cliente
+            autorizador = autorizar(request, "pdv.remover_item", cliente, str(dados.get("usuario") or ""), str(dados.get("senha") or ""))
+            auditar(request, autorizador, "excluir item lançado na venda em andamento", None)
+        except RegraNegocioError as erro:
+            return JsonResponse({"erro": str(erro)}, status=403)
+        return JsonResponse({"ok": True})
+
+
 class CancelarVendaView(View):
     def post(self, request, pk):
         venda = _venda(request, pk)
@@ -338,6 +363,7 @@ class CancelarVendaView(View):
             messages.error(request, "Informe o motivo do cancelamento.")
             return redirect("pdv-venda", pk=venda.pk)
         try:
+            _autorizar_pelo_post(request, venda, "pdv.cancelar_venda", "cancelar venda")
             cancelar_venda(request, venda, form.cleaned_data["motivo"])
             messages.success(request, "Venda cancelada.")
         except RegraNegocioError as erro:
@@ -355,6 +381,7 @@ class DevolverView(View):
             return redirect("pdv-venda", pk=venda.pk)
         dados = form.cleaned_data
         try:
+            _autorizar_pelo_post(request, venda, "pdv.devolver_item", "devolver (extornar) item")
             devolver_item(request, linha, dados["quantidade"], dados["motivo"], dados["forma_estorno"], dados["repor_estoque"])
             messages.success(request, "Devolução registrada.")
         except RegraNegocioError as erro:

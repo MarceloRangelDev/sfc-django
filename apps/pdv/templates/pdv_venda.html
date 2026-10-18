@@ -43,11 +43,11 @@
           <tr>
             <td>{{ i.descricao }}{% if i.preparado %} <span class="badge bg-label-info">{% translate "preparado" %}</span>{% endif %}</td>
             <td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.quantidade_devolvida|floatformat:"-3" }}</td><td class="text-end">{{ i.total|moeda }}</td>
-            <td class="text-end">{% if venda.status == "paga" and perms.pdv.devolver_item and i.disponivel_para_devolucao > 0 %}<button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#dev{{ i.pk }}">{% translate "Devolver" %}</button>{% endif %}</td>
+            <td class="text-end">{% if venda.status == "paga" and i.disponivel_para_devolucao > 0 %}<button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#dev{{ i.pk }}">{% translate "Devolver" %}</button>{% endif %}</td>
           </tr>
-          {% if venda.status == "paga" and perms.pdv.devolver_item and i.disponivel_para_devolucao > 0 %}
+          {% if venda.status == "paga" and i.disponivel_para_devolucao > 0 %}
           <tr class="collapse" id="dev{{ i.pk }}"><td colspan="5">
-            <form method="post" action="{% url 'pdv-venda-devolver' venda.pk i.pk %}" class="row g-2 align-items-end" novalidate>{% csrf_token %}
+            <form method="post" action="{% url 'pdv-venda-devolver' venda.pk i.pk %}" class="row g-2 align-items-end" novalidate data-autorizar="{% translate 'Devolver (extornar) item' %}">{% csrf_token %}
               <div class="col-md-2"><label class="form-label small">{% translate "Qtd." %}</label>{{ form_devolucao.quantidade }}</div>
               <div class="col-md-3"><label class="form-label small">{% translate "Devolver por" %}</label>{{ form_devolucao.forma_estorno }}</div>
               <div class="col-md-4"><label class="form-label small">{% translate "Motivo" %}</label>{{ form_devolucao.motivo }}</div>
@@ -82,15 +82,20 @@
       </table></div>
       {% if venda.troco %}<div class="card-body pt-0">{% translate "Troco" %}: <strong>{{ venda.troco|moeda }}</strong></div>{% endif %}
     </div>
-    {% if venda.status != "cancelada" and perms.pdv.cancelar_venda %}
+    {% if venda.status != "cancelada" %}
     <div class="card"><div class="card-body">
       <h6>{% translate "Cancelar venda" %}</h6>
       <p class="text-muted small">{% translate "Estorna o recebimento e repõe o estoque dos itens não preparados. Só enquanto o caixa da venda estiver aberto; depois, use a devolução de itens." %}</p>
-      <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" novalidate data-confirmar="{% translate 'Cancelar esta venda?' %}">{% csrf_token %}
+      <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" novalidate data-autorizar="{% translate 'Cancelar esta venda' %}">{% csrf_token %}
         {{ form_cancelar.motivo }}<button class="btn btn-outline-danger mt-3">{% translate "Cancelar venda" %}</button>
       </form>
     </div></div>
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static_v 'js/pdv-autorizacao.js' %}"></script>
 {% endblock %}

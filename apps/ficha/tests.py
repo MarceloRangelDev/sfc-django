@@ -237,7 +237,7 @@ class TelasFichaTests(TestCase):
         criar(self.outra, "Z", [(novo_insumo(self.outra, "X", "kg", "1", 100), "g", "100")])
         resp = self.client.get(reverse("ficha"), {"export": "xlsx"})
         linhas = list(openpyxl.load_workbook(BytesIO(resp.content)).active.values)
-        self.assertEqual([l[0] for l in linhas[1:]], ["A"])
+        self.assertEqual([l[0] for l in linhas[1:]], ["Doces"])  # 1ª coluna: categoria do produto
         self.assertEqual((linhas[1][3], linhas[1][4]), (1, "R$ 0,50"))
         self.assertTrue(self.client.get(reverse("ficha"), {"export": "pdf"}).content.startswith(b"%PDF"))
 

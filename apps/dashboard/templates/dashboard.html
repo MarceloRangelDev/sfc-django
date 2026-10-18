@@ -19,6 +19,8 @@
 
 {% if sem_unidade %}
 <div class="alert alert-warning" role="alert">{% translate "Seu usuário não está vinculado a um cliente; não há indicadores para mostrar." %}</div>
+{% elif sem_painel %}
+<div class="alert alert-info" role="alert">{% translate "Você ainda não tem permissão para ver indicadores. Fale com o administrador do seu cliente." %}</div>
 {% else %}
 
 <div class="card mb-4">

@@ -27,7 +27,7 @@ from .forms import FichaForm, ItemFormSet
 from .models import Ficha, FichaItem
 from .services import salvar_ficha
 
-CABECALHO_EXPORTACAO = ["Ficha", "Produto", "Unidade", "Itens", "Custo total", "Status", "Cadastrado em"]
+CABECALHO_EXPORTACAO = ["Categoria", "Produto", "Unidade", "Itens", "Custo total", "Status", "Cadastrado em"]
 
 
 class FichaListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
@@ -37,13 +37,13 @@ class FichaListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
     model = Ficha
     template_name = "ficha.html"
     context_object_name = "fichas"
-    colunas_ordenaveis = {"nome": "nome", "produto": "produto__nome", "custo": "custo_total", "criado_em": "criado_em"}
+    colunas_ordenaveis = {"nome": "nome", "categoria": "produto__categoria__nome", "produto": "produto__nome", "custo": "custo_total", "criado_em": "criado_em"}
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("produto")
+        queryset = super().get_queryset().select_related("produto", "produto__categoria")
         termo = self.request.GET.get("q", "").strip()
         if termo:
-            queryset = queryset.filter(Q(nome__icontains=termo) | Q(produto__nome__icontains=termo))
+            queryset = queryset.filter(Q(nome__icontains=termo) | Q(produto__nome__icontains=termo) | Q(produto__categoria__nome__icontains=termo))
         produto = self.request.GET.get("produto", "")
         if produto.isdigit():
             queryset = queryset.filter(produto_id=produto)
@@ -63,10 +63,10 @@ class FichaListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
     def exportar(self, formato, queryset):
         linhas = [
             [
-                f.nome, f.produto.nome, f.cliente.nome_razao_social, f.qtd_itens, f.custo_total_formatado,
+                f.produto.categoria.nome, f.produto.nome, f.cliente.nome_razao_social, f.qtd_itens, f.custo_total_formatado,
                 "Ativo" if f.ativo else "Inativo", timezone.localtime(f.criado_em).strftime("%d/%m/%Y %H:%M"),
             ]
-            for f in queryset.select_related("cliente").annotate(qtd_itens=Count("itens"))
+            for f in queryset.select_related("cliente", "produto__categoria").annotate(qtd_itens=Count("itens"))
         ]
         if formato == "xlsx":
             return exportar_excel("fichas-tecnicas", "Fichas técnicas", CABECALHO_EXPORTACAO,

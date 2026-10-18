@@ -13,6 +13,8 @@ from apps.modulo.models import Modulo
 from .acesso import modulos_habilitados
 
 ICONE_PADRAO = "ti tabler-app-window"
+# Telas do PDV: módulos-filhos do módulo "pdv", mostrados juntos num submenu "PDV" (na ordem abaixo).
+TELAS_PDV = ("pdv-vender", "pdv-comandas", "pdv-caixa", "pdv-vendas", "pdv-caixas")
 
 
 def _item(modulo):
@@ -29,7 +31,7 @@ def montar_menu(user):
     if not user.is_authenticated:
         return []
     modulos = Modulo.objects.filter(slug__in=modulos_habilitados(user)).exclude(rota="")  # já ordenados (ordem, nome)
-    principal, configuracoes = [], []
+    principal, configuracoes, grupo_pdv = [], [], None
     for modulo in modulos:
         if modulo.permissao and not user.has_perm(modulo.permissao):
             continue
@@ -37,8 +39,18 @@ def montar_menu(user):
             reverse(modulo.rota)
         except NoReverseMatch:  # rota cadastrada errada não pode derrubar todas as telas
             continue
+        if modulo.slug in TELAS_PDV:
+            item = _item(modulo)
+            item["name"] = modulo.nome.split("— ", 1)[-1]  # "PDV — Vender" -> "Vender" (o grupo já se chama PDV)
+            if grupo_pdv is None:
+                grupo_pdv = {"name": "PDV", "slug": "pdv", "icon": "menu-icon icon-base ti tabler-cash-register", "submenu": []}
+                principal.append(grupo_pdv)  # entra na posição da primeira tela do PDV
+            grupo_pdv["submenu"].append(item)
+            continue
         destino = configuracoes if modulo.secao == Modulo.SECAO_CONFIGURACOES else principal
         destino.append(_item(modulo))
+    if grupo_pdv:
+        grupo_pdv["submenu"].sort(key=lambda i: TELAS_PDV.index(i["slug"]))
     if configuracoes:
         principal.append({
             "name": "Configurações", "slug": "configuracoes",

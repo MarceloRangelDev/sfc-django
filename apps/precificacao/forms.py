@@ -68,8 +68,12 @@ class PrecificacaoForm(forms.ModelForm):
         if self.instance.pk:
             filtro_ficha |= Q(pk=self.instance.ficha_id)
             filtro_canal |= Q(pk=self.instance.canal_id)
-        self.fields["ficha"].queryset = Ficha.objects.filter(filtro_ficha).select_related("produto").order_by("nome")
-        self.fields["ficha"].label_from_instance = lambda f: f"{f.nome} — {f.produto.nome}"
+        fichas = Ficha.objects.filter(filtro_ficha).select_related("produto", "produto__categoria").order_by("produto__categoria__nome", "produto__nome", "nome")
+        self.fields["ficha"].queryset = fichas
+        # "Categoria — Produto"; só se o mesmo produto tem mais de uma ficha o nome da ficha desempata (o valor do campo continua sendo a ficha).
+        ids = list(fichas.values_list("produto_id", flat=True))
+        repetidos = {i for i in ids if ids.count(i) > 1}
+        self.fields["ficha"].label_from_instance = lambda f: f"{f.produto.categoria.nome} — {f.produto.nome}" + (f" ({f.nome})" if f.produto_id in repetidos else "")
         self.fields["ficha"].empty_label = "Selecione..."
         self.fields["canal"].queryset = CanalVenda.objects.filter(filtro_canal).order_by("nome", "descricao")
         self.fields["canal"].empty_label = "Personalizado (informar abaixo)"
