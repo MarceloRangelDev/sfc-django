@@ -2,7 +2,7 @@
 from django.contrib import messages
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
@@ -51,7 +51,10 @@ class _Formulario:
 
 
 class InsumoGlobalCreateView(_Formulario, AuditoriaFormMixin, CreateView):
-    pass
+    def get_success_url(self):
+        # Depois de criar, abre a edição: é lá que se envia a foto (precisa do registro salvo).
+        messages.info(self.request, "Agora você pode adicionar a foto do insumo.")
+        return reverse("insumo-global-edit", args=[self.object.pk])
 
 
 class InsumoGlobalUpdateView(_Formulario, AuditoriaFormMixin, UpdateView):

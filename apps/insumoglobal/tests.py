@@ -170,8 +170,10 @@ class TelasDoAdminTests(Base):
     def test_cadastro_global_crud_e_nome_unico(self):
         self.logar(self.admin)
         self.assertEqual(self.client.post(reverse("insumo-global-create"), {"nome": "AÇUCAR", "ativo": "on"}).status_code, 200)  # duplicado (sem acento/caixa)
-        self.client.post(reverse("insumo-global-create"), {"nome": "Farinha", "ativo": "on"})
+        criado = self.client.post(reverse("insumo-global-create"), {"nome": "Farinha", "ativo": "on"})
         farinha = InsumoGlobal.objects.get(nome="Farinha")
+        self.assertRedirects(criado, reverse("insumo-global-edit", args=[farinha.pk]))  # abre a edição para enviar a foto
+        self.assertContains(self.client.get(reverse("insumo-global-edit", args=[farinha.pk])), "data-imagem-campo")
         self.client.post(reverse("insumo-global-alternar", args=[farinha.pk]))
         farinha.refresh_from_db()
         self.assertFalse(farinha.ativo)
