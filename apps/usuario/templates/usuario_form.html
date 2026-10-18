@@ -32,7 +32,13 @@
         {% endfor %}
       </div>
 
-      <h6 class="mt-8 mb-1">{% translate "Permissões especiais" %}</h6>
+      <div class="form-check form-switch mt-8">
+        <input class="form-check-input" type="checkbox" id="verPermissoesEspeciais">
+        <label class="form-check-label" for="verPermissoesEspeciais">{% translate "Ver permissões especiais" %}</label>
+        <div class="form-text">{% translate "Ocultas por padrão. Marque para ver ou alterar as exceções individuais deste usuário." %}</div>
+      </div>
+      <div id="blocoPermissoesEspeciais" class="d-none">
+      <h6 class="mt-6 mb-1">{% translate "Permissões especiais" %}</h6>
       <p class="text-muted small mb-4">{% translate "Exceções individuais ao papel do usuário. “Herdar” mantém o que o papel concede; “Permitir” libera e “Negar” bloqueia a ação para este usuário, mesmo que o papel diga o contrário." %}</p>
       <div class="table-responsive">
         <table class="table table-sm align-middle">
@@ -68,6 +74,7 @@
         </table>
       </div>
 
+      </div>
       <div class="mt-6">
         <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
         <a href="{% url 'usuario-list' %}" class="btn btn-outline-secondary">{% translate "Cancelar" %}</a>
@@ -100,8 +107,33 @@
         perfil.appendChild(o);
       });
     }
-    cliente.addEventListener('change', atualizar);
+    // O select de cliente usa select2, que só dispara "change" pelo jQuery (não pelo addEventListener nativo).
+    if (window.jQuery) { window.jQuery(cliente).on('change', atualizar); } else { cliente.addEventListener('change', atualizar); }
     atualizar();
+
+    // Olho para mostrar/ocultar a senha e a confirmação.
+    document.querySelectorAll('#formUsuario input[type=password]').forEach(function (campo) {
+      var grupo = document.createElement('div');
+      grupo.className = 'input-group';
+      campo.parentNode.insertBefore(grupo, campo);
+      grupo.appendChild(campo);
+      var botao = document.createElement('button');
+      botao.type = 'button'; botao.className = 'btn btn-outline-secondary'; botao.setAttribute('aria-label', 'Mostrar ou ocultar a senha');
+      botao.innerHTML = '<i class="icon-base ti tabler-eye"></i>';
+      botao.addEventListener('click', function () {
+        var visivel = campo.type === 'text';
+        campo.type = visivel ? 'password' : 'text';
+        botao.firstChild.className = 'icon-base ti ' + (visivel ? 'tabler-eye' : 'tabler-eye-off');
+      });
+      grupo.appendChild(botao);
+    });
+
+    // Permissões especiais: ocultas, a menos que o usuário já tenha alguma exceção (ou o formulário volte com erro).
+    var chave = document.getElementById('verPermissoesEspeciais'), bloco = document.getElementById('blocoPermissoesEspeciais');
+    function mostrarBloco() { bloco.classList.toggle('d-none', !chave.checked); }
+    chave.checked = Array.prototype.some.call(bloco.querySelectorAll('select'), function (s) { return s.value !== ''; });
+    chave.addEventListener('change', mostrarBloco);
+    mostrarBloco();
   })();
 </script>
 {% endblock %}

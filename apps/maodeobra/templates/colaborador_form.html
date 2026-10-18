@@ -14,6 +14,11 @@
       {% if form.fields.cliente %}<div class="col-md-6"><label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>{{ form.cliente }}</div>{% endif %}
       <div class="col-md-6"><label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
       <div class="col-md-6"><label for="{{ form.funcao.id_for_label }}" class="form-label">{% translate "Função" %}</label>{{ form.funcao }}</div>
+      <div class="col-md-6"><label for="{{ form.valor_mes.id_for_label }}" class="form-label">{% translate "Valor por mês (R$)" %}</label>{{ form.valor_mes }}{% if form.valor_mes.errors %}<div class="text-danger small mt-1">{{ form.valor_mes.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Opcional. Com o valor mensal, a hora, o dia, a semana e a quinzena são calculados (regras em Configurações da mão de obra)." %}</div></div>
+      <div class="col-md-6"><div class="border rounded p-3 small" id="previaMes" data-horas="{{ form.config.horas_mes|stringformat:'s' }}" data-dias="{{ form.config.dias_mes|stringformat:'s' }}">
+        <div class="fw-medium mb-1">{% translate "Valores calculados" %} <span class="text-muted">({{ form.config.horas_mes|floatformat:"-2" }} h/mês · {{ form.config.dias_mes|floatformat:"-1" }} dias)</span></div>
+        <div class="row"><div class="col-6 col-md-3">{% translate "Hora" %}<br><strong data-d="hora">—</strong></div><div class="col-6 col-md-3">{% translate "Dia" %}<br><strong data-d="dia">—</strong></div><div class="col-6 col-md-3">{% translate "Semana" %}<br><strong data-d="semana">—</strong></div><div class="col-6 col-md-3">{% translate "Quinzena" %}<br><strong data-d="quinzena">—</strong></div></div>
+      </div></div>
       <div class="col-md-3"><label for="{{ form.valor_hora.id_for_label }}" class="form-label">{% translate "Valor da hora (R$)" %}</label>{{ form.valor_hora }}{% if form.valor_hora.errors %}<div class="text-danger small mt-1">{{ form.valor_hora.errors|striptags }}</div>{% endif %}</div>
       <div class="col-md-3"><label for="{{ form.valor_dia.id_for_label }}" class="form-label">{% translate "Valor do dia (R$)" %}</label>{{ form.valor_dia }}<div class="form-text">{% translate "Opcional. Vazio = valor da hora × jornada." %}</div></div>
       <div class="col-12"><div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label></div></div>
@@ -26,4 +31,19 @@
 {% block page_js %}
 {{ block.super }}
 <script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+  // Prévia dos valores derivados do mês (o servidor recalcula ao salvar, com as mesmas regras).
+  (function () {
+    var campo = document.querySelector('[data-mes]'), caixa = document.getElementById('previaMes');
+    if (!campo || !caixa) return;
+    var horas = parseFloat(caixa.dataset.horas), dias = parseFloat(caixa.dataset.dias);
+    function moeda(c) { return 'R$ ' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function atualizar() {
+      var mes = parseInt((campo.value || '').replace(/\D/g, ''), 10) || 0;
+      var v = mes ? { hora: mes / horas, dia: mes / dias, semana: mes * 7 / dias, quinzena: mes / 2 } : null;
+      ['hora', 'dia', 'semana', 'quinzena'].forEach(function (k) { caixa.querySelector('[data-d=' + k + ']').textContent = v ? moeda(Math.round(v[k])) : '—'; });
+    }
+    campo.addEventListener('input', atualizar); atualizar();
+  })();
+</script>
 {% endblock %}

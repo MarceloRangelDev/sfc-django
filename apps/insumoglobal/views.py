@@ -23,7 +23,7 @@ class InsumoGlobalListView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = InsumoGlobal.objects.select_related("medida").annotate(usos=Count("insumos", distinct=True), qtd_marcas=Count("variacoes", distinct=True))
+        queryset = InsumoGlobal.objects.select_related("medida").prefetch_related("segmentos").annotate(usos=Count("insumos", distinct=True), qtd_marcas=Count("variacoes", distinct=True))
         termo = self.request.GET.get("q", "").strip()
         if termo:
             queryset = queryset.filter(Q(nome__icontains=termo) | Q(descricao__icontains=termo))

@@ -6,6 +6,9 @@ from django.db.models import Q
 from apps.produto.models import Produto
 from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMixin
 
+from web_project.regras import RegraNegocioError
+
+from .calculo import derivados_do_mes
 from .models import Apontamento, Colaborador, ConfiguracaoMaoDeObra
 
 CONTROLE = {"class": "form-control"}
@@ -14,23 +17,39 @@ HORA = forms.TimeInput(attrs={**CONTROLE, "type": "time"}, format="%H:%M")
 
 
 class ColaboradorForm(UnidadeFormMixin, forms.ModelForm):
-    valor_hora = MoedaCentavosField(label="Valor da hora (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "0,00"}))
+    valor_mes = MoedaCentavosField(required=False, label="Valor por mês (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "Opcional: calcula hora, dia, semana e quinzena", "data-mes": "1"}))
+    valor_hora = MoedaCentavosField(required=False, label="Valor da hora (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "0,00"}))
     valor_dia = MoedaCentavosField(required=False, label="Valor do dia (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "Vazio = valor da hora × jornada"}))
 
     class Meta:
         model = Colaborador
-        fields = ["nome", "funcao", "valor_hora", "valor_dia", "ativo"]
+        fields = ["nome", "funcao", "valor_mes", "valor_hora", "valor_dia", "ativo"]
         widgets = {"nome": forms.TextInput(attrs=CONTROLE), "funcao": forms.TextInput(attrs=CONTROLE), "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"})}
 
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.configurar_unidade(cliente, unidades)
 
-    def clean_valor_hora(self):
-        valor = self.cleaned_data.get("valor_hora")
-        if not valor:
-            raise forms.ValidationError("Informe o valor da hora (maior que zero).")
-        return valor
+    @property
+    def config(self):
+        """Regras de cálculo da unidade (horas e dias por mês), também usadas pela prévia da tela."""
+        return ConfiguracaoMaoDeObra.da_unidade(self.cliente_alvo() if hasattr(self, "cleaned_data") else self.cliente)
+
+    def clean(self):
+        dados = super().clean()
+        mes = dados.get("valor_mes")
+        if mes:
+            # Valor mensal informado: hora e dia são calculados NO SERVIDOR (a prévia da tela é só conveniência).
+            try:
+                derivados = derivados_do_mes(mes, self.config.horas_mes, self.config.dias_mes)
+            except RegraNegocioError as erro:
+                raise forms.ValidationError(str(erro)) from None
+            if derivados["hora"] <= 0:
+                self.add_error("valor_mes", "O valor mensal é pequeno demais para calcular a hora.")
+            dados["valor_hora"], dados["valor_dia"] = derivados["hora"], derivados["dia"]
+        elif not dados.get("valor_hora"):
+            self.add_error("valor_hora", "Informe o valor da hora (maior que zero) ou o valor por mês.")
+        return dados
 
     def clean_nome(self):
         nome = " ".join((self.cleaned_data.get("nome") or "").split())
@@ -81,12 +100,14 @@ class ApontamentoForm(forms.ModelForm):
 
 class ConfiguracaoForm(forms.ModelForm):
     jornada_horas = DecimalBRField(max_digits=4, decimal_places=2, min_value=Decimal("0.5"), max_value=Decimal("24"), label="Jornada normal (horas por dia)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}))
+    horas_mes = DecimalBRField(max_digits=6, decimal_places=2, min_value=Decimal("1"), max_value=Decimal("744"), label="Horas trabalhadas por mês", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}))
+    dias_mes = DecimalBRField(max_digits=4, decimal_places=1, min_value=Decimal("1"), max_value=Decimal("31"), label="Dias considerados no mês", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}))
     extra_percentual = DecimalBRField(max_digits=6, decimal_places=2, min_value=Decimal("0"), max_value=Decimal("300"), label="Adicional de hora extra (%)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}))
     adicional_domingo = DecimalBRField(max_digits=6, decimal_places=2, min_value=Decimal("0"), max_value=Decimal("300"), label="Adicional de domingo (%)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}))
 
     class Meta:
         model = ConfiguracaoMaoDeObra
-        fields = ["arredondamento", "jornada_horas", "extra_percentual", "adicional_domingo"]
+        fields = ["arredondamento", "jornada_horas", "horas_mes", "dias_mes", "extra_percentual", "adicional_domingo"]
         widgets = {"arredondamento": forms.Select(attrs=SELECT)}
 
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):

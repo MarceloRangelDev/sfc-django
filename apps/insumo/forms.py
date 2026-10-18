@@ -79,12 +79,16 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
     @property
     def nomes_globais(self):
         """Nomes padrão para o autocompletar do campo (<datalist>)."""
-        return list(globais.InsumoGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
+        return [g.nome for g in globais._ativos(self._segmento(), todos=False)]
 
     @property
     def marcas_globais(self):
         """Marcas padrão para o autocompletar do campo Marca."""
         return list(globais.MarcaGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
+
+    def _segmento(self):
+        cliente = self.cliente_alvo() if hasattr(self, "cleaned_data") else self.cliente
+        return getattr(cliente, "segmento", None)
 
     def _padronizar_nome(self, nome):
         """Cadastro global: nome já padronizado -> usa o nome padrão; inexistente -> só segue se não lembrar um padrão (ou se o usuário
@@ -93,7 +97,7 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         if self.instance.pk and nome == self.instance.nome:
             return nome
         self._decidiu_padrao = True
-        padrao = globais.achar_exato(nome)
+        padrao = globais.achar_exato(nome, self._segmento(), todos=False)
         if padrao is not None:
             self._padrao = padrao
             outro = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=padrao.nome)
@@ -102,7 +106,7 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
             if outro.exists():
                 raise forms.ValidationError(f"“{padrao.nome}” já está cadastrado.")
             return padrao.nome
-        self.similares = globais.semelhantes(nome)
+        self.similares = globais.semelhantes(nome, segmento=self._segmento(), todos=False)
         if self.similares and not self.data.get("confirmar_novo"):
             nomes = ", ".join(f"“{g.nome}”" for g in self.similares)
             raise forms.ValidationError(f"Existe no cadastro padrão: {nomes}. Use o nome padronizado ou marque “Cadastrar mesmo assim”.")

@@ -7,7 +7,7 @@ from django.db import models
 
 from web_project.regras.dinheiro import DinheiroService
 
-from .calculo import ARRED_MINUTO, ARREDONDAMENTOS, LIMITE_CENTAVOS, texto_horas
+from .calculo import ARRED_MINUTO, ARREDONDAMENTOS, LIMITE_CENTAVOS, derivados_do_mes, texto_horas
 
 
 def segmento_permite(cliente):
@@ -33,6 +33,15 @@ class ConfiguracaoMaoDeObra(models.Model):
         max_digits=6, decimal_places=2, default=Decimal("0"), db_default=Decimal("0"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("300"))], verbose_name="Adicional de domingo (%)",
     )
+    # Base para derivar hora/dia/semana/quinzena do valor MENSAL do colaborador (ver calculo.derivados_do_mes).
+    horas_mes = models.DecimalField(
+        max_digits=6, decimal_places=2, default=Decimal("220"), db_default=Decimal("220"),
+        validators=[MinValueValidator(Decimal("1")), MaxValueValidator(Decimal("744"))], verbose_name="Horas trabalhadas por mês",
+    )
+    dias_mes = models.DecimalField(
+        max_digits=4, decimal_places=1, default=Decimal("30"), db_default=Decimal("30"),
+        validators=[MinValueValidator(Decimal("1")), MaxValueValidator(Decimal("31"))], verbose_name="Dias considerados no mês",
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -54,6 +63,8 @@ class Colaborador(models.Model):
     cliente = models.ForeignKey("cliente.Cliente", on_delete=models.PROTECT, related_name="colaboradores", verbose_name="Unidade")
     nome = models.CharField(max_length=120, verbose_name="Nome")
     funcao = models.CharField(max_length=80, blank=True, default="", verbose_name="Função")
+    # Salário mensal (opcional): quando informado, o valor da hora e do dia são DERIVADOS dele (ver calculo.derivados_do_mes).
+    valor_mes = models.PositiveBigIntegerField(null=True, blank=True, verbose_name="Valor por mês (centavos)")
     valor_hora = models.PositiveBigIntegerField(verbose_name="Valor da hora (centavos)")
     # Vazio = valor_hora × jornada da unidade.
     valor_dia = models.PositiveBigIntegerField(null=True, blank=True, verbose_name="Valor do dia (centavos)")
@@ -61,7 +72,7 @@ class Colaborador(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
-    AUDITORIA_MONETARIOS = ("valor_hora", "valor_dia")
+    AUDITORIA_MONETARIOS = ("valor_mes", "valor_hora", "valor_dia")
 
     class Meta:
         verbose_name = "Colaborador"
@@ -72,6 +83,13 @@ class Colaborador(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def derivados(self, config=None):
+        """{hora, dia, semana, quinzena} em centavos a partir do valor mensal (None se não há valor mensal)."""
+        if not self.valor_mes:
+            return None
+        config = config or ConfiguracaoMaoDeObra.da_unidade(self.cliente)
+        return derivados_do_mes(self.valor_mes, config.horas_mes, config.dias_mes)
 
     def clean(self):
         self.nome = " ".join((self.nome or "").split())

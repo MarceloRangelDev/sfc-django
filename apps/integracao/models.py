@@ -113,8 +113,8 @@ class Compromisso(models.Model):
     """Reserva, entrega ou compromisso da agenda do sistema (sincroniza com Google Agenda/iCloud, nos dois sentidos).
     `origem` externa = veio do calendário. Desativar não apaga (o evento externo é removido pela sincronização)."""
 
-    RESERVA, ENTREGA, COMPROMISSO = "reserva", "entrega", "compromisso"
-    TIPO_CHOICES = [(RESERVA, "Reserva"), (ENTREGA, "Entrega"), (COMPROMISSO, "Compromisso")]
+    RESERVA, ENTREGA, COMPROMISSO, EVENTO, TAREFA = "reserva", "entrega", "compromisso", "evento", "tarefa"
+    TIPO_CHOICES = [(RESERVA, "Reserva"), (ENTREGA, "Entrega"), (COMPROMISSO, "Compromisso"), (EVENTO, "Evento"), (TAREFA, "Tarefa")]
     LOCAL, EXTERNA = "local", "externa"
 
     cliente = models.ForeignKey("cliente.Cliente", on_delete=models.PROTECT, related_name="compromissos", verbose_name="Unidade")
@@ -127,6 +127,8 @@ class Compromisso(models.Model):
     pedido = models.ForeignKey("pedido.Pedido", null=True, blank=True, on_delete=models.SET_NULL, related_name="compromissos", verbose_name="Pedido")
     origem = models.CharField(max_length=7, default=LOCAL, db_default=LOCAL, editable=False)
     ativo = models.BooleanField(default=True, db_default=True, verbose_name="Ativo")
+    # Concluído (tarefas, entregas, compromissos...): continua na agenda, marcado (não altera a sincronização com calendários externos).
+    concluido = models.BooleanField(default=False, db_default=False, verbose_name="Concluído")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

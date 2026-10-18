@@ -26,6 +26,13 @@
         <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Produto, ficha ou canal...' %}" value="{{ termo_pesquisa }}">
       </div>
       <div class="col-md-auto">
+        <label class="form-label" for="categoria">{% translate "Categoria" %}</label>
+        <select id="categoria" name="categoria" class="form-select">
+          <option value="">{% translate "Todas" %}</option>
+          {% for c in categorias %}<option value="{{ c.pk }}" {% if categoria_selecionada == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
         <label class="form-label" for="produto">{% translate "Produto" %}</label>
         <select id="produto" name="produto" class="form-select">
           <option value="">{% translate "Todos" %}</option>

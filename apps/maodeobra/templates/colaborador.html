@@ -22,16 +22,17 @@
   </div>
   <div class="table-responsive text-nowrap">
     <table class="table">
-      <thead><tr><th>{% translate "Nome" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Função" %}</th><th class="text-end">{% translate "Valor da hora" %}</th><th class="text-end">{% translate "Valor do dia" %}</th><th>{% translate "Status" %}</th><th></th></tr></thead>
+      <thead><tr><th>{% translate "Nome" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Função" %}</th><th class="text-end">{% translate "Por mês" %}</th><th class="text-end">{% translate "Hora" %}</th><th class="text-end">{% translate "Dia" %}</th><th class="text-end">{% translate "Semana" %}</th><th class="text-end">{% translate "Quinzena" %}</th><th>{% translate "Status" %}</th><th></th></tr></thead>
       <tbody>
         {% for c in colaboradores %}
         <tr>
           <td>{{ c.nome }}</td>{% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=c %}</td>{% endif %}
-          <td>{{ c.funcao|default:"—" }}</td><td class="text-end">{{ c.valor_hora|moeda }}</td><td class="text-end">{% if c.valor_dia is not None %}{{ c.valor_dia|moeda }}{% else %}<span class="text-muted">{% translate "hora × jornada" %}</span>{% endif %}</td>
+          <td>{{ c.funcao|default:"—" }}</td><td class="text-end">{% if c.valor_mes %}{{ c.valor_mes|moeda }}{% else %}<span class="text-muted">—</span>{% endif %}</td><td class="text-end">{{ c.valor_hora|moeda }}</td><td class="text-end">{% if c.valor_dia is not None %}{{ c.valor_dia|moeda }}{% else %}<span class="text-muted">{% translate "hora × jornada" %}</span>{% endif %}</td>
+          <td class="text-end">{% if c.derivados_cache %}{{ c.derivados_cache.semana|moeda }}{% else %}<span class="text-muted">—</span>{% endif %}</td><td class="text-end">{% if c.derivados_cache %}{{ c.derivados_cache.quinzena|moeda }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
           <td>{% if c.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}</td>
           <td>{% if perms.maodeobra.change_colaborador and c.cliente_id == user.profile.cliente_id or perms.maodeobra.change_colaborador and perms.cliente.change_itensfilial %}<a href="{% url 'colaborador-edit' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}</td>
         </tr>
-        {% empty %}<tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhum colaborador." %}</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="{% if mostrar_unidade %}10{% else %}9{% endif %}" class="text-center py-6">{% translate "Nenhum colaborador." %}</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

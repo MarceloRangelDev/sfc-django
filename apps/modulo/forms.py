@@ -64,9 +64,21 @@ class SegmentoForm(forms.ModelForm):
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
+    # Insumos globais oferecidos a este segmento (o vínculo fica em InsumoGlobal.segmentos). Sem nenhum marcado em NENHUM segmento = visível a todos.
+    insumos_globais = forms.ModelMultipleChoiceField(queryset=None, required=False, label="Insumos globais do segmento", widget=forms.CheckboxSelectMultiple())
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from apps.insumoglobal.models import InsumoGlobal
+
         # Módulos essenciais (Configurações) valem para todos os segmentos.
         self.fields["modulos"].queryset = Modulo.objects.filter(essencial=False)
+        self.fields["insumos_globais"].queryset = InsumoGlobal.objects.filter(ativo=True).order_by("nome")
+        if self.instance.pk:
+            self.fields["insumos_globais"].initial = list(self.instance.insumos_globais.values_list("pk", flat=True))
         if self.instance.pk:
             self.fields["slug"].disabled = True
+
+    def _save_m2m(self):
+        super()._save_m2m()
+        self.instance.insumos_globais.set(self.cleaned_data.get("insumos_globais", []))  # vínculo guardado em InsumoGlobal.segmentos

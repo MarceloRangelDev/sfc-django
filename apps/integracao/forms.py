@@ -43,10 +43,10 @@ class CompromissoForm(forms.ModelForm):
 
     class Meta:
         model = Compromisso
-        fields = ["tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "ativo"]
+        fields = ["tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "concluido", "ativo"]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}), "titulo": forms.TextInput(attrs=CONTROLE), "descricao": forms.TextInput(attrs={**CONTROLE, "maxlength": 500}),
-            "todo_o_dia": forms.CheckboxInput(attrs={"class": "form-check-input"}), "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "todo_o_dia": forms.CheckboxInput(attrs={"class": "form-check-input"}), "concluido": forms.CheckboxInput(attrs={"class": "form-check-input"}), "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):

@@ -19,6 +19,10 @@ urlpatterns = [
     # Público: o provedor chama sem login; a ASSINATURA (e o token da URL) é que autentica.
     path("webhooks/<str:token>", views.WebhookView.as_view(), name="integracao-webhook"),
     path("agenda", module_required(A, "integracao.view_compromisso")(views.CompromissoListView.as_view()), name="compromisso-list"),
+    path("agenda/eventos", module_required(A, "integracao.view_compromisso")(views.CompromissoEventosView.as_view()), name="compromisso-eventos"),
+    path("agenda/<int:pk>/mover", module_required(A, "integracao.change_compromisso")(views.CompromissoMoverView.as_view()), name="compromisso-mover"),
+    path("agenda/<int:pk>/concluir", module_required(A, "integracao.change_compromisso")(views.CompromissoConcluirView.as_view()), name="compromisso-concluir"),
+    path("agenda/<int:pk>/excluir", module_required(A, "integracao.change_compromisso")(views.CompromissoExcluirView.as_view()), name="compromisso-excluir"),
     path("agenda/novo", module_required(A, "integracao.add_compromisso")(views.CompromissoCreateView.as_view()), name="compromisso-create"),
     path("agenda/<int:pk>/editar", module_required(A, "integracao.change_compromisso")(views.CompromissoUpdateView.as_view()), name="compromisso-edit"),
 ]

@@ -168,7 +168,7 @@ class TelasTests(Base):
         self.assertIn("valor_total", {x["campo"] for x in registro.alteracoes})
 
     def test_configuracao_pela_tela_vale_para_os_proximos(self):
-        self.client.post(reverse("mao-obra-config"), {"arredondamento": "quarto", "jornada_horas": "6", "extra_percentual": "100", "adicional_domingo": "0"})
+        self.client.post(reverse("mao-obra-config"), {"arredondamento": "quarto", "jornada_horas": "6", "horas_mes": "220", "dias_mes": "30", "extra_percentual": "100", "adicional_domingo": "0"})
         config = ConfiguracaoMaoDeObra.objects.get(cliente=self.cliente)
         self.assertEqual((config.arredondamento, config.jornada_horas, config.extra_percentual), ("quarto", D("6"), D("100")))
         self.assertFalse(ConfiguracaoMaoDeObra.objects.filter(cliente=self.outro).exists())

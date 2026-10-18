@@ -51,6 +51,18 @@
           </div>
           <div class="form-text">{% translate "Os módulos de Configurações são essenciais e valem para todos os segmentos." %}</div>
         </div>
+        <div class="col-12">
+          <label class="form-label d-block">{% translate "Insumos globais do segmento" %}</label>
+          <input type="search" id="filtroInsumosGlobais" class="form-control mb-2" placeholder="{% translate 'Filtrar insumos...' %}" aria-label="{% translate 'Filtrar insumos' %}">
+          <div class="border rounded p-3" style="max-height: 18rem; overflow-y: auto" id="listaInsumosGlobais">
+            <div class="row g-2">
+              {% for opcao in form.insumos_globais %}
+              <div class="col-md-4 form-check ps-6" data-nome="{{ opcao.choice_label|lower }}">{{ opcao.tag }}<label class="form-check-label" for="{{ opcao.id_for_label }}">{{ opcao.choice_label }}</label></div>
+              {% empty %}<div class="col-12 text-muted">{% translate "Nenhum insumo global cadastrado." %}</div>{% endfor %}
+            </div>
+          </div>
+          <div class="form-text">{% translate "Os clientes deste segmento encontram estes insumos no cadastro padronizado. Um insumo global sem nenhum segmento fica visível a todos." %}</div>
+        </div>
       </div>
       <div class="mt-6">
         <button type="submit" class="btn btn-primary">{% translate "Salvar" %}</button>
@@ -59,4 +71,18 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  (function () {
+    var filtro = document.getElementById('filtroInsumosGlobais');
+    if (!filtro) return;
+    filtro.addEventListener('input', function () {
+      var termo = filtro.value.trim().toLowerCase();
+      document.querySelectorAll('#listaInsumosGlobais [data-nome]').forEach(function (e) { e.classList.toggle('d-none', termo && e.dataset.nome.indexOf(termo) === -1); });
+    });
+  })();
+</script>
 {% endblock %}

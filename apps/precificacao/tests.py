@@ -588,3 +588,23 @@ class ListaPrecificacaoTests(TestCase):
         f = criar_ficha(outra, "Segredo", [(novo_insumo(outra, "X", "kg", "1", 100), "g", "100")])
         nova_precificacao(outra, f)
         self.assertNotContains(self.client.get(reverse("precificacao"), {"visao": "cartoes", "per_page": "100"}), "Segredo")
+
+
+class FiltroCategoriaPrecificacaoTests(TestCase):
+    def test_filtra_por_categoria_do_produto(self):
+        from apps.categoria.models import Categoria
+
+        matriz = cliente("Matriz", "11222333000181")
+        self.client.force_login(usuario("u", matriz))
+        farinha = novo_insumo(matriz, "Farinha", "kg", "1", 1000)
+        canal = novo_canal(matriz)
+        ficha_a = criar_ficha(matriz, "Ficha A", [(farinha, "kg", "1")])
+        ficha_b = criar_ficha(matriz, "Ficha B", [(farinha, "kg", "1")])
+        outra_categoria = Categoria.objects.create(cliente=matriz, nome="Salgados")
+        ficha_b.produto.categoria = outra_categoria
+        ficha_b.produto.save()
+        nova_precificacao(matriz, ficha_a, canal)
+        nova_precificacao(matriz, ficha_b, canal)
+        resposta = self.client.get(reverse("precificacao"), {"categoria": outra_categoria.pk})
+        self.assertEqual([p.ficha.nome for p in resposta.context["precificacoes"]], ["Ficha B"])
+        self.assertContains(resposta, 'name="categoria"')

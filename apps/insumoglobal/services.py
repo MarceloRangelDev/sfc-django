@@ -13,22 +13,27 @@ from apps.notificacao.services import enviar_para_usuarios
 from web_project.historico import HistoricoImutavelError
 from web_project.regras import RegraNegocioError
 
-from .models import InsumoGlobal, InsumoGlobalMarca, MarcaGlobal, normalizar
+from .models import InsumoGlobal, InsumoGlobalMarca, MarcaGlobal, normalizar, visiveis_no_segmento
 
 logger = logging.getLogger(__name__)
 LIMIAR_SEMELHANTE = 0.8  # similaridade mínima para considerar "provável erro de digitação" ao cadastrar
 PERMISSAO_AVISO = "insumoglobal.view_naoconformes"
 
 
-def achar_exato(nome):
-    """Padrão ATIVO com o mesmo nome (sem acento/caixa)."""
-    return InsumoGlobal.objects.filter(nome_normalizado=normalizar(nome), ativo=True).first()
+def _ativos(segmento, todos):
+    base = InsumoGlobal.objects.filter(ativo=True)
+    return base if todos else visiveis_no_segmento(base, segmento)
 
 
-def semelhantes(nome, limite=3, corte=LIMIAR_SEMELHANTE):
-    """Até `limite` padrões ativos parecidos com `nome` (erro de digitação, plural, acento)."""
+def achar_exato(nome, segmento=None, todos=True):
+    """Padrão ATIVO com o mesmo nome (sem acento/caixa). Com `todos=False`, só os oferecidos ao `segmento` do cliente (ver models.visiveis_no_segmento)."""
+    return _ativos(segmento, todos).filter(nome_normalizado=normalizar(nome)).first()
+
+
+def semelhantes(nome, limite=3, corte=LIMIAR_SEMELHANTE, segmento=None, todos=True):
+    """Até `limite` padrões ativos parecidos com `nome` (erro de digitação, plural, acento); `todos=False` restringe ao segmento."""
     alvo = normalizar(nome)
-    por_chave = {g.nome_normalizado: g for g in InsumoGlobal.objects.filter(ativo=True)}
+    por_chave = {g.nome_normalizado: g for g in _ativos(segmento, todos)}
     return [por_chave[c] for c in difflib.get_close_matches(alvo, list(por_chave), n=limite, cutoff=corte)]
 
 
@@ -65,6 +70,8 @@ def promover_a_global(request, insumo):
             raise RegraNegocioError("Já existe um padrão com este nome: use Redirecionar.")
         novo = InsumoGlobal(nome=insumo.nome, medida=insumo.medida, criado_por=getattr(request, "user", None))
         novo.save()
+        if insumo.cliente.segmento_id:
+            novo.segmentos.add(insumo.cliente.segmento_id)  # nasce no segmento de quem o cadastrou
         registrar_criacao(request, novo, modulo="insumoglobal")
         _vincular(request, insumo, novo, novo.nome)
     return novo
@@ -78,6 +85,9 @@ def redirecionar(request, insumo, destino):
         raise RegraNegocioError("O padrão de destino está inativo.")
     modelo = type(insumo)
     with transaction.atomic():
+        segmento = insumo.cliente.segmento_id
+        if segmento and destino.segmentos.exists() and not destino.segmentos.filter(pk=segmento).exists():
+            destino.segmentos.add(segmento)  # o cliente passa a enxergar o padrão para o qual foi redirecionado
         existente = modelo.objects.filter(cliente=insumo.cliente).exclude(pk=insumo.pk).filter(Q(insumo_global=destino) | Q(nome__iexact=destino.nome)).first()
         if existente is None:
             _vincular(request, insumo, destino, destino.nome)

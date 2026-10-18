@@ -12,6 +12,7 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.utils import registrar as registrar_auditoria
 from apps.auditoria.utils import tirar_foto
+from apps.categoria.models import Categoria
 from apps.insumo.models import Insumo
 from apps.medida.models import Medida
 from apps.processado.recalculo import custo_do_item
@@ -44,6 +45,9 @@ class FichaListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         termo = self.request.GET.get("q", "").strip()
         if termo:
             queryset = queryset.filter(Q(nome__icontains=termo) | Q(produto__nome__icontains=termo) | Q(produto__categoria__nome__icontains=termo))
+        categoria = self.request.GET.get("categoria", "")
+        if categoria.isdigit():
+            queryset = queryset.filter(produto__categoria_id=categoria)
         produto = self.request.GET.get("produto", "")
         if produto.isdigit():
             queryset = queryset.filter(produto_id=produto)
@@ -78,6 +82,8 @@ class FichaListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context["produtos"] = Produto.objects.filter(cliente__in=self.clientes_do_escopo()).order_by("nome")
         context["produto_selecionado"] = self.request.GET.get("produto", "")
+        context["categorias"] = Categoria.objects.filter(cliente__in=self.clientes_do_escopo()).order_by("nome")
+        context["categoria_selecionada"] = self.request.GET.get("categoria", "")
         return context
 
 

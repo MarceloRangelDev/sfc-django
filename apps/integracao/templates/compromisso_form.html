@@ -17,6 +17,7 @@
       <div class="col-md-4"><label for="{{ form.fim.id_for_label }}" class="form-label">{% translate "Fim" %}</label>{{ form.fim }}{% if form.fim.errors %}<div class="text-danger small mt-1">{{ form.fim.errors|striptags }}</div>{% endif %}</div>
       <div class="col-md-4 d-flex align-items-end"><div class="form-check">{{ form.todo_o_dia }}<label class="form-check-label" for="{{ form.todo_o_dia.id_for_label }}">{% translate "Dia inteiro" %}</label></div></div>
       <div class="col-12"><label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>{{ form.descricao }}</div>
+      <div class="col-12"><div class="form-check form-switch">{{ form.concluido }}<label class="form-check-label" for="{{ form.concluido.id_for_label }}">{% translate "Concluído" %}</label></div></div>
       <div class="col-12"><div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo (desativar remove da agenda conectada)" %}</label></div></div>
     </div>
     <div class="mt-6">{% url 'compromisso-list' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}{% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}</div>

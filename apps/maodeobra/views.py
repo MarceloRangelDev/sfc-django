@@ -48,6 +48,15 @@ class ColaboradorListView(_Lista):
             queryset = queryset.filter(Q(nome__icontains=termo) | Q(funcao__icontains=termo))
         return self.ordenar(self.filtrar_status(queryset))
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        configs = {}  # uma consulta de configuração por unidade (não por linha)
+        for colaborador in context["colaboradores"]:
+            if colaborador.valor_mes:
+                config = configs.setdefault(colaborador.cliente_id, ConfiguracaoMaoDeObra.da_unidade(colaborador.cliente))
+                colaborador.derivados_cache = colaborador.derivados(config)
+        return context
+
 
 class _Form(SegmentoMixin):
     def get_context_data(self, **kwargs):

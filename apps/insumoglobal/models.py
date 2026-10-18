@@ -23,6 +23,8 @@ class InsumoGlobal(models.Model):
     nome_normalizado = models.CharField(max_length=150, unique=True, editable=False)
     medida = models.ForeignKey("medida.Medida", null=True, blank=True, on_delete=models.PROTECT, related_name="insumos_globais", verbose_name="Unidade de medida sugerida")
     descricao = models.CharField(max_length=255, blank=True, default="", verbose_name="Descrição")
+    # Segmentos (módulo Segmentos) em que este padrão é oferecido. SEM nenhum segmento = visível a todos.
+    segmentos = models.ManyToManyField("modulo.Segmento", blank=True, related_name="insumos_globais", verbose_name="Segmentos")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -44,6 +46,14 @@ class InsumoGlobal(models.Model):
         self.nome = " ".join(self.nome.split())
         self.nome_normalizado = normalizar(self.nome)
         super().save(*args, **kwargs)
+
+
+def visiveis_no_segmento(queryset, segmento):
+    """Restringe um queryset de InsumoGlobal ao que o segmento enxerga: os marcados nele ou os sem segmento algum (visíveis a todos).
+    Sem segmento (cliente ainda sem segmento) só vê os de todos."""
+    if segmento is None:
+        return queryset.filter(segmentos__isnull=True)
+    return queryset.filter(models.Q(segmentos=segmento) | models.Q(segmentos__isnull=True)).distinct()
 
 
 class MarcaGlobal(models.Model):

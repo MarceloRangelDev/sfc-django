@@ -1,3 +1,4 @@
+import json
 import secrets
 
 from django.conf import settings
@@ -6,15 +7,18 @@ from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.mixins import AuditoriaFormMixin
+from apps.auditoria.utils import registrar_edicao, registrar_exclusao, tirar_foto
 from auth import ratelimit
 from auth.ratelimit import get_client_ip
 from web_project import TemplateLayout
@@ -310,8 +314,94 @@ class CompromissoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context["tipos"] = Compromisso.TIPO_CHOICES
+        context["visao"] = "calendario" if self.request.GET.get("visao") == "calendario" else "tabela"
         context["tipo"] = self.request.GET.get("tipo", "")
         return context
+
+
+def _compromissos_do_usuario(user, acao):
+    """Compromissos que o usuário alcança para a ação ('view' ou 'change'): mesmo escopo de unidades da tela."""
+    return Compromisso.objects.filter(cliente__in=clientes_dos_itens(user, acao))
+
+
+class CompromissoEventosView(View):
+    """JSON para o calendário (FullCalendar): compromissos ativos entre `start` e `end` (ISO). Só o escopo do usuário."""
+
+    def get(self, request):
+        inicio, fim = parse_datetime(request.GET.get("start", "")), parse_datetime(request.GET.get("end", ""))
+        queryset = _compromissos_do_usuario(request.user, "view").filter(ativo=True)
+        if inicio and fim:
+            queryset = queryset.filter(inicio__lt=fim, fim__gte=inicio)
+        pode_mover = request.user.has_perm("integracao.change_compromisso")
+        editaveis = set(_compromissos_do_usuario(request.user, "change").values_list("pk", flat=True)) if pode_mover else set()
+        eventos = [
+            {
+                "id": c.pk, "title": c.titulo, "start": c.inicio.isoformat(), "end": c.fim.isoformat(), "allDay": c.todo_o_dia,
+                "url": reverse("compromisso-edit", args=[c.pk]) if c.pk in editaveis else "", "editable": c.pk in editaveis,
+                "classNames": [f"tipo-{c.tipo}"] + (["concluido"] if c.concluido else []),
+                "extendedProps": {"tipo": c.get_tipo_display(), "concluido": c.concluido, "origem": c.origem},
+            }
+            for c in queryset.order_by("inicio")[:1000]
+        ]
+        return JsonResponse(eventos, safe=False)
+
+
+class CompromissoMoverView(View):
+    """POST JSON {inicio, fim?, todo_o_dia}: arrastar e soltar no calendário. Mantém a duração se `fim` não vier."""
+
+    def post(self, request, pk):
+        compromisso = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
+        try:
+            dados = json.loads(request.body or b"{}")
+            novo_inicio = parse_datetime(str(dados.get("inicio", "")))
+            novo_fim = parse_datetime(str(dados.get("fim") or "")) if dados.get("fim") else None
+        except ValueError:
+            return JsonResponse({"erro": "Dados inválidos."}, status=400)
+        if novo_inicio is None:
+            return JsonResponse({"erro": "Data inválida."}, status=400)
+        if timezone.is_naive(novo_inicio):
+            novo_inicio = timezone.make_aware(novo_inicio)
+        if novo_fim is None:
+            novo_fim = novo_inicio + (compromisso.fim - compromisso.inicio)
+        elif timezone.is_naive(novo_fim):
+            novo_fim = timezone.make_aware(novo_fim)
+        if novo_fim < novo_inicio:
+            return JsonResponse({"erro": "O fim não pode ser anterior ao início."}, status=400)
+        antes = tirar_foto(compromisso)
+        with transaction.atomic():
+            compromisso.inicio, compromisso.fim = novo_inicio, novo_fim
+            if "todo_o_dia" in dados:
+                compromisso.todo_o_dia = bool(dados["todo_o_dia"])
+            compromisso.save()
+            registrar_edicao(request, compromisso, antes, modulo="integracao")
+        return JsonResponse({"ok": True})
+
+
+class CompromissoConcluirView(View):
+    """POST: alterna concluído/reaberto."""
+
+    def post(self, request, pk):
+        compromisso = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
+        antes = tirar_foto(compromisso)
+        with transaction.atomic():
+            compromisso.concluido = not compromisso.concluido
+            compromisso.save(update_fields=["concluido", "atualizado_em"])
+            registrar_edicao(request, compromisso, antes, modulo="integracao")
+        messages.success(request, "Marcado como concluído." if compromisso.concluido else "Reaberto.")
+        return redirect(request.POST.get("next") or "compromisso-list")
+
+
+class CompromissoExcluirView(View):
+    """POST: exclui da agenda (exclusão LÓGICA: o registro fica inativo e a sincronização remove o evento externo)."""
+
+    def post(self, request, pk):
+        compromisso = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
+        with transaction.atomic():
+            registrar_exclusao(request, compromisso, logica=True, modulo="integracao")
+            compromisso.ativo = False
+            compromisso.save(update_fields=["ativo", "atualizado_em"])
+        messages.success(request, "Registro excluído da agenda.")
+        return redirect(request.POST.get("next") or "compromisso-list")
 
 
 class _CompromissoForm:

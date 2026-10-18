@@ -117,3 +117,21 @@ def primeiro_e_ultimo_dia(ano, mes):
     primeiro = date(ano, mes, 1)
     proximo = (primeiro.replace(day=28) + timedelta(days=4)).replace(day=1)
     return primeiro, proximo - timedelta(days=1)
+
+
+def derivados_do_mes(valor_mes, horas_mes, dias_mes):
+    """Valores derivados de um salário MENSAL (centavos): hora, dia, semana e quinzena. Convenção (configurável por unidade):
+        hora     = mês ÷ horas_mes   (padrão 220 h/mês, a base CLT de 44 h por semana);
+        dia      = mês ÷ dias_mes    (padrão 30: dia corrido, como a diária da CLT);
+        semana   = mês × 7 ÷ dias_mes (7 dias corridos);
+        quinzena = mês ÷ 2.
+    Cada valor é arredondado UMA vez ao centavo (meio para cima). Devolve dict de inteiros em centavos."""
+    mes = Decimal(int(valor_mes))
+    horas, dias = Decimal(horas_mes), Decimal(dias_mes)
+    if horas <= 0 or dias <= 0:
+        raise RegraNegocioError("Horas e dias do mês devem ser maiores que zero.")
+
+    def centavos(x):
+        return int(x.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+    return {"hora": centavos(mes / horas), "dia": centavos(mes / dias), "semana": centavos(mes * 7 / dias), "quinzena": centavos(mes / 2)}

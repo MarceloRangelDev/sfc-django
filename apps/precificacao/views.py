@@ -11,6 +11,7 @@ from django.views.generic import CreateView, ListView, UpdateView
 from apps.auditoria.utils import registrar as registrar_auditoria
 from apps.auditoria.utils import tirar_foto
 from apps.canal.models import CanalVenda
+from apps.categoria.models import Categoria
 from apps.custo.services import custo_operacional_da_categoria
 from apps.ficha.models import Ficha
 from apps.produto.models import Produto
@@ -76,6 +77,8 @@ class PrecificacaoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         termo = params.get("q", "").strip()
         if termo:
             queryset = queryset.filter(Q(ficha__nome__icontains=termo) | Q(produto__nome__icontains=termo) | Q(canal_nome__icontains=termo))
+        if params.get("categoria", "").isdigit():
+            queryset = queryset.filter(produto__categoria_id=params["categoria"])
         if params.get("produto", "").isdigit():
             queryset = queryset.filter(produto_id=params["produto"])
         if params.get("canal", "").isdigit():
@@ -121,6 +124,8 @@ class PrecificacaoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
             canais=CanalVenda.objects.filter(cliente__in=escopo).order_by("nome", "descricao"),
             metodos=Precificacao.METODO_CHOICES,
             produto_selecionado=self.request.GET.get("produto", ""),
+            categorias=Categoria.objects.filter(cliente__in=escopo).order_by("nome"),
+            categoria_selecionada=self.request.GET.get("categoria", ""),
             canal_selecionado=self.request.GET.get("canal", ""),
             metodo_selecionado=self.request.GET.get("metodo", ""),
         )

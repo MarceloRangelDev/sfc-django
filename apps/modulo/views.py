@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import Count, ProtectedError
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -106,7 +106,7 @@ class SegmentoListView(ListView):
     context_object_name = "segmentos"
 
     def get_queryset(self):
-        return Segmento.objects.prefetch_related("modulos")
+        return Segmento.objects.prefetch_related("modulos").annotate(qtd_insumos=Count("insumos_globais", distinct=True))
 
     def get_context_data(self, **kwargs):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
@@ -130,8 +130,18 @@ class SegmentoFormMixin:
         # AuditoriaFormMixin audita os campos simples; o M2M de módulos é auditado aqui.
         editando = self.object is not None
         antes = _nomes_dos_modulos(self.object) if editando else None
+        insumos_antes = set(self.object.insumos_globais.values_list("nome", flat=True)) if editando else set()
         with transaction.atomic():
             resposta = super().form_valid(form)
+            insumos_depois = set(self.object.insumos_globais.values_list("nome", flat=True))
+            if editando and insumos_antes != insumos_depois:
+                incluidos, retirados = sorted(insumos_depois - insumos_antes), sorted(insumos_antes - insumos_depois)
+                registrar_alteracoes(
+                    self.request, self.object,
+                    [{"campo": "insumos_globais", "rotulo": "Insumos globais do segmento", "antes": f"{len(insumos_antes)} insumo(s)",
+                      "depois": f"{len(insumos_depois)} insumo(s); incluídos: {', '.join(incluidos[:30]) or '—'}; retirados: {', '.join(retirados[:30]) or '—'}"}],
+                    modulo="modulo",
+                )
             depois = _nomes_dos_modulos(self.object)
             if editando and antes != depois:
                 registrar_alteracoes(

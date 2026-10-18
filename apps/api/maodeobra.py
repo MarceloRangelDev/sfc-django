@@ -26,14 +26,15 @@ from .views import resposta
 class ColaboradorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Colaborador
-        fields = ["id", "nome", "funcao", "valor_hora", "valor_dia", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "funcao", "valor_mes", "valor_hora", "valor_dia", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
 class ColaboradorEntrada(serializers.Serializer):
     nome = serializers.CharField(max_length=120)
     funcao = serializers.CharField(max_length=80, required=False, allow_blank=True)
-    valor_hora = serializers.IntegerField(min_value=1, help_text="Centavos por hora.")
+    valor_mes = serializers.IntegerField(min_value=1, required=False, allow_null=True, help_text="Centavos por mês (opcional): calcula hora e dia pelas regras da unidade (horas e dias por mês).")
+    valor_hora = serializers.IntegerField(min_value=1, required=False, help_text="Centavos por hora (obrigatório se não houver valor por mês).")
     valor_dia = serializers.IntegerField(min_value=0, required=False, allow_null=True, help_text="Centavos por dia; vazio = valor da hora × jornada.")
     ativo = serializers.BooleanField(required=False)
 
@@ -45,11 +46,11 @@ class ColaboradorViewSet(RecursoViewSet):
     modelo, serializer_class, entrada_class, form_class = Colaborador, ColaboradorSerializer, ColaboradorEntrada, ColaboradorForm
     permissao_app, permissao_model, modulo_slug = "maodeobra", "colaborador", "mao-de-obra"
     campos_busca = ("nome", "funcao")
-    campos_moeda = ("valor_hora", "valor_dia")
+    campos_moeda = ("valor_mes", "valor_hora", "valor_dia")
     rotulo = "Colaborador"
 
     def dados_atuais(self, c):
-        return {"nome": c.nome, "funcao": c.funcao, "valor_hora": c.valor_hora, "valor_dia": c.valor_dia, "ativo": c.ativo}
+        return {"nome": c.nome, "funcao": c.funcao, "valor_mes": c.valor_mes, "valor_hora": c.valor_hora, "valor_dia": c.valor_dia, "ativo": c.ativo}
 
 
 class ApontamentoSerializer(serializers.ModelSerializer):
@@ -146,7 +147,7 @@ class ConfiguracaoMaoDeObraView(APIView):
     permissoes = {"get": "maodeobra.view_apontamento", "patch": "maodeobra.change_configuracaomaodeobra"}
 
     def _dados(self, c):
-        return {"arredondamento": c.arredondamento, "jornada_horas": str(c.jornada_horas), "extra_percentual": str(c.extra_percentual), "adicional_domingo": str(c.adicional_domingo)}
+        return {"arredondamento": c.arredondamento, "jornada_horas": str(c.jornada_horas), "horas_mes": str(c.horas_mes), "dias_mes": str(c.dias_mes), "extra_percentual": str(c.extra_percentual), "adicional_domingo": str(c.adicional_domingo)}
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
@@ -154,6 +155,7 @@ class ConfiguracaoMaoDeObraView(APIView):
 
     @extend_schema(request=inline_serializer("RegrasMaoDeObra", {
         "arredondamento": serializers.ChoiceField(choices=["minuto", "quarto", "hora"], required=False), "jornada_horas": serializers.DecimalField(max_digits=4, decimal_places=2, required=False),
+        "horas_mes": serializers.DecimalField(max_digits=6, decimal_places=2, required=False), "dias_mes": serializers.DecimalField(max_digits=4, decimal_places=1, required=False),
         "extra_percentual": serializers.DecimalField(max_digits=6, decimal_places=2, required=False), "adicional_domingo": serializers.DecimalField(max_digits=6, decimal_places=2, required=False)}),
         responses={200: OpenApiTypes.OBJECT})
     def patch(self, request):
