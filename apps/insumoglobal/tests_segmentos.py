@@ -34,12 +34,12 @@ class SegmentacaoTests(Base):
         self.cadastrar("acucar")
         self.assertEqual(Insumo.objects.get(cliente=self.a).insumo_global, self.acucar)
 
-    def test_autocompletar_so_traz_os_do_segmento(self):
+    def test_lista_de_insumos_so_traz_os_globais_do_segmento(self):
         InsumoGlobal.objects.create(nome="Fermento").segmentos.set([self.seg_servico])
         self.acucar.segmentos.set([self.seg_produto])
         self.logar(self.gestor)
         pagina = self.client.get(reverse("insumo-create")).content.decode()
-        self.assertIn('<option value="Açúcar">', pagina)
+        self.assertIn(">Açúcar</option>", pagina)
         self.assertNotIn("Fermento", pagina)
 
     def test_tela_de_segmentos_atualiza_os_insumos_globais_e_audita(self):
@@ -74,3 +74,13 @@ class TelaUsuarioTests(Base):
         self.assertIn('id="blocoPermissoesEspeciais" class="d-none"', pagina)
         self.assertIn("jQuery(cliente).on('change'", pagina)  # o select2 só dispara "change" pelo jQuery
         self.assertIn("perfis-por-cliente", pagina)
+
+
+class ListaVaziaTests(Base):
+    def test_explica_por_que_a_lista_esta_vazia(self):
+        from apps.modulo.models import Segmento
+
+        self.acucar.segmentos.set([Segmento.objects.get(slug="servico")])  # o cliente é do segmento produto
+        self.logar(self.gestor)
+        pagina = self.client.get(reverse("insumo-create")).content.decode()
+        self.assertIn("Nenhum insumo global liberado para o segmento", pagina)

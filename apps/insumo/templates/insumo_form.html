@@ -24,18 +24,23 @@
         </div>
         {% endif %}
         <div class="col-md-8">
-          <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
-          {{ form.nome }}
-          <datalist id="insumosGlobais">{% for n in form.nomes_globais %}<option value="{{ n }}">{% endfor %}</datalist>
+          <label for="{{ form.insumo_padrao.id_for_label }}" class="form-label">{% translate "Insumo" %}</label>
+          {{ form.insumo_padrao }}
+          {% if form.insumo_padrao.errors %}<div class="text-danger small mt-1">{{ form.insumo_padrao.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "Escolha o insumo do cadastro padronizado. Se ele não estiver na lista, escolha “Personalizar” e informe o nome: ele será cadastrado e enviado para padronização." %}</div>
+          {% if form.info_padrao %}<div class="form-text text-warning">{{ form.info_padrao }}</div>{% endif %}
+          <div id="blocoNomePersonalizado" class="mt-3 d-none">
+            <label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome do insumo personalizado" %}</label>
+            {{ form.nome }}
+          </div>
           {% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}
-          {% if form.similares %}<div class="form-check mt-2"><input type="checkbox" name="confirmar_novo" id="confirmar_novo" class="form-check-input"><label class="form-check-label" for="confirmar_novo">{% translate "Cadastrar mesmo assim (é um insumo novo)" %}</label></div>{% endif %}
-          <div class="form-text">{% translate "Digite e escolha o nome padronizado da lista. Se o insumo não existir, ele será cadastrado e enviado para padronização." %}</div>
         </div>
         <div class="col-md-4">
-          <label for="{{ form.marca.id_for_label }}" class="form-label">{% translate "Marca do produto" %} <small class="text-muted">({% translate "opcional" %})</small></label>
-          {{ form.marca }}
-          <datalist id="marcasGlobais">{% for m in form.marcas_globais %}<option value="{{ m }}">{% endfor %}</datalist>
+          <label for="id_marca_padrao" class="form-label">{% translate "Marca (fabricante)" %} <small class="text-muted">({% translate "opcional" %})</small></label>
+          <select name="marca_padrao" id="id_marca_padrao" class="form-select" data-sem-busca data-inicial="{{ form.marca_opcao }}"></select>
+          <div id="blocoMarcaPersonalizada" class="mt-2 d-none">{{ form.marca }}</div>
           {% if form.marca.errors %}<div class="text-danger small mt-1">{{ form.marca.errors|striptags }}</div>{% endif %}
+          <div class="form-text">{% translate "As marcas são as do insumo escolhido, e a foto vem da marca. Se a marca não estiver na lista, escolha “Personalizar”: o insumo irá para a fila de padronização." %}</div>
         </div>
         <div class="col-md-4">
           <label for="{{ form.medida.id_for_label }}" class="form-label">{% translate "Unidade de medida comprada" %}</label>
@@ -73,11 +78,40 @@
     </form>
   </div>
 </div>
-{% include "imagens/_campo.html" with tipo="insumo" objeto=object %}
 {% endblock %}
 
 {% block page_js %}
 {{ block.super }}
+{{ form.marcas_por_padrao|json_script:"marcas-por-padrao" }}
+<script>
+  // Insumo padrão escolhido -> dropdown com as marcas (fabricantes) dele + "Personalizar"; sem padrão (nome personalizado) -> marca em texto livre.
+  (function () {
+    var padrao = document.getElementById('id_insumo_padrao'), bloco = document.getElementById('blocoNomePersonalizado');
+    var marca = document.getElementById('id_marca_padrao'), blocoMarca = document.getElementById('blocoMarcaPersonalizada');
+    var texto = document.getElementById('id_marca'), mapa = JSON.parse(document.getElementById('marcas-por-padrao').textContent);
+    var inicial = marca.dataset.inicial || '';
+    function opcao(valor, rotulo) { var o = document.createElement('option'); o.value = valor; o.textContent = rotulo; return o; }
+    function montarMarcas(manter) {
+      var id = padrao.value;
+      marca.innerHTML = '';
+      if (id === '') { marca.classList.add('d-none'); blocoMarca.classList.remove('d-none'); return; }  // insumo personalizado: marca livre
+      marca.classList.remove('d-none');
+      marca.appendChild(opcao('', 'Sem marca'));
+      (mapa[id] || []).forEach(function (m) { marca.appendChild(opcao(String(m.id), m.nome)); });
+      marca.appendChild(opcao('personalizar', 'Personalizar (outra marca)'));
+      var alvo = manter || '';
+      if (!Array.prototype.some.call(marca.options, function (o) { return o.value === alvo; })) alvo = '';
+      marca.value = alvo;
+      blocoMarca.classList.toggle('d-none', marca.value !== 'personalizar');
+    }
+    function aoMudarPadrao() { bloco.classList.toggle('d-none', padrao.value !== ''); montarMarcas(''); }
+    function aoMudarMarca() { blocoMarca.classList.toggle('d-none', marca.value !== 'personalizar'); }
+    if (window.jQuery) { window.jQuery(padrao).on('change', aoMudarPadrao); window.jQuery(marca).on('change', aoMudarMarca); }
+    else { padrao.addEventListener('change', aoMudarPadrao); marca.addEventListener('change', aoMudarMarca); }
+    bloco.classList.toggle('d-none', padrao.value !== '');
+    montarMarcas(inicial);
+  })();
+</script>
 <script src="{% static_v 'js/calculo-medida.js' %}"></script>
 <script>
   // Evita duplo clique/duplo envio enquanto a requisição de salvar está em

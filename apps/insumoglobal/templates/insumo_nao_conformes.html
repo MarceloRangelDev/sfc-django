@@ -17,12 +17,22 @@
     <tbody>
       {% for i in insumos %}
       <tr>
-        <td><strong>{{ i.nome }}</strong><div class="small text-muted">{{ i.medida.medida }}</div></td>
+        <td><strong>{{ i.nome }}</strong>{% if i.insumo_global_id %} <span class="badge bg-label-info">{% translate "marca personalizada" %}: {{ i.marca }}</span>{% else %} <span class="badge bg-label-warning">{% translate "insumo personalizado" %}</span>{% endif %}<div class="small text-muted">{{ i.medida.medida }}{% if i.marca and not i.insumo_global_id %} · {{ i.marca }}{% endif %}</div></td>
         <td>{{ i.cliente.nome_razao_social }}</td>
         <td>{{ i.criado_em|date:"d/m/Y H:i" }}</td>
         <td>{% for s in i.sugestoes %}<span class="badge bg-label-primary me-1">{{ s.nome }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
         <td style="min-width:22rem">
           {% if perms.insumoglobal.padronizar_insumo %}
+          {% if i.insumo_global_id %}
+          <form method="post" action="{% url 'insumo-nao-conforme-redirecionar-marca' i.pk %}" class="d-flex gap-2 mb-2" data-confirmar="{% translate 'Redirecionar para a marca escolhida?' %}">{% csrf_token %}
+            <select name="destino" class="form-select form-select-sm" aria-label="{% translate 'Marca de destino' %}">
+              <option value="">{% translate "Redirecionar para a marca..." %}</option>
+              {% for v in i.marcas_destino %}<option value="{{ v.pk }}">{{ v.marca.nome }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-sm btn-warning text-nowrap">{% translate "Redirecionar" %}</button>
+          </form>
+          <form method="post" action="{% url 'insumo-nao-conforme-promover-marca' i.pk %}" data-confirmar="{% translate 'Tornar esta marca uma marca padrão deste insumo?' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">{% translate "Padronizar marca" %}</button></form>
+          {% else %}
           <form method="post" action="{% url 'insumo-nao-conforme-redirecionar' i.pk %}" class="d-flex gap-2 mb-2" data-confirmar="{% translate 'Redirecionar este insumo para o padrão escolhido? Se o cliente já tiver o padrão, este duplicado será excluído.' %}">{% csrf_token %}
             <select name="destino" class="form-select form-select-sm" aria-label="{% translate 'Padrão de destino' %}">
               <option value="">{% translate "Redirecionar para..." %}</option>
@@ -31,6 +41,7 @@
             <button class="btn btn-sm btn-warning text-nowrap">{% translate "Redirecionar" %}</button>
           </form>
           <form method="post" action="{% url 'insumo-nao-conforme-promover' i.pk %}" data-confirmar="{% translate 'Tornar este nome um novo insumo padrão?' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">{% translate "Padronizar como novo" %}</button></form>
+          {% endif %}
           {% endif %}
         </td>
       </tr>

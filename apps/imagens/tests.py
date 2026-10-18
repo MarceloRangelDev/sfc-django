@@ -440,9 +440,9 @@ class PainelEApiTests(Base):
         for trecho in ("/api/v1/imagens/{tipo}/{id}/", "/api/v1/plataforma/imagens/custos/", "/api/v1/plataforma/imagens/tarifas/"):
             self.assertIn(trecho, texto)
 
-    def test_campo_de_imagem_aparece_na_edicao_do_insumo(self):
+    def test_insumo_nao_envia_foto_propria_a_foto_vem_da_marca(self):
         habilitar_modulo(self.a, "insumo")
         self.logar(self.gestor_a)
         resposta = self.client.get(reverse("insumo-edit", args=[self.insumo_a.pk]))
-        self.assertContains(resposta, "data-imagem-campo")
-        self.assertContains(resposta, reverse("imagens-enviar", args=["insumo", self.insumo_a.pk]))
+        self.assertNotContains(resposta, "data-imagem-campo")
+        self.assertContains(resposta, "A foto do insumo vem da marca")

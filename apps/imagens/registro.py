@@ -92,15 +92,13 @@ def _globais(modelo):
     return ver, alterar
 
 
-_global_ver, _global_alterar = _globais("insumoglobal.InsumoGlobal")
 _marca_ver, _marca_alterar = _globais("insumoglobal.InsumoGlobalMarca")
 
 
 ENTIDADES = {
     "insumo": Entidade("insumo.Insumo", CATALOGO, "Insumo", _ins_ver, _ins_alt, lambda o: o.cliente),
     "produto": Entidade("produto.Produto", CATALOGO, "Produto", _prod_ver, _prod_alt, lambda o: o.cliente),
-    # Global (sem tenant): a imagem fica registrada na unidade de quem a enviou (ver servico.enviar).
-    "insumo_global": Entidade("insumoglobal.InsumoGlobal", CATALOGO, "Insumo global", _global_ver, _global_alterar, lambda o: None),
+    # Imagens do cadastro global: SÓ a da marca (variação insumo+marca); o insumo padrão em si não tem foto. Sem tenant: fica na unidade de quem envia.
     "insumo_global_marca": Entidade("insumoglobal.InsumoGlobalMarca", CATALOGO, "Marca do insumo global", _marca_ver, _marca_alterar, lambda o: None),
     "usuario": Entidade("auth.User", PRIVADA, "Usuário", _usuario_ver, _usuario_alterar, _tenant_do_usuario),
     "cliente": Entidade("cliente.Cliente", PRIVADA, "Cliente", _cliente_ver, _cliente_alterar, lambda o: o),

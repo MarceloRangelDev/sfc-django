@@ -80,8 +80,8 @@
       <tbody>
         {% for insumo in insumos %}
         <tr>
-          <td>{% include "imagens/_thumb.html" with tipo="insumo" pk=insumo.pk global_pk=insumo.insumo_global_id global_marca_pk=insumo.insumo_global_marca_id %}</td>
-          <td>{{ insumo.nome }}{% if insumo.marca %} <small class="text-muted">&middot; {{ insumo.marca }}</small>{% endif %}{% if insumo.processado_origem %} <span class="badge bg-label-warning" title="{% translate 'Gerado por um processado: altere pelo módulo Processados.' %}">{% translate "Processado" %}</span>{% endif %}</td>
+          <td>{% include "imagens/_thumb.html" with tipo="insumo" pk=insumo.pk global_marca_pk=insumo.insumo_global_marca_id %}</td>
+          <td>{{ insumo.nome }}{% if insumo.nao_conforme %} <span class="badge bg-label-warning" title="{% translate 'Personalizado: aguardando padronização pelo administrador' %}">{% translate "personalizado" %}</span>{% endif %}{% if insumo.marca %} <small class="text-muted">&middot; {{ insumo.marca }}</small>{% endif %}{% if insumo.processado_origem %} <span class="badge bg-label-warning" title="{% translate 'Gerado por um processado: altere pelo módulo Processados.' %}">{% translate "Processado" %}</span>{% endif %}</td>
           <td>{{ insumo.preco_unidade_formatado }} <small class="text-muted">/ {{ insumo.medida.sigla_preco }}</small></td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=insumo %}</td>{% endif %}
           <td>

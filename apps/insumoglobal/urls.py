@@ -15,5 +15,7 @@ urlpatterns = [
     path("insumos/global/marcas/<int:pk>/alternar", module_required(G, "insumoglobal.change_insumoglobal")(views.VariacaoAlternarView.as_view()), name="insumo-global-marca-alternar"),
     path("insumos/nao-conformes", module_required(N, "insumoglobal.view_naoconformes")(views.NaoConformesView.as_view()), name="insumo-nao-conformes"),
     path("insumos/nao-conformes/<int:pk>/promover", module_required(N, "insumoglobal.padronizar_insumo")(views.PromoverView.as_view()), name="insumo-nao-conforme-promover"),
+    path("insumos/nao-conformes/<int:pk>/promover-marca", module_required(N, "insumoglobal.padronizar_insumo")(views.PromoverMarcaView.as_view()), name="insumo-nao-conforme-promover-marca"),
+    path("insumos/nao-conformes/<int:pk>/redirecionar-marca", module_required(N, "insumoglobal.padronizar_insumo")(views.RedirecionarMarcaView.as_view()), name="insumo-nao-conforme-redirecionar-marca"),
     path("insumos/nao-conformes/<int:pk>/redirecionar", module_required(N, "insumoglobal.padronizar_insumo")(views.RedirecionarView.as_view()), name="insumo-nao-conforme-redirecionar"),
 ]

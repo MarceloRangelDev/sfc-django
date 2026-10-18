@@ -40,15 +40,18 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         error_messages={"invalid": "Informe um valor válido.", "min_value": "O valor não pode ser negativo."},
     )
 
-    # Só aparece (no template) quando o nome digitado lembra um padrão existente: o usuário confirma que é mesmo um insumo novo.
-    confirmar_novo = forms.BooleanField(required=False, label="Cadastrar mesmo assim (é um insumo novo)")
+    # Insumo do cadastro global (padronizado). Vazio = "Personalizar": o usuário informa o nome e o insumo vai para a fila "Fora do padrão".
+    insumo_padrao = forms.ModelChoiceField(
+        queryset=globais.InsumoGlobal.objects.none(), required=False, empty_label="Personalizar (não está na lista)", label="Insumo",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
 
     class Meta:
         model = Insumo
         fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "dias_validade", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control", "list": "insumosGlobais", "autocomplete": "off"}),
-            "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60, "list": "marcasGlobais", "autocomplete": "off"}),
+            "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60, "autocomplete": "off"}),
             "medida": forms.Select(attrs={"class": "form-select", "data-calc": "medida"}),
             "dias_validade": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 32000, "placeholder": "Opcional (ex.: 5)"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
@@ -57,6 +60,15 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.configurar_unidade(cliente, unidades)
+        self._era_nao_conforme = bool(self.instance.pk and self.instance.nao_conforme)
+        self._padrao, self._decidiu_padrao, self._variacao, self._marca_personalizada = None, False, None, False
+        self.fields["nome"].required = False  # obrigatório só no modo "Personalizar" (validado em _definir_padrao)
+        visiveis = globais.visiveis_no_segmento(globais.InsumoGlobal.objects.filter(ativo=True), getattr(self.cliente, "segmento", None))
+        if self.instance.pk and self.instance.insumo_global_id:
+            visiveis = globais.InsumoGlobal.objects.filter(Q(pk__in=visiveis.values("pk")) | Q(pk=self.instance.insumo_global_id))  # o atual continua selecionável
+        self.fields["insumo_padrao"].queryset = visiveis.order_by("nome")
+        if self.instance.pk and self.instance.insumo_global_id:
+            self.fields["insumo_padrao"].initial = self.instance.insumo_global_id
         # Só medidas ativas aparecem para novos cadastros; ao editar, a
         # medida atual do insumo continua selecionável mesmo se inativada.
         filtro = Q(ativo=True)
@@ -65,67 +77,103 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
         self.fields["medida"].queryset = Medida.objects.filter(filtro).order_by("id")
         self.fields["medida"].empty_label = "Selecione..."
 
-    def clean_nome(self):
-        nome = (self.cleaned_data.get("nome") or "").strip()
-        if not nome:
-            raise forms.ValidationError("O nome do insumo é obrigatório.")
-        queryset = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=nome)
-        if self.instance.pk:
-            queryset = queryset.exclude(pk=self.instance.pk)
-        if queryset.exists():
-            raise forms.ValidationError("Este insumo já está cadastrado.")
-        return self._padronizar_nome(nome)
+    @property
+    def info_padrao(self):
+        """Texto de ajuda sob a lista: segmento do cliente e quantos insumos globais ele enxerga (explica a lista vazia)."""
+        segmento = getattr(self.cliente, "segmento", None)
+        total = self.fields["insumo_padrao"].queryset.count()
+        if total:
+            return ""
+        return (f"Nenhum insumo global liberado para o segmento “{segmento.nome}”. " if segmento else "Este cliente não tem segmento definido. ") +             "Peça ao administrador para marcar o segmento nos Insumos globais (ou em Segmentos)."
 
     @property
-    def nomes_globais(self):
-        """Nomes padrão para o autocompletar do campo (<datalist>)."""
-        return [g.nome for g in globais._ativos(self._segmento(), todos=False)]
+    def marcas_por_padrao(self):
+        """{id do insumo padrão: [{id, nome}]} das marcas (fabricantes) ativas, para o dropdown de Marca (a foto vem da marca escolhida)."""
+        mapa = {}
+        for v in globais.InsumoGlobalMarca.objects.filter(ativo=True, marca__ativo=True, insumo_global__in=self.fields["insumo_padrao"].queryset).select_related("marca"):
+            mapa.setdefault(str(v.insumo_global_id), []).append({"id": v.pk, "nome": v.marca.nome})
+        return mapa
 
     @property
-    def marcas_globais(self):
-        """Marcas padrão para o autocompletar do campo Marca."""
-        return list(globais.MarcaGlobal.objects.filter(ativo=True).values_list("nome", flat=True))
+    def marca_opcao(self):
+        """Valor do dropdown de marca ao exibir o formulário: id da variação, "personalizar" ou "" (sem marca)."""
+        if self.is_bound:
+            return self.data.get("marca_padrao", "")
+        if self.instance.pk and self.instance.insumo_global_marca_id:
+            return str(self.instance.insumo_global_marca_id)
+        return "personalizar" if self.instance.pk and self.instance.marca else ""
 
     def _segmento(self):
         cliente = self.cliente_alvo() if hasattr(self, "cleaned_data") else self.cliente
         return getattr(cliente, "segmento", None)
 
-    def _padronizar_nome(self, nome):
-        """Cadastro global: nome já padronizado -> usa o nome padrão; inexistente -> só segue se não lembrar um padrão (ou se o usuário
-        confirmar), e o insumo fica FORA DO PADRÃO até o administrador padronizar. Edição sem trocar o nome não mexe em nada."""
-        self._padrao, self._decidiu_padrao, self.similares = None, False, []
-        if self.instance.pk and nome == self.instance.nome:
-            return nome
-        self._decidiu_padrao = True
-        padrao = globais.achar_exato(nome, self._segmento(), todos=False)
+    def _definir_padrao(self, dados):
+        """Cadastro global. Escolheu um insumo da lista -> usa o nome e o vínculo dele. "Personalizar" (nada escolhido) -> usa o nome digitado
+        (se coincidir com um padrão do segmento, vincula a ele); senão o insumo fica FORA DO PADRÃO até o administrador padronizar.
+        Edição que não troca o insumo/nome não mexe no vínculo."""
+        self._padrao, self._decidiu_padrao = None, False
+        padrao = dados.get("insumo_padrao")
+        nome = " ".join((dados.get("nome") or "").split())
         if padrao is not None:
-            self._padrao = padrao
-            outro = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=padrao.nome)
-            if self.instance.pk:
-                outro = outro.exclude(pk=self.instance.pk)
-            if outro.exists():
-                raise forms.ValidationError(f"“{padrao.nome}” já está cadastrado.")
-            return padrao.nome
-        self.similares = globais.semelhantes(nome, segmento=self._segmento(), todos=False)
-        if self.similares and not self.data.get("confirmar_novo"):
-            nomes = ", ".join(f"“{g.nome}”" for g in self.similares)
-            raise forms.ValidationError(f"Existe no cadastro padrão: {nomes}. Use o nome padronizado ou marque “Cadastrar mesmo assim”.")
-        return nome
+            nome = padrao.nome
+        elif not nome:
+            self.add_error("nome", "Escolha um insumo da lista ou use “Personalizar” e informe o nome.")
+            return
+        else:
+            padrao = globais.achar_exato(nome, self._segmento(), todos=False)
+            if padrao is not None:
+                nome = padrao.nome
+        repetido = Insumo.objects.filter(cliente=self.cliente_alvo(), nome__iexact=nome)
+        if self.instance.pk:
+            repetido = repetido.exclude(pk=self.instance.pk)
+        if repetido.exists():
+            self.add_error("insumo_padrao" if dados.get("insumo_padrao") is not None else "nome", "Este insumo já está cadastrado.")
+            return
+        dados["nome"] = nome
+        mudou = not self.instance.pk or nome != self.instance.nome or (padrao.pk if padrao else None) != self.instance.insumo_global_id
+        if mudou:
+            self._decidiu_padrao, self._padrao = True, padrao
+
+    def _definir_marca(self, dados):
+        """Marca (fabricante). Com insumo padrão: escolhe uma marca do dropdown (vira a variação, com a foto dela) ou "Personalizar" digitando
+        outra; marca personalizada deixa o insumo FORA DO PADRÃO. Sem insumo padrão (personalizado): marca é texto livre."""
+        padrao = self._padrao if self._decidiu_padrao else self.instance.insumo_global
+        texto = " ".join((dados.get("marca") or "").split())
+        opcao = (self.data.get("marca_padrao") or "").strip()
+        self._variacao, self._marca_personalizada = None, False
+        if padrao is None:
+            dados["marca"] = texto
+            return
+        if opcao.isdigit():
+            variacao = globais.InsumoGlobalMarca.objects.filter(pk=opcao, insumo_global=padrao, ativo=True, marca__ativo=True).select_related("marca").first()
+            if variacao is None:
+                self.add_error("marca", "Marca inválida para este insumo. Escolha uma da lista ou use “Personalizar”.")
+                return
+            self._variacao, dados["marca"] = variacao, variacao.marca.nome
+        elif opcao == "personalizar" or (not opcao and texto):
+            if not texto:
+                self.add_error("marca", "Informe o nome da marca personalizada.")
+                return
+            variacao = globais.variacao_para(padrao, texto)  # digitou uma marca que já existe para o insumo: usa a padronizada
+            if variacao is not None:
+                self._variacao, dados["marca"] = variacao, variacao.marca.nome
+            else:
+                self._marca_personalizada, dados["marca"] = True, texto
+        else:
+            dados["marca"] = ""
 
     def save(self, commit=True):
         insumo = super().save(commit=False)
         if getattr(self, "_decidiu_padrao", False):
-            insumo.insumo_global, insumo.nao_conforme = self._padrao, self._padrao is None
-        # Marca padronizada: se o insumo é padrão e a marca digitada é uma variação dele, usa o nome padrão da marca e a foto dela.
-        variacao = globais.variacao_para(insumo.insumo_global, insumo.marca)
-        insumo.insumo_global_marca = variacao
-        if variacao is not None:
-            insumo.marca = variacao.marca.nome
+            insumo.insumo_global = self._padrao
+        insumo.insumo_global_marca = self._variacao
+        # Fora do padrão: insumo personalizado (sem padrão) OU marca personalizada (padrão escolhido, marca que não está na lista da marca).
+        insumo.nao_conforme = insumo.insumo_global is None or self._marca_personalizada
         if commit:
             insumo.save()
             self.save_m2m()
-            if insumo.nao_conforme and getattr(self, "_decidiu_padrao", False):
-                globais.avisar_novo_fora_do_padrao(insumo)
+            if insumo.nao_conforme and not self._era_nao_conforme:
+                globais.avisar_novo_fora_do_padrao(insumo)  # só avisa quando passa a ser fora do padrão (não a cada edição)
         return insumo
 
     def clean_marca(self):
@@ -140,6 +188,8 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
 
     def clean(self):
         dados = super().clean()
+        self._definir_padrao(dados)
+        self._definir_marca(dados)
         medida_nova = dados.get("medida")
         if self.instance.pk and medida_nova and medida_nova.pk != self.instance.medida_id and insumo_tem_estoque(self.instance):
             # O saldo do estoque está guardado na unidade atual: trocá-la mudaria o significado dele.

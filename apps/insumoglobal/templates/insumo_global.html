@@ -16,15 +16,15 @@
 <div class="card"><div class="card-body">
   <form method="get" class="d-flex gap-2 mb-4"><input class="form-control" name="q" value="{{ termo_pesquisa }}" placeholder="{% translate 'Buscar por nome ou descrição...' %}"><button class="btn btn-primary" type="submit">{% translate "Buscar" %}</button></form>
   <div class="table-responsive"><table class="table align-middle">
-    <thead><tr><th>{% translate "Foto" %}</th><th>{% translate "Nome padrão" %}</th><th>{% translate "Unidade sugerida" %}</th><th>{% translate "Segmentos" %}</th><th class="text-end">{% translate "Marcas" %}</th><th class="text-end">{% translate "Em uso" %}</th><th>{% translate "Status" %}</th><th>{% translate "Ações" %}</th></tr></thead>
+    <thead><tr><th>{% translate "Foto" %}</th><th>{% translate "Nome padrão" %}</th><th>{% translate "Unidade sugerida" %}</th><th>{% translate "Segmentos" %}</th><th>{% translate "Marcas" %}</th><th class="text-end">{% translate "Em uso" %}</th><th>{% translate "Status" %}</th><th>{% translate "Ações" %}</th></tr></thead>
     <tbody>
       {% for g in globais %}
       <tr>
-        <td>{% include "imagens/_thumb.html" with tipo="insumo_global" pk=g.pk %}</td>
+        <td>{% for v in g.variacoes.all|slice:":3" %}{% include "imagens/_thumb.html" with tipo="insumo_global_marca" pk=v.pk %}{% empty %}<span class="avatar avatar-md" title="{% translate 'Sem foto' %}"><span class="avatar-initial rounded bg-label-secondary"><i class="icon-base ti tabler-photo-off"></i></span></span>{% endfor %}</td>
         <td>{{ g.nome }}{% if g.descricao %}<div class="small text-muted">{{ g.descricao }}</div>{% endif %}</td>
         <td>{{ g.medida.medida|default:"—" }}</td>
         <td>{% for s in g.segmentos.all %}<span class="badge bg-label-primary me-1">{{ s.nome }}</span>{% empty %}<span class="text-muted">{% translate "todos" %}</span>{% endfor %}</td>
-        <td class="text-end">{{ g.qtd_marcas }}</td>
+        <td>{% for v in g.variacoes.all %}<span class="badge bg-label-info me-1">{{ v.marca.nome }}{% if not v.ativo %} ({% translate "inativa" %}){% endif %}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
         <td class="text-end">{{ g.usos }}</td>
         <td>{% if g.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}</td>
         <td class="text-nowrap">

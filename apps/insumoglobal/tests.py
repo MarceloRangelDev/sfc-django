@@ -75,19 +75,41 @@ class PadronizacaoNoCadastroTests(Base):
         self.assertEqual((insumo.nome, insumo.insumo_global, insumo.nao_conforme), ("Açúcar", self.acucar, False))
         self.assertFalse(DestinatarioNotificacao.objects.filter(notificacao__titulo="Insumo fora do padrão").exists())
 
-    def test_nome_parecido_exige_confirmacao_e_depois_fica_fora_do_padrao_com_aviso(self):
+    def test_personalizar_com_nome_parecido_fica_fora_do_padrao_e_avisa(self):
         self.logar(self.gestor)
-        resposta = self.cadastrar("Asucar")
-        self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, "Existe no cadastro padrão")
-        self.assertFalse(Insumo.objects.filter(cliente=self.a).exists())
-        self.cadastrar("Asucar", confirmar_novo="on")
+        self.cadastrar("Asucar")  # sem escolher da lista: "Personalizar"
         insumo = Insumo.objects.get(cliente=self.a)
         self.assertEqual((insumo.nome, insumo.insumo_global, insumo.nao_conforme), ("Asucar", None, True))
         # Administradores (perfil Administrador e superusuários) recebem a notificação; o Gestor não.
         destinatarios = set(DestinatarioNotificacao.objects.filter(notificacao__titulo="Insumo fora do padrão").values_list("usuario__username", flat=True))
         self.assertIn("admin", destinatarios)
         self.assertNotIn("gestor", destinatarios)
+
+    def test_escolher_o_insumo_da_lista_usa_o_padrao_sem_aviso(self):
+        self.logar(self.gestor)
+        self.cadastrar("", insumo_padrao=self.acucar.pk)
+        insumo = Insumo.objects.get(cliente=self.a)
+        self.assertEqual((insumo.nome, insumo.insumo_global, insumo.nao_conforme), ("Açúcar", self.acucar, False))
+        self.assertFalse(DestinatarioNotificacao.objects.filter(notificacao__titulo="Insumo fora do padrão").exists())
+
+    def test_personalizar_exige_o_nome(self):
+        self.logar(self.gestor)
+        self.assertEqual(self.cadastrar("").status_code, 200)
+        self.assertFalse(Insumo.objects.filter(cliente=self.a).exists())
+
+    def test_personalizado_aparece_na_fila_de_fora_do_padrao_e_com_selo_na_lista(self):
+        self.logar(self.gestor)
+        self.cadastrar("Cúrcuma Defumada")
+        self.assertContains(self.client.get(reverse("insumo")), "personalizado")
+        self.logar(self.admin)
+        self.assertContains(self.client.get(reverse("insumo-nao-conformes")), "Cúrcuma Defumada")
+
+    def test_formulario_lista_os_insumos_globais_e_a_opcao_personalizar(self):
+        self.logar(self.gestor)
+        pagina = self.client.get(reverse("insumo-create")).content.decode()
+        self.assertIn("Personalizar (não está na lista)", pagina)
+        self.assertIn(">Açúcar</option>", pagina)
+        self.assertNotIn("data-imagem-campo", pagina)  # a foto vem da marca, não é enviada no insumo
 
     def test_insumo_totalmente_novo_e_salvo_como_fora_do_padrao_e_avisa(self):
         self.logar(self.gestor)
@@ -172,19 +194,25 @@ class TelasDoAdminTests(Base):
         self.assertEqual(self.client.post(reverse("insumo-global-create"), {"nome": "AÇUCAR", "ativo": "on"}).status_code, 200)  # duplicado (sem acento/caixa)
         criado = self.client.post(reverse("insumo-global-create"), {"nome": "Farinha", "ativo": "on"})
         farinha = InsumoGlobal.objects.get(nome="Farinha")
-        self.assertRedirects(criado, reverse("insumo-global-edit", args=[farinha.pk]))  # abre a edição para enviar a foto
-        self.assertContains(self.client.get(reverse("insumo-global-edit", args=[farinha.pk])), "data-imagem-campo")
+        self.assertRedirects(criado, reverse("insumo-global-edit", args=[farinha.pk]))  # abre a edição (onde se gerenciam as marcas)
+        self.assertNotContains(self.client.get(reverse("insumo-global-edit", args=[farinha.pk])), "data-imagem-campo")  # insumo global não tem foto própria
         self.client.post(reverse("insumo-global-alternar", args=[farinha.pk]))
         farinha.refresh_from_db()
         self.assertFalse(farinha.ativo)
 
-    def test_foto_do_padrao_aparece_no_insumo_do_cliente_sem_foto(self):
+    def test_foto_vem_somente_da_marca_e_aparece_na_lista_global_e_na_do_cliente(self):
+        from . import services
+
         self.logar(self.admin)
+        # O insumo global em si não aceita foto.
         arquivo = SimpleUploadedFile("a.png", png(), content_type="image/png")
-        resposta = self.client.post(reverse("imagens-enviar", args=["insumo_global", self.acucar.pk]), {"imagem": arquivo})
-        self.assertEqual(resposta.status_code, 200, resposta.content)
+        self.assertEqual(self.client.post(reverse("imagens-enviar", args=["insumo_global", self.acucar.pk]), {"imagem": arquivo}).status_code, 404)
+        variacao, _ = services.adicionar_marca(None, self.acucar, "União")
+        arquivo = SimpleUploadedFile("m.png", png(), content_type="image/png")
+        self.assertEqual(self.client.post(reverse("imagens-enviar", args=["insumo_global_marca", variacao.pk]), {"imagem": arquivo}).status_code, 200)
+        self.assertIn("/imagens/", self.client.get(reverse("insumo-global")).content.decode())  # miniatura da marca na lista global
         insumo = novo_insumo(self.a, "Açúcar", "kg", "1", 500)
-        insumo.insumo_global = self.acucar
+        insumo.insumo_global, insumo.insumo_global_marca, insumo.marca = self.acucar, variacao, "União"
         insumo.save()
         pagina = self.client.get(reverse("insumo")).content.decode()
         self.assertIn("/imagens/", pagina)
@@ -325,12 +353,12 @@ class MarcasTests(Base):
         self.assertIn("/imagens/", pagina)
         self.assertNotIn("tabler-photo-off", pagina)
 
-    def test_marca_desconhecida_continua_texto_livre(self):
+    def test_marca_desconhecida_vira_personalizada_e_fica_fora_do_padrao(self):
         self.logar(self.gestor)
         self.cadastrar("acucar", marca="Marca Nova")
         insumo = Insumo.objects.get(cliente=self.a)
         self.assertEqual((insumo.marca, insumo.insumo_global_marca), ("Marca Nova", None))
-        self.assertFalse(insumo.nao_conforme)  # marca fora do padrão não torna o insumo não conforme
+        self.assertTrue(insumo.nao_conforme)  # marca personalizada vai para a fila de fora do padrão
 
     def test_redirecionar_tambem_vincula_a_marca(self):
         self.adicionar("União")

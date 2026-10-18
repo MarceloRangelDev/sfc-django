@@ -50,11 +50,11 @@ def avisar_novo_fora_do_padrao(insumo):
     try:
         destinatarios = administradores_do_cadastro()
         if destinatarios:
-            enviar_para_usuarios(
-                "Insumo fora do padrão",
-                f"“{insumo.nome}” foi cadastrado por {insumo.cliente.nome_razao_social} e não existe no cadastro global. Padronize ou redirecione.",
-                reverse("insumo-nao-conformes"), destinatarios,
-            )
+            if insumo.insumo_global_id:
+                titulo, texto = "Marca fora do padrão", f"A marca “{insumo.marca}” de “{insumo.nome}” (cadastrada por {insumo.cliente.nome_razao_social}) não existe no cadastro global. Padronize ou redirecione."
+            else:
+                titulo, texto = "Insumo fora do padrão", f"“{insumo.nome}” foi cadastrado por {insumo.cliente.nome_razao_social} e não existe no cadastro global. Padronize ou redirecione."
+            enviar_para_usuarios(titulo, texto, reverse("insumo-nao-conformes"), destinatarios)
     except Exception:
         logger.exception("Falha ao notificar insumo fora do padrão")
 
@@ -70,6 +70,8 @@ def promover_a_global(request, insumo):
             raise RegraNegocioError("Já existe um padrão com este nome: use Redirecionar.")
         novo = InsumoGlobal(nome=insumo.nome, medida=insumo.medida, criado_por=getattr(request, "user", None))
         novo.save()
+        if insumo.marca:
+            adicionar_marca(request, novo, insumo.marca)  # a marca que o cliente informou já nasce como variação do novo padrão
         if insumo.cliente.segmento_id:
             novo.segmentos.add(insumo.cliente.segmento_id)  # nasce no segmento de quem o cadastrou
         registrar_criacao(request, novo, modulo="insumoglobal")
@@ -102,6 +104,8 @@ def _vincular(request, insumo, global_, nome):
     insumo.insumo_global_marca = variacao_para(global_, insumo.marca)  # a marca digitada pode já ser uma variação do padrão
     if insumo.insumo_global_marca is not None:
         insumo.marca = insumo.insumo_global_marca.marca.nome
+    else:
+        insumo.nao_conforme = bool(insumo.marca)  # marca personalizada: continua na fila (como "marca fora do padrão")
     insumo.save()
     registrar_alteracoes(
         request, insumo, [
@@ -172,3 +176,31 @@ def variacao_para(insumo_global, marca):
     return InsumoGlobalMarca.objects.filter(
         insumo_global=insumo_global, ativo=True, marca__ativo=True, marca__nome_normalizado=normalizar(marca),
     ).select_related("marca").first()
+
+
+def promover_marca(request, insumo):
+    """Marca personalizada de um insumo JÁ padronizado vira uma nova marca (variação) do padrão e o insumo passa a conforme."""
+    if insumo.insumo_global_id is None or not insumo.marca:
+        raise RegraNegocioError("Este insumo não tem marca personalizada.")
+    with transaction.atomic():
+        variacao, _ = adicionar_marca(request, insumo.insumo_global, insumo.marca)
+        _vincular_marca(request, insumo, variacao)
+    return variacao
+
+
+def redirecionar_marca(request, insumo, variacao):
+    """Aponta a marca personalizada do insumo para uma marca (variação) já existente do MESMO padrão."""
+    if insumo.insumo_global_id is None or variacao.insumo_global_id != insumo.insumo_global_id or not variacao.ativo:
+        raise RegraNegocioError("Escolha uma marca ativa do mesmo insumo padrão.")
+    with transaction.atomic():
+        _vincular_marca(request, insumo, variacao)
+    return variacao
+
+
+def _vincular_marca(request, insumo, variacao):
+    antes = insumo.marca
+    insumo.insumo_global_marca, insumo.marca, insumo.nao_conforme = variacao, variacao.marca.nome, False
+    insumo.save()
+    registrar_alteracoes(
+        request, insumo, [{"campo": "marca", "rotulo": "Marca", "antes": f"{antes} (personalizada)", "depois": f"{variacao.marca.nome} (padronizada)"}], modulo="insumo",
+    )

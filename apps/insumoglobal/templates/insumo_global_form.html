@@ -12,6 +12,7 @@
     <div class="row g-4">
       <div class="col-md-8"><label class="form-label" for="{{ form.nome.id_for_label }}">{% translate "Nome padrão" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
       <div class="col-md-4"><label class="form-label" for="{{ form.medida.id_for_label }}">{% translate "Unidade de medida sugerida" %}</label>{{ form.medida }}</div>
+      <div class="col-md-6"><label class="form-label" for="{{ form.marca.id_for_label }}">{% if object %}{% translate "Adicionar marca" %}{% else %}{% translate "Marca" %}{% endif %}</label>{{ form.marca }}{% if form.marca.errors %}<div class="text-danger small mt-1">{{ form.marca.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "O mesmo nome padrão pode ter várias marcas: informe outra marca de um insumo que já existe e ela é acrescentada a ele." %}</div></div>
       <div class="col-12"><label class="form-label" for="{{ form.descricao.id_for_label }}">{% translate "Descrição" %}</label>{{ form.descricao }}</div>
       <div class="col-12"><label class="form-label d-block">{% translate "Segmentos" %}</label>
         <div class="d-flex flex-wrap gap-4">{% for opcao in form.segmentos %}<div class="form-check">{{ opcao.tag }}<label class="form-check-label" for="{{ opcao.id_for_label }}">{{ opcao.choice_label }}</label></div>{% endfor %}</div>
@@ -24,7 +25,6 @@
     </div>
   </form>
 </div></div>
-{% include "imagens/_campo.html" with tipo="insumo_global" objeto=object %}
 {% if object %}
 <div class="card mt-4"><div class="card-body">
   <h6 class="mb-1">{% translate "Marcas deste insumo" %}</h6>

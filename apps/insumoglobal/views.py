@@ -23,7 +23,7 @@ class InsumoGlobalListView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = InsumoGlobal.objects.select_related("medida").prefetch_related("segmentos").annotate(usos=Count("insumos", distinct=True), qtd_marcas=Count("variacoes", distinct=True))
+        queryset = InsumoGlobal.objects.select_related("medida").prefetch_related("segmentos", "variacoes__marca").annotate(usos=Count("insumos", distinct=True), qtd_marcas=Count("variacoes", distinct=True))
         termo = self.request.GET.get("q", "").strip()
         if termo:
             queryset = queryset.filter(Q(nome__icontains=termo) | Q(descricao__icontains=termo))
@@ -43,9 +43,26 @@ class _Formulario:
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
     def form_valid(self, form):
+        marca = form.cleaned_data.get("marca", "")
+        if form.existente is not None:  # mesmo nome padrão, outra marca: acrescenta a variação ao padrão existente
+            try:
+                variacao, criada = services.adicionar_marca(self.request, form.existente, marca)
+            except RegraNegocioError as erro:
+                form.add_error("marca", str(erro))
+                return self.form_invalid(form)
+            escolhidos = form.cleaned_data.get("segmentos")
+            if escolhidos and form.existente.segmentos.exists():
+                form.existente.segmentos.add(*escolhidos)  # soma aos segmentos atuais (sem segmento = todos: não restringe)
+            messages.success(self.request, f"Marca “{variacao.marca.nome}” adicionada a “{form.existente.nome}”." if criada else f"“{variacao.marca.nome}” já estava em “{form.existente.nome}”.")
+            return redirect("insumo-global-edit", pk=form.existente.pk)
         if form.instance.pk is None:
             form.instance.criado_por = self.request.user
         resposta = super().form_valid(form)  # salva e audita
+        if marca:
+            try:
+                services.adicionar_marca(self.request, self.object, marca)
+            except RegraNegocioError as erro:
+                messages.error(self.request, str(erro))
         messages.success(self.request, "Insumo global salvo.")
         return resposta
 
@@ -110,14 +127,17 @@ class NaoConformesView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = Insumo.objects.filter(nao_conforme=True, ativo=True).select_related("cliente", "medida").order_by("criado_em")
+        queryset = Insumo.objects.filter(nao_conforme=True, ativo=True).select_related("cliente", "medida", "insumo_global").order_by("criado_em")
         termo = self.request.GET.get("q", "").strip()
         return queryset.filter(Q(nome__icontains=termo) | Q(cliente__nome_razao_social__icontains=termo)) if termo else queryset
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         for insumo in context["insumos"]:
-            insumo.sugestoes = services.semelhantes(insumo.nome, limite=3, corte=0.6)
+            if insumo.insumo_global_id:  # marca personalizada: as marcas do próprio padrão são o destino possível
+                insumo.marcas_destino = list(insumo.insumo_global.variacoes.filter(ativo=True).select_related("marca"))
+            else:
+                insumo.sugestoes = services.semelhantes(insumo.nome, limite=3, corte=0.6)
         context["globais"] = InsumoGlobal.objects.filter(ativo=True).order_by("nome")
         context["termo_pesquisa"] = self.request.GET.get("q", "")
         return context
@@ -147,6 +167,34 @@ class RedirecionarView(View):
             nome = insumo.nome
             services.redirecionar(request, insumo, destino)
             messages.success(request, f"“{nome}” foi redirecionado para “{destino.nome}”.")
+        except RegraNegocioError as erro:
+            messages.error(request, str(erro))
+        return redirect("insumo-nao-conformes")
+
+
+class PromoverMarcaView(View):
+    def post(self, request, pk):
+        insumo = get_object_or_404(Insumo, pk=pk, nao_conforme=True, insumo_global__isnull=False)
+        try:
+            variacao = services.promover_marca(request, insumo)
+            messages.success(request, f"“{variacao.marca.nome}” agora é uma marca padrão de “{variacao.insumo_global.nome}”.")
+        except RegraNegocioError as erro:
+            messages.error(request, str(erro))
+        return redirect("insumo-nao-conformes")
+
+
+class RedirecionarMarcaView(View):
+    """POST `destino` = id da variação (marca) do mesmo insumo padrão."""
+
+    def post(self, request, pk):
+        insumo = get_object_or_404(Insumo, pk=pk, nao_conforme=True, insumo_global__isnull=False)
+        variacao = InsumoGlobalMarca.objects.filter(pk=request.POST.get("destino") or 0).select_related("marca", "insumo_global").first()
+        if variacao is None:
+            messages.error(request, "Escolha a marca de destino.")
+            return redirect("insumo-nao-conformes")
+        try:
+            services.redirecionar_marca(request, insumo, variacao)
+            messages.success(request, f"A marca foi redirecionada para “{variacao.marca.nome}”.")
         except RegraNegocioError as erro:
             messages.error(request, str(erro))
         return redirect("insumo-nao-conformes")
