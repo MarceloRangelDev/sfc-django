@@ -151,6 +151,15 @@ class GoogleTasks(GoogleCalendar):
     sincroniza_conclusao = True
     URL_API = "https://tasks.googleapis.com/tasks/v1/lists"
 
+    def _chamar(self, metodo, url, credenciais, corpo=None):
+        try:
+            return super()._chamar(metodo, url, credenciais, corpo)
+        except ErroIntegracao as erro:
+            if "403" in str(erro):  # causa comum: API desligada no projeto ou escopo ausente na tela de consentimento
+                raise ErroIntegracao("O Google recusou o acesso (403). Ative a \"Google Tasks API\" no projeto do Google Cloud e confirme que o escopo "
+                                     "\"tasks\" está na tela de consentimento; depois reconecte a conta.") from None
+            raise
+
     def _lista(self, conexao):
         return urllib.parse.quote(conexao.config.get("tasklist") or "@default", safe="@")
 
