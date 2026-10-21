@@ -27,11 +27,11 @@ cp db.sqlite3 ~/backups/db-$(date +%F-%H%M).sqlite3
 ## 3. Ver o que mudou e baixar
 
 ```bash
-git status                      # deve estar limpo; se houver alterações locais, não use pull às cegas (ver "Problemas")
-git fetch origin
-git log --oneline HEAD..origin/main    # commits novos que serão aplicados
-git diff --stat HEAD origin/main       # arquivos que mudarão
-git pull --ff-only origin main         # aplica somente as diferenças
+sudo -u django_user git status                      # deve estar limpo; se houver alterações locais, não use pull às cegas (ver "Problemas")
+sudo -u django_user git fetch origin
+sudo -u django_user git log --oneline HEAD..origin/main    # commits novos que serão aplicados
+sudo -u django_user git diff --stat HEAD origin/main       # arquivos que mudarão
+sudo -u django_user git pull --ff-only origin main         # aplica somente as diferenças
 ```
 
 `--ff-only` recusa a atualização se o servidor tiver commits próprios, em vez de criar um merge sem querer.

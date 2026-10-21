@@ -154,8 +154,9 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
 
     # Caminho para os arquivos estáticos gerados pelo collectstatic
+    # IMPORTANTE: STATIC_ROOT é a pasta 'staticfiles' (não 'static'); com 'root' o Nginx procuraria .../static/... e daria 404.
     location /static/ {
-        root /home/django_user/sfc-django;
+        alias /home/django_user/sfc-django/staticfiles/;
     }
 
     # Caminho para uploads de mídia (se houver)
