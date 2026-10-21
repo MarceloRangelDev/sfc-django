@@ -185,3 +185,57 @@ class LogIntegracao(models.Model):
         verbose_name_plural = "Logs de integração"
         ordering = ["-criado_em", "-pk"]
         indexes = [models.Index(fields=["conexao", "criado_em"], name="log_integracao_conexao_idx")]
+
+
+class TemplateWhatsApp(models.Model):
+    """Template de mensagem do WhatsApp Business (API oficial da Meta) de uma conexão `whatsapp_cloud`.
+
+    Guarda DOIS estados separados, para nunca afirmar algo que a Meta não confirmou:
+    - `situacao_local`: o que acontece AQUI (rascunho nunca enviado; sincronizado = igual ao último conteúdo trocado com a Meta; alterado =
+      editado aqui e ainda não enviado);
+    - `status_meta` (+ `motivo_rejeicao`, `id_meta`): EXATAMENTE o que a Meta devolveu (PENDING, APPROVED, REJECTED, PAUSED, DISABLED...).
+      Vazio enquanto a Meta não respondeu. Aprovação só existe quando a Meta a informa (nunca é simulada).
+    A unidade (tenant) é a da conexão: toda consulta filtra por `conexao__cliente`."""
+
+    RASCUNHO, SINCRONIZADO, ALTERADO = "rascunho", "sincronizado", "alterado"
+    SITUACAO_CHOICES = [(RASCUNHO, "Rascunho (não enviado à Meta)"), (SINCRONIZADO, "Igual ao da Meta"), (ALTERADO, "Alterado aqui (falta enviar à Meta)")]
+    MARKETING, UTILITY, AUTHENTICATION = "MARKETING", "UTILITY", "AUTHENTICATION"
+    # Criação/edição aqui: só MARKETING e UTILITY. AUTHENTICATION (OTP) aparece apenas em templates importados da Meta, somente leitura.
+    CATEGORIA_CHOICES = [(MARKETING, "Marketing"), (UTILITY, "Utilidade"), (AUTHENTICATION, "Autenticação")]
+
+    conexao = models.ForeignKey(Conexao, on_delete=models.PROTECT, related_name="templates_whatsapp", verbose_name="Conexão")
+    nome = models.CharField(max_length=512, verbose_name="Nome")
+    idioma = models.CharField(max_length=10, verbose_name="Idioma")
+    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES, verbose_name="Categoria")
+    cabecalho = models.CharField(max_length=60, blank=True, default="", verbose_name="Cabeçalho (texto)")
+    corpo = models.TextField(max_length=1024, verbose_name="Corpo")
+    rodape = models.CharField(max_length=60, blank=True, default="", verbose_name="Rodapé")
+    # [{"tipo": QUICK_REPLY|URL|PHONE_NUMBER, "texto", "url"?, "telefone"?, "exemplo"?}]
+    botoes = models.JSONField(default=list, blank=True, verbose_name="Botões")
+    # {"cabecalho": "valor", "corpo": ["valor {{1}}", ...]}: valores de exemplo que a Meta exige para cada variável.
+    exemplos = models.JSONField(default=dict, blank=True, verbose_name="Exemplos das variáveis")
+    # Importado da Meta com recursos que este módulo não edita (cabeçalho de mídia, carrossel, OTP...): só consulta e exclusão.
+    somente_leitura = models.BooleanField(default=False, db_default=False, verbose_name="Somente leitura")
+    situacao_local = models.CharField(max_length=12, choices=SITUACAO_CHOICES, default=RASCUNHO, db_default=RASCUNHO, verbose_name="Situação local")
+    status_meta = models.CharField(max_length=30, blank=True, default="", verbose_name="Status na Meta")
+    motivo_rejeicao = models.CharField(max_length=255, blank=True, default="", verbose_name="Motivo informado pela Meta")
+    id_meta = models.CharField(max_length=40, blank=True, default="", verbose_name="ID na Meta")
+    ultimo_erro = models.CharField(max_length=300, blank=True, default="", verbose_name="Último erro")
+    sincronizado_em = models.DateTimeField(null=True, blank=True, verbose_name="Última troca com a Meta")
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+", editable=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Template do WhatsApp"
+        verbose_name_plural = "Templates do WhatsApp"
+        ordering = ["nome", "idioma"]
+        constraints = [models.UniqueConstraint(fields=["conexao", "nome", "idioma"], name="template_whatsapp_unico")]
+        indexes = [models.Index(fields=["conexao", "status_meta"], name="template_wa_conexao_status_idx")]
+
+    def __str__(self):
+        return f"{self.nome} ({self.idioma})"
+
+    @property
+    def enviado(self):
+        return bool(self.id_meta)

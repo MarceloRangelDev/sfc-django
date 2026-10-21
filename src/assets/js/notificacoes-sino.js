@@ -22,6 +22,19 @@
   var falhas = 0;
   var ultimo = null;
 
+  // Com mais de 3 itens a lista limita a altura à de 3 itens e rola; com 3 ou menos fica na altura natural.
+  // A altura é medida (não fixa em CSS) porque depende do tema/idioma/tamanho do texto, e só dá para medir com o menu aberto.
+  var ITENS_SEM_ROLAGEM = 3;
+  function ajustarRolagem() {
+    var itens = lista.children;
+    lista.style.maxHeight = '';
+    if (itens.length <= ITENS_SEM_ROLAGEM) return;
+    var altura = 0;
+    for (var i = 0; i < ITENS_SEM_ROLAGEM; i++) altura += itens[i].offsetHeight;
+    if (altura > 0) lista.style.maxHeight = altura + 'px'; // 0 = menu fechado: refeito em shown.bs.dropdown
+  }
+  sino.addEventListener('shown.bs.dropdown', ajustarRolagem);
+
   function aplicar(dados) {
     var assinatura = dados.nao_lidas + '|' + dados.html;
     if (assinatura === ultimo) return; // nada mudou: evita redesenhar à toa
@@ -29,6 +42,7 @@
     contador.textContent = dados.nao_lidas;
     ponto.hidden = !dados.nao_lidas;
     lista.innerHTML = dados.html; // HTML escapado e gerado pelo servidor (notificacoes_itens.html)
+    ajustarRolagem();
   }
 
   function agendar() {
@@ -68,5 +82,6 @@
     }
   });
 
+  ajustarRolagem();
   agendar();
 })();

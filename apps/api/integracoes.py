@@ -1,4 +1,4 @@
-"""Integrações na API v1: conexões, mensagens (fila idempotente) e compromissos da agenda.
+"""Integrações na API v1: conexões, mensagens (fila idempotente), templates do WhatsApp oficial (Meta) e compromissos da agenda.
 
 - Conexões: as credenciais são recebidas (HTTPS), cifradas e NUNCA devolvidas; a resposta traz só estado, escopos, validade e erro.
 - Mensagens: POST enfileira (idempotente por `chave`/`Idempotency-Key`); o envio acontece pelo agendador (`enviar_mensagens_pendentes`),
@@ -13,9 +13,10 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 
 from apps.integracao import services as s
+from apps.integracao import templates_whatsapp as tw
 from apps.integracao.adaptadores import disponiveis, obter
 from apps.integracao.forms import CompromissoForm
-from apps.integracao.models import Compromisso, Conexao, Mensagem
+from apps.integracao.models import Compromisso, Conexao, Mensagem, TemplateWhatsApp
 from web_project.acesso import cliente_do_usuario
 
 from .negocio import RecursoViewSet, documentar
@@ -71,6 +72,7 @@ class ConexaoViewSet(viewsets.ViewSet):
         return resposta([{
             "chave": a.chave, "rotulo": a.rotulo, "tipo": a.tipo, "descricao": a.descricao, "validado": a.validado, "usa_oauth": a.usa_oauth, "escopos": list(a.escopos),
             "credenciais": [{"nome": n, "rotulo": r, "secreto": sec} for n, r, sec in a.campos_credenciais], "config": [{"nome": n, "rotulo": r} for n, r in a.campos_config],
+            "config_opcional": [{"nome": n, "rotulo": r} for n, r in a.campos_config_opcionais],
         } for a in disponiveis()])
 
     @extend_schema(request=inline_serializer("NovaConexao", {"provedor": serializers.CharField(), "nome": serializers.CharField(), "credenciais": serializers.DictField(child=serializers.CharField()), "config": serializers.DictField(child=serializers.CharField(), required=False)}),
@@ -213,4 +215,117 @@ class CompromissoViewSet(RecursoViewSet):
             registrar_exclusao(request, compromisso, logica=True)
             compromisso.ativo = False
             compromisso.save(update_fields=["ativo", "atualizado_em"])
+        return Response(status=204)
+
+
+# --------------------------------------------------------------------------
+# Templates do WhatsApp Business (API oficial da Meta)
+# --------------------------------------------------------------------------
+
+def _template_dict(t):
+    """Os DOIS estados lado a lado: `situacao_local` (aqui) e `status_meta` (o que a Meta devolveu; vazio = sem retorno). Sem credenciais."""
+    return {
+        "id": t.pk, "conexao": t.conexao_id, "nome": t.nome, "idioma": t.idioma, "categoria": t.categoria, "cabecalho": t.cabecalho, "corpo": t.corpo, "rodape": t.rodape,
+        "botoes": t.botoes, "exemplos": t.exemplos, "somente_leitura": t.somente_leitura, "situacao_local": t.situacao_local, "status_meta": t.status_meta,
+        "motivo_rejeicao": t.motivo_rejeicao, "id_meta": t.id_meta, "ultimo_erro": t.ultimo_erro, "sincronizado_em": t.sincronizado_em, "criado_em": t.criado_em, "atualizado_em": t.atualizado_em,
+    }
+
+
+TemplateEntrada = inline_serializer("TemplateWhatsAppEntrada", {
+    "conexao": serializers.IntegerField(help_text="ID de uma conexão `whatsapp_cloud` ativa da sua unidade (só na criação)."),
+    "nome": serializers.CharField(help_text="Minúsculas, números e sublinhado. Ex.: pedido_confirmado"),
+    "idioma": serializers.CharField(help_text="Ex.: pt_BR, en_US"),
+    "categoria": serializers.ChoiceField(choices=["MARKETING", "UTILITY"]),
+    "cabecalho": serializers.CharField(required=False, allow_blank=True, help_text="Texto até 60 caracteres, no máximo uma variável {{1}}."),
+    "corpo": serializers.CharField(help_text="Até 1024 caracteres. Variáveis {{1}}, {{2}}... em sequência, nunca no início/fim."),
+    "rodape": serializers.CharField(required=False, allow_blank=True),
+    "botoes": serializers.ListField(child=serializers.DictField(), required=False, help_text="Até 10: {tipo: QUICK_REPLY|URL|PHONE_NUMBER, texto, url?, telefone?, exemplo?}"),
+    "exemplos": serializers.DictField(required=False, help_text='{"cabecalho": "valor", "corpo": ["valor da {{1}}", ...]} — um exemplo por variável.'),
+})
+
+
+@extend_schema(tags=["integracoes"])
+class TemplateWhatsAppViewSet(viewsets.ViewSet):
+    """Templates do WhatsApp oficial (Meta) da sua unidade. Salvar cria/edita um RASCUNHO LOCAL; `enviar` é que submete à Meta e `sincronizar`
+    traz o status dela. `status_meta` só tem o valor que a Meta devolveu (nunca é simulado). Excluir um template enviado o apaga também na Meta."""
+
+    permission_classes = [PermissaoPorAcao]
+    modulo_slug = "integracoes"
+    permissoes = {
+        "list": "integracao.view_templatewhatsapp", "retrieve": "integracao.view_templatewhatsapp", "create": "integracao.add_templatewhatsapp",
+        "partial_update": "integracao.change_templatewhatsapp", "enviar": "integracao.change_templatewhatsapp", "sincronizar": "integracao.change_templatewhatsapp",
+        "destroy": "integracao.delete_templatewhatsapp",
+    }
+
+    def _escopo(self, request, acao="view"):
+        from web_project.acesso import clientes_dos_itens
+
+        return TemplateWhatsApp.objects.filter(conexao__cliente__in=clientes_dos_itens(request.user, acao)).select_related("conexao")
+
+    def _conexoes(self, request, acao):
+        from web_project.acesso import clientes_dos_itens
+
+        return Conexao.objects.filter(provedor="whatsapp_cloud", cliente__in=clientes_dos_itens(request.user, acao))
+
+    def _obter(self, request, pk, acao="view"):
+        try:
+            return self._escopo(request, acao).get(pk=pk)
+        except (TemplateWhatsApp.DoesNotExist, ValueError):
+            raise NotFound from None
+
+    @extend_schema(parameters=[OpenApiParameter("conexao", int), OpenApiParameter("status", str, description="`rascunho` ou um status da Meta (APPROVED, PENDING, REJECTED...)")], responses={200: OpenApiTypes.OBJECT})
+    def list(self, request):
+        consulta = self._escopo(request)
+        p = request.query_params
+        if p.get("conexao", "").isdigit():
+            consulta = consulta.filter(conexao_id=p["conexao"])
+        if p.get("status") == "rascunho":
+            consulta = consulta.filter(situacao_local=TemplateWhatsApp.RASCUNHO)
+        elif p.get("status"):
+            consulta = consulta.filter(status_meta=p["status"].upper())
+        pagina = PaginacaoPadrao()
+        return pagina.get_paginated_response([_template_dict(t) for t in pagina.paginate_queryset(consulta, request)])
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def retrieve(self, request, pk=None):
+        return resposta(_template_dict(self._obter(request, pk)))
+
+    @extend_schema(request=TemplateEntrada, responses={201: OpenApiTypes.OBJECT}, summary="Salva um rascunho local (não envia à Meta)")
+    def create(self, request):
+        dados = request.data if isinstance(request.data, dict) else {}
+        try:
+            conexao = self._conexoes(request, "add").get(pk=int(dados.get("conexao")))
+        except (Conexao.DoesNotExist, TypeError, ValueError):
+            raise serializers.ValidationError({"conexao": ["Conexão inválida."]}) from None
+        return resposta(_template_dict(tw.criar_local(request, conexao, dados)), "Rascunho salvo. Ainda não foi enviado à Meta.", 201)
+
+    @extend_schema(request=TemplateEntrada, responses={200: OpenApiTypes.OBJECT}, summary="Altera o conteúdo localmente (envie à Meta depois)")
+    def partial_update(self, request, pk=None):
+        t = self._obter(request, pk, "change")
+        dados = request.data if isinstance(request.data, dict) else {}
+        # PATCH parcial: campos não enviados mantêm o valor atual (a validação recebe o conteúdo completo).
+        atual = {"nome": t.nome, "idioma": t.idioma, "categoria": t.categoria, "cabecalho": t.cabecalho, "corpo": t.corpo, "rodape": t.rodape, "botoes": t.botoes, "exemplos": t.exemplos}
+        return resposta(_template_dict(tw.editar_local(request, t, {**atual, **{k: v for k, v in dados.items() if k in atual}})), "Template atualizado aqui.")
+
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT}, summary="Envia à Meta (cria ou atualiza) e devolve o status que ela informou")
+    @action(detail=True, methods=["post"], url_path="enviar")
+    def enviar(self, request, pk=None):
+        t = tw.enviar_para_meta(request, self._obter(request, pk, "change"))
+        return resposta(_template_dict(t), "Enviado à Meta.")
+
+    @extend_schema(request=inline_serializer("SincronizarTemplates", {"conexao": serializers.IntegerField()}), responses={200: OpenApiTypes.OBJECT}, summary="Traz da Meta os templates e seus status")
+    @action(detail=False, methods=["post"], url_path="sincronizar")
+    def sincronizar(self, request):
+        dados = request.data if isinstance(request.data, dict) else {}
+        try:
+            conexao = self._conexoes(request, "change").get(pk=int(dados.get("conexao")))
+        except (Conexao.DoesNotExist, TypeError, ValueError):
+            raise serializers.ValidationError({"conexao": ["Conexão inválida."]}) from None
+        return resposta(tw.sincronizar(request, conexao), "Sincronização com a Meta concluída.")
+
+    @extend_schema(responses={204: None}, summary="Exclui (na Meta e aqui, se já tiver sido enviado)")
+    def destroy(self, request, pk=None):
+        from rest_framework.response import Response
+
+        tw.excluir(request, self._obter(request, pk, "delete"))
         return Response(status=204)

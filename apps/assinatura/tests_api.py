@@ -1,4 +1,5 @@
 """API da assinatura: autenticação, permissão, tenant, mensagem de bloqueio e o schema (Swagger)."""
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from .models import Assinatura
@@ -6,6 +7,10 @@ from .tests import Base
 
 
 class AssinaturaApiTests(Base):
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # o limite do escopo "cadastro" (10/h) é compartilhado com outros testes da suíte completa
+
     def api(self, usuario):
         c = APIClient()
         c.force_authenticate(usuario)

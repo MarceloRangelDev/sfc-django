@@ -1,0 +1,78 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Templates do WhatsApp" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-4 mb-2">
+  <h4 class="mb-0" id="tpl-wa-titulo">{% translate "Templates do WhatsApp (API oficial da Meta)" %}</h4>
+  <div class="d-flex gap-2" id="tpl-wa-acoes">
+    <a href="{% url 'integracoes' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if pode_criar and conexoes %}<a href="{% url 'template-whatsapp-create' %}" class="btn btn-primary">{% translate "Novo template" %}</a>{% endif %}
+  </div>
+</div>
+<div class="alert alert-info" id="tpl-wa-aviso">{% translate "Dois estados diferentes: a Situação aqui (rascunho, igual ao da Meta, alterado aqui) e o Status que a Meta devolveu (em análise, aprovado, rejeitado...). Um template só é considerado aprovado quando a própria Meta informa; use Sincronizar para atualizar." %}</div>
+
+<div class="card mb-4" id="tpl-wa-filtros"><div class="card-body">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-4"><label class="form-label" for="f-conexao">{% translate "Conexão" %}</label>
+      <select class="form-select" id="f-conexao" name="conexao"><option value="">{% translate "Todas" %}</option>{% for c in conexoes %}<option value="{{ c.pk }}" {% if filtros.conexao == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label" for="f-status">{% translate "Status" %}</label>
+      <select class="form-select" id="f-status" name="status"><option value="">{% translate "Todos" %}</option>
+        <option value="rascunho" {% if filtros.status == "rascunho" %}selected{% endif %}>{% translate "Rascunho" %}</option>
+        <option value="PENDING" {% if filtros.status == "PENDING" %}selected{% endif %}>PENDING</option>
+        <option value="APPROVED" {% if filtros.status == "APPROVED" %}selected{% endif %}>APPROVED</option>
+        <option value="REJECTED" {% if filtros.status == "REJECTED" %}selected{% endif %}>REJECTED</option>
+        <option value="PAUSED" {% if filtros.status == "PAUSED" %}selected{% endif %}>PAUSED</option>
+      </select></div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100">{% translate "Filtrar" %}</button></div>
+    {% if pode_alterar and filtros.conexao %}
+    <div class="col-md-3">
+      <button class="btn btn-outline-secondary w-100" type="submit" form="form-sincronizar" id="tpl-wa-sincronizar">{% translate "Sincronizar com a Meta" %}</button>
+    </div>
+    {% endif %}
+  </form>
+  {% if pode_alterar and filtros.conexao %}<form id="form-sincronizar" method="post" action="{% url 'template-whatsapp-sincronizar' %}">{% csrf_token %}<input type="hidden" name="conexao" value="{{ filtros.conexao }}"></form>
+  {% elif pode_alterar %}<div class="form-text mt-2">{% translate "Escolha uma conexão para sincronizar com a Meta." %}</div>{% endif %}
+</div></div>
+
+<div class="card" id="tpl-wa-tabela">
+  <div class="table-responsive"><table class="table">
+    <thead><tr><th>{% translate "Template" %}</th><th>{% translate "Conexão" %}</th><th>{% translate "Categoria" %}</th><th>{% translate "Situação aqui" %}</th><th>{% translate "Status na Meta" %}</th><th></th></tr></thead>
+    <tbody>
+    {% for t in templates_wa %}
+      <tr>
+        <td><strong>{{ t.nome }}</strong> <span class="text-muted">{{ t.idioma }}</span>
+          <div class="small text-muted text-wrap" style="max-width:26rem">{{ t.corpo|truncatechars:90 }}</div>
+          {% if t.ultimo_erro %}<div class="small text-danger">{{ t.ultimo_erro }}</div>{% endif %}</td>
+        <td>{{ t.conexao.nome }}</td>
+        <td>{{ t.get_categoria_display }}</td>
+        <td>{{ t.get_situacao_local_display }}{% if t.somente_leitura %}<div class="small text-muted">{% translate "Somente leitura" %}</div>{% endif %}</td>
+        <td>{% if t.status_meta %}<span class="badge bg-label-{% if t.status_meta == 'APPROVED' %}success{% elif t.status_meta == 'REJECTED' or t.status_meta == 'DISABLED' %}danger{% else %}warning{% endif %}">{{ t.status_meta }}</span>
+          {% if t.motivo_rejeicao %}<div class="small text-danger">{{ t.motivo_rejeicao }}</div>{% endif %}
+          {% if t.sincronizado_em %}<div class="small text-muted">{{ t.sincronizado_em|date:"d/m H:i" }}</div>{% endif %}
+          {% else %}<span class="text-muted">{% translate "Sem retorno da Meta" %}</span>{% endif %}</td>
+        <td class="text-nowrap">
+          {% if pode_alterar and not t.somente_leitura %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'template-whatsapp-edit' t.pk %}">{% translate "Editar" %}</a>
+            {% if t.situacao_local != "sincronizado" %}<form class="d-inline" method="post" action="{% url 'template-whatsapp-acao' t.pk 'enviar' %}">{% csrf_token %}<button class="btn btn-sm btn-primary">{% translate "Enviar à Meta" %}</button></form>{% endif %}{% endif %}
+          {% if pode_excluir %}<form class="d-inline" method="post" action="{% url 'template-whatsapp-acao' t.pk 'excluir' %}" data-confirmar="{% if t.id_meta %}{% translate 'Excluir também na Meta? Esta ação não pode ser desfeita.' %}{% else %}{% translate 'Excluir este rascunho?' %}{% endif %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% translate "Excluir" %}</button></form>{% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="text-center py-6">{% if conexoes %}{% translate "Nenhum template. Crie um ou sincronize com a Meta." %}{% else %}{% translate "Cadastre uma conexão do WhatsApp oficial (com o ID da conta WABA) em Integrações." %}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if page_obj.has_other_pages %}<div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&conexao={{ filtros.conexao }}&status={{ filtros.status }}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&conexao={{ filtros.conexao }}&status={{ filtros.status }}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>{% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('templates-whatsapp');</script>
+{% endblock page_js %}

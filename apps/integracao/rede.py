@@ -17,9 +17,11 @@ MAX_RESPOSTA = 1_000_000
 
 
 class ErroDeRede(Exception):
-    def __init__(self, mensagem, status=None, espera=None, temporario=True):
+    def __init__(self, mensagem, status=None, espera=None, temporario=True, detalhe=""):
         super().__init__(mensagem)
-        self.status, self.espera, self.temporario = status, espera, temporario
+        # `detalhe`: texto de erro devolvido pelo provedor (ex.: motivo da Meta recusar um template). Só chega a quem
+        # o pedir explicitamente; a mensagem padrão continua genérica. Nunca contém o que NÓS enviamos (token).
+        self.status, self.espera, self.temporario, self.detalhe = status, espera, temporario, detalhe
 
 
 def url_segura(url):
@@ -43,6 +45,17 @@ def url_segura(url):
     return url
 
 
+def _detalhe_do_erro(erro):
+    """Mensagem do provedor no corpo do erro HTTP (formato Graph API: {"error": {"error_user_msg"|"message"}}). Vazio se ilegível."""
+    try:
+        corpo = json.loads(erro.read(4096) or b"{}")
+        interno = corpo.get("error") if isinstance(corpo, dict) else None
+        interno = interno if isinstance(interno, dict) else {}
+        return str(interno.get("error_user_msg") or interno.get("message") or "")[:300]
+    except (ValueError, OSError):
+        return ""
+
+
 def requisitar(metodo, url, cabecalhos=None, corpo=None, json_resposta=True):
     """Faz a requisição e devolve (status, cabecalhos, dados). `corpo`: dict (JSON) ou bytes. Erros HTTP viram ErroDeRede
     (429/5xx temporários, com `espera` do Retry-After; 4xx definitivos)."""
@@ -63,7 +76,7 @@ def requisitar(metodo, url, cabecalhos=None, corpo=None, json_resposta=True):
     except urllib.error.HTTPError as erro:
         espera = erro.headers.get("Retry-After") if erro.headers else None
         raise ErroDeRede(f"O provedor respondeu HTTP {erro.code}.", status=erro.code, espera=int(espera) if (espera or "").isdigit() else None,
-                         temporario=erro.code == 429 or erro.code >= 500) from None
+                         temporario=erro.code == 429 or erro.code >= 500, detalhe=_detalhe_do_erro(erro)) from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise ErroDeRede("Não foi possível falar com o provedor.", temporario=True) from None
     if len(bruto) > MAX_RESPOSTA:

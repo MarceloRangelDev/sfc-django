@@ -1,5 +1,12 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
+# Retenção: uma notificação LIDA é removida 48 h depois de lida. O prazo só
+# começa a contar em `lida_em`; as não lidas nunca expiram.
+RETENCAO_LIDAS = timedelta(hours=48)
 
 
 class Notificacao(models.Model):
@@ -38,6 +45,17 @@ class Notificacao(models.Model):
         return self.titulo
 
 
+class DestinatarioQuerySet(models.QuerySet):
+    def expiradas(self, agora=None):
+        """Lidas há 48 h ou mais (nunca as não lidas, que têm `lida_em` nulo)."""
+        return self.filter(lida_em__lte=(agora or timezone.now()) - RETENCAO_LIDAS)
+
+    def vigentes(self, agora=None):
+        """Tudo o que ainda deve aparecer. As telas usam este filtro para que uma
+        expirada nunca seja mostrada, mesmo se a limpeza agendada ainda não rodou."""
+        return self.exclude(lida_em__lte=(agora or timezone.now()) - RETENCAO_LIDAS)
+
+
 class DestinatarioNotificacao(models.Model):
     """Uma notificação entregue a UMA pessoa: guarda o resultado da entrega
     e a leitura. É a "caixa de entrada" do usuário (navbar) e o histórico."""
@@ -58,6 +76,8 @@ class DestinatarioNotificacao(models.Model):
     erro_entrega = models.CharField(max_length=255, blank=True)
     lida_em = models.DateTimeField(null=True, blank=True)  # nulo = não lida
     criado_em = models.DateTimeField(auto_now_add=True)
+
+    objects = DestinatarioQuerySet.as_manager()
 
     class Meta:
         verbose_name = "Destinatário da notificação"

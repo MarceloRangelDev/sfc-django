@@ -6,9 +6,9 @@ from .agenda import GoogleCalendar, GoogleTasks, ICloudCalendar
 from .base import Adaptador, ErroIntegracao, NaoSuportado  # noqa: F401
 from .instagram import InstagramGraph
 from .teste import AdaptadorTeste
-from .whatsapp import WhatsAppCloud, WhatsAppIntermediario
+from .whatsapp import WhatsAppCloud, WhatsAppEvolution, WhatsAppIntermediario
 
-REGISTRO = {a.chave: a for a in (WhatsAppCloud(), WhatsAppIntermediario(), GoogleCalendar(), GoogleTasks(), ICloudCalendar(), InstagramGraph(), AdaptadorTeste())}
+REGISTRO = {a.chave: a for a in (WhatsAppCloud(), WhatsAppIntermediario(), WhatsAppEvolution(), GoogleCalendar(), GoogleTasks(), ICloudCalendar(), InstagramGraph(), AdaptadorTeste())}
 
 
 def obter(chave):

@@ -228,6 +228,101 @@
       { element: '#filtroPainel', title: 'Período e unidade', text: 'O período vale para o resultado e os vencimentos; saldos e estoque mostram a posição de hoje. A matriz pode escolher uma filial.', position: 'bottom' },
       { element: '#btnOnline', title: 'Usuários online', text: 'Quem teve atividade nos últimos minutos, só entre os usuários que você pode visualizar.', position: 'bottom' },
       { element: 'h5.mb-3', title: 'Indicadores', text: 'Os blocos mostrados dependem das suas permissões e dos módulos habilitados para o seu cliente.', position: 'bottom' }
+    ],
+
+    // ------------------------------------------------------------------ Telas de apoio e administração
+    'compras': [
+      NOVO('Novo item', 'Acrescente à lista de compras um insumo ou item avulso que precisa comprar.'),
+      FILTROS('Pesquise itens da lista pelo nome.'),
+      TABELA('Os itens a comprar, com unidade, quantidade e origem (digitado por você ou sugerido pelo estoque).')
+    ],
+    'consumidores': [
+      NOVO('Novo consumidor', 'Cadastre clientes finais. Dados pessoais só são guardados com o consentimento registrado.'),
+      FILTROS('Pesquise por nome ou documento e filtre por status.'),
+      TABELA('Contato, cidade e se há consentimento para uso dos dados. Os dados aparecem só para quem tem permissão.')
+    ],
+    'cotacoes': [
+      NOVO('Nova cotação', 'Compare preços de itens entre lojas. Também dá para criar a partir da lista de compras.'),
+      FILTROS('Pesquise pelo título e filtre por status.'),
+      TABELA('Cada cotação mostra quantos itens e lojas tem e em que etapa está.')
+    ],
+    'medidas': [
+      NOVO('Nova medida', 'Cadastre unidades de medida (ex.: caixa = 12 unidades) para usar nos insumos.'),
+      FILTROS('Pesquise pelo nome ou sigla e filtre por status.'),
+      TABELA('A dimensão (massa, volume, unidade...) e quanto vale na unidade-base. As conversões usam estes valores.')
+    ],
+    'colaboradores': [
+      NOVO('Novo colaborador', 'Cadastre quem trabalha com você e o valor da hora, dia ou mês para ratear o custo de mão de obra.'),
+      FILTROS('Pesquise pelo nome e filtre por unidade ou status.'),
+      TABELA('Os valores por hora, dia, semana e quinzena são calculados a partir do que foi informado e da jornada.')
+    ],
+    'apontamentos': [
+      NOVO('Novo apontamento', 'Registre as horas ou diárias trabalhadas por um colaborador em um serviço.'),
+      FILTROS('Filtre por período, colaborador e unidade.'),
+      TABELA('Horas trabalhadas, extras e o custo total de cada apontamento.')
+    ],
+    'usuarios': [
+      NOVO('Novo usuário', 'Crie o acesso de uma pessoa e escolha o perfil dela. Usuários não são excluídos, só desativados.'),
+      FILTROS('Pesquise por nome, usuário ou e-mail e filtre por perfil e status.'),
+      TABELA('O perfil define o que cada pessoa pode ver e fazer. Você só vê os usuários da sua estrutura.')
+    ],
+    'mesas': [
+      NOVO('Nova mesa', 'Cadastre as mesas ou comandas usadas no atendimento do PDV.'),
+      FILTROS('Pesquise pelo nome e filtre por status.'),
+      TABELA('Mesas inativas deixam de aparecer no PDV, mas o histórico das vendas é preservado.')
+    ],
+    'formas-pagamento': [
+      NOVO('Nova forma', 'Cadastre como o cliente paga no PDV (dinheiro, cartão, Pix...) e a taxa de cada uma.'),
+      FILTROS('Pesquise pelo nome e filtre por status.'),
+      TABELA('Tipo e taxa de cada forma. Formas inativas não aparecem no PDV.')
+    ],
+    'insumos-globais': [
+      NOVO('Novo insumo padrão', 'Cadastre o nome padrão de um insumo para que as unidades usem a mesma identificação.'),
+      FILTROS('Pesquise pelo nome e filtre por segmento ou status.'),
+      TABELA('A unidade sugerida, os segmentos atendidos e em quantas unidades o insumo está em uso.')
+    ],
+    'notificacoes-historico': [
+      NOVO('Nova notificação', 'Envie um aviso para todos, para um segmento ou para usuários específicos. Você confirma antes de enviar.'),
+      FILTROS('Filtre o histórico por usuário, unidade, entrega, leitura e período.'),
+      TABELA('Uma linha por destinatário, com o resultado da entrega e se já leu. Notificações lidas somem depois de 48 horas.')
+    ],
+    'pedidos': [
+      FILTROS('Filtre os pedidos por status, tipo e período.'),
+      TABELA('Cada pedido com mesa ou cliente, status e a venda gerada. Abra um pedido para acompanhá-lo.')
+    ],
+    'pdv-vendas': [
+      FILTROS('Filtre as vendas por período, operador, origem e status.'),
+      TABELA('Todas as vendas do PDV. Abra uma venda para ver itens, pagamentos e o comprovante.')
+    ],
+    'auditoria': [
+      FILTROS('Filtre o registro por usuário, módulo, ação, resultado e período.'),
+      TABELA('Quem fez o quê e quando. Os registros não podem ser editados nem apagados.')
+    ],
+    'fiscal-documentos': [
+      FILTROS('Filtre os documentos por status, ambiente e período.'),
+      TABELA('Cada documento fiscal com o status devolvido pelo emissor. Sem emissão homologada, nada é marcado como autorizado.')
+    ],
+    'papeis': [
+      NOVO('Novo papel', 'Crie um perfil de acesso e escolha o que ele pode ver, criar, alterar e excluir em cada módulo.'),
+      TABELA('Quantas permissões e quantos usuários cada papel tem. Ajustar um papel muda o acesso de todos que o usam.')
+    ],
+    'integracoes': [
+      { element: '.alert-warning', title: 'Homologação', text: 'Os conectores seguem a documentação dos provedores, mas ainda não foram homologados com contas reais. Teste antes de usar em produção.', position: 'bottom' },
+      { element: '#btn-templates-whatsapp', title: 'Templates do WhatsApp', text: 'Crie, consulte, altere e exclua os modelos de mensagem da API oficial da Meta.', position: 'bottom' },
+      TABELA('Suas conexões e o estado de cada uma. Abra uma conexão para testar, trocar credenciais ou ver o registro operacional.')
+    ],
+    'templates-whatsapp': [
+      { element: '#tpl-wa-acoes a.btn-primary', title: 'Novo template', text: 'Cria um rascunho aqui. Ele só vai para a análise da Meta quando você usar Enviar à Meta.', position: 'bottom' },
+      { element: '#tpl-wa-aviso', title: 'Dois estados', text: 'Situação aqui é o que acontece no sistema. Status na Meta é o que a própria Meta informou; nada é aprovado sem o retorno dela.', position: 'bottom' },
+      { element: '#tpl-wa-filtros', title: 'Filtrar e sincronizar', text: 'Escolha uma conexão para filtrar e use Sincronizar com a Meta para trazer os status e importar templates criados no painel dela.', position: 'bottom' },
+      { element: '#tpl-wa-tabela', title: 'Seus templates', text: 'Edite, envie à Meta ou exclua. Excluir um template já enviado também o remove na Meta.', position: 'top' }
+    ],
+    'template-whatsapp-form': [
+      { element: '[name="nome"]', title: 'Nome', text: 'Só letras minúsculas, números e sublinhado. Depois de enviado à Meta, nome, idioma e categoria não mudam.', position: 'bottom' },
+      { element: '[name="corpo"]', title: 'Corpo', text: 'O texto da mensagem. Use {{1}}, {{2}}... para variáveis, nunca no início nem no fim.', position: 'bottom' },
+      { element: '[name="exemplos_corpo"]', title: 'Exemplos', text: 'A Meta exige um exemplo para cada variável, um por linha, na ordem.', position: 'bottom' },
+      { element: '#tpl-wa-botoes', title: 'Botões', text: 'Respostas rápidas, link https ou telefone. Opcional.', position: 'top' },
+      { element: 'form button[type="submit"].btn-primary', title: 'Salvar', text: 'Salva como rascunho. Para submeter à Meta use Enviar à Meta na lista.', position: 'top' }
     ]
   };
 

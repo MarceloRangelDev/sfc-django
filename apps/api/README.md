@@ -27,7 +27,8 @@ Token → usuário → Cliente → Segmento → Módulo habilitado → permissã
 | usuários | `usuarios_acessiveis` |
 | perfis | `perfis_visiveis` (Admin oculto para não-Admin) |
 | auditoria | `registros_visiveis` |
-| notificações | só pelas telas (`/notificacoes/...`), sempre escopadas |
+| notificações | `/api/v1/notificacoes/` (só a caixa do próprio usuário; lidas somem após 48 h); envio só pelas telas (`/notificacoes/...`), sempre escopadas |
+| templates do WhatsApp | `/api/v1/whatsapp-templates/` — `conexao__cliente__in=clientes_dos_itens(usuário, ação)`; permissões `integracao.*_templatewhatsapp` |
 
 Trocar `/api/v1/clientes/10/` por `/11/` fora da estrutura responde **404**. `POST /api/v1/clientes/` cria também o usuário **Gestor** (campo `email_gestor`). `POST /api/v1/usuarios/` com perfil Admin fora do cliente do sistema responde **400**. `GET /api/v1/auth/me/` devolve cliente, segmento e a lista de módulos liberados.
 

@@ -6,6 +6,7 @@ from . import views
 
 I, A = "integracoes", "agenda"
 ver = module_required(I, "integracao.view_conexao")
+ver_t = module_required(I, "integracao.view_templatewhatsapp")
 
 urlpatterns = [
     path("integracoes", ver(views.IntegracoesView.as_view()), name="integracoes"),
@@ -16,6 +17,12 @@ urlpatterns = [
     path("integracoes/<int:pk>/credenciais", module_required(I, "integracao.change_conexao")(views.CredenciaisView.as_view()), name="integracao-credenciais"),
     path("integracoes/<int:pk>/acao/<str:acao>", module_required(I, "integracao.change_conexao")(views.AcaoView.as_view()), name="integracao-acao"),
     path("integracoes/<int:pk>/mensagens", ver(views.MensagensView.as_view()), name="integracao-mensagens"),
+    # Templates do WhatsApp oficial (Meta). Permissões por ação; a unidade é filtrada nas views.
+    path("integracoes/templates", ver_t(views.TemplateListView.as_view()), name="template-whatsapp-list"),
+    path("integracoes/templates/novo", module_required(I, "integracao.add_templatewhatsapp")(views.TemplateFormView.as_view()), name="template-whatsapp-create"),
+    path("integracoes/templates/sincronizar", module_required(I, "integracao.change_templatewhatsapp")(views.TemplateSincronizarView.as_view()), name="template-whatsapp-sincronizar"),
+    path("integracoes/templates/<int:pk>/editar", module_required(I, "integracao.change_templatewhatsapp")(views.TemplateFormView.as_view()), name="template-whatsapp-edit"),
+    path("integracoes/templates/<int:pk>/<str:acao>", ver_t(views.TemplateAcaoView.as_view()), name="template-whatsapp-acao"),
     # Público: o provedor chama sem login; a ASSINATURA (e o token da URL) é que autentica.
     path("webhooks/<str:token>", views.WebhookView.as_view(), name="integracao-webhook"),
     path("agenda", module_required(A, "integracao.view_compromisso")(views.CompromissoListView.as_view()), name="compromisso-list"),

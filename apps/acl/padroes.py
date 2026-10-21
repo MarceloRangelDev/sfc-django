@@ -63,7 +63,7 @@ PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, sup
 # Mão de obra revela valor da hora/diária de pessoas: só Administrador (tudo) e Gestor (ver/criar/alterar; excluir é do Administrador).
 MAO_DE_OBRA_GESTOR = [("maodeobra", f"{acao}_{modelo}") for modelo in ("colaborador", "apontamento", "configuracaomaodeobra", "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao", "configuracaofiscal", "documentofiscal") for acao in ("view", "add", "change")]
 # Integrações guardam credenciais de terceiros: só Administrador (tudo) e Gestor (conectar, mensagens e log). Compromissos da agenda: todos que operam.
-INTEGRACAO_GESTOR = [("integracao", f"{acao}_{modelo}") for modelo in ("conexao", "mensagem") for acao in ("view", "add", "change")] + [("integracao", "view_logintegracao"), ("integracao", "enviar_mensagem")]
+INTEGRACAO_GESTOR = [("integracao", f"{acao}_{modelo}") for modelo in ("conexao", "mensagem", "templatewhatsapp") for acao in ("view", "add", "change")] + [("integracao", "view_logintegracao"), ("integracao", "enviar_mensagem")]
 # Fiscal: certificado e dados fiscais da empresa. Só Administrador e Gestor veem os documentos, pedem emissão e configuram.
 FISCAL_GESTOR = [("fiscal", "view_documentofiscal"), ("fiscal", "view_configuracaofiscal"), ("fiscal", "change_configuracaofiscal"), ("fiscal", "emitir_nota")]
 PEDIDO_PERMISSOES = [("pedido", "mover_pedido"), ("pedido", "cancelar_pedido")]  # mover: todos os perfis que operam; cancelar: Gestor e Administrador
@@ -117,7 +117,7 @@ AUTH_CODENAMES_ADMINISTRADOR = [
 # a quem for autorizado explicitamente (Administrador e, via EXTRAS, o Gestor): transferir
 # estoque entre matriz e filiais e ver os relatórios financeiros (DRE e balanço).
 SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro", "colaborador", "apontamento", "configuracaomaodeobra",
-                        "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao")
+                        "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao", "templatewhatsapp")
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.

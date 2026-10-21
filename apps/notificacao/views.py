@@ -97,7 +97,7 @@ class HistoricoView(ListView):
 
     def get_queryset(self):
         params = self.request.GET
-        queryset = DestinatarioNotificacao.objects.filter(
+        queryset = DestinatarioNotificacao.objects.vigentes().filter(
             usuario__in=usuarios_acessiveis(self.request.user)
         ).select_related("notificacao", "usuario", "usuario__profile__cliente__segmento")
         if params.get("situacao") in self.SITUACOES:
@@ -148,7 +148,7 @@ class MinhasNotificacoesView(ListView):
     paginate_by = POR_PAGINA
 
     def get_queryset(self):
-        queryset = DestinatarioNotificacao.objects.filter(usuario=self.request.user).select_related("notificacao")
+        queryset = DestinatarioNotificacao.objects.vigentes().filter(usuario=self.request.user).select_related("notificacao")
         situacao = self.request.GET.get("situacao")
         if situacao == "nao-lidas":
             queryset = queryset.filter(lida_em__isnull=True)
@@ -172,7 +172,7 @@ class AbrirNotificacaoView(View):
     Só funciona com notificações do PRÓPRIO usuário (outro id vira 404)."""
 
     def get(self, request, pk):
-        item = get_object_or_404(DestinatarioNotificacao.objects.select_related("notificacao"), pk=pk, usuario=request.user)
+        item = get_object_or_404(DestinatarioNotificacao.objects.vigentes().select_related("notificacao"), pk=pk, usuario=request.user)
         marcar_como_lida(item)
         destino = item.notificacao.link
         if destino and url_has_allowed_host_and_scheme(destino, allowed_hosts=None):

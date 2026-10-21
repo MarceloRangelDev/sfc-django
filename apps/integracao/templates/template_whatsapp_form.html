@@ -1,0 +1,46 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Template do WhatsApp" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2" id="tpl-wa-form-titulo">{% if template_wa %}{% translate "Editar template" %}: {{ template_wa.nome }}{% else %}{% translate "Novo template do WhatsApp" %}{% endif %}</h4>
+<div class="alert alert-info">{% translate "Salvar guarda o template só aqui (rascunho). Para submetê-lo à análise da Meta use \"Enviar à Meta\" na lista. A Meta pode levar de minutos a horas e pode rejeitar o texto." %}
+  {% if template_wa.enviado %}<br>{% translate "Já enviado à Meta: conexão, nome, idioma e categoria não podem mais mudar." %}{% endif %}</div>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      {% for campo in form.visible_fields %}
+        {% if not campo.name|slice:":5" == "botao" %}
+        <div class="{% if campo.name == 'corpo' or campo.name == 'exemplos_corpo' %}col-12{% else %}col-md-6{% endif %}" id="tpl-campo-{{ campo.name }}">
+          <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>{{ campo }}
+          {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+          {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <h6 class="mt-6" id="tpl-wa-botoes">{% translate "Botões (opcional)" %}</h6>
+    <div class="form-text mb-3">{% translate "Respostas rápidas ficam sempre antes dos demais. A URL pode ter uma variável {{1}} só no final; informe então um exemplo." %}</div>
+    {% for i in botoes_na_tela %}
+    <div class="row g-3 mb-3 tpl-botao">
+      {% for campo in form.visible_fields %}{% if campo.name|slice:":5" == "botao" and campo.name|slice:"5:6" == i|stringformat:"s" %}
+      <div class="col-md-3"><label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% if campo.errors %}<div class="text-danger small">{{ campo.errors|striptags }}</div>{% endif %}</div>
+      {% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="mt-6 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">{% translate "Salvar" %}</button>
+      <a class="btn btn-text-secondary" href="{% url 'template-whatsapp-list' %}">{% translate "Cancelar" %}</a>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('template-whatsapp-form');</script>
+{% endblock page_js %}

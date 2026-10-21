@@ -103,3 +103,13 @@
   text-align: center;
   margin-top: 1rem;
 }
+
+/* Sino de notificações: a altura máxima (3 itens) é aplicada por notificacoes-sino.js
+   quando há mais de 3; aqui só a barra de rolagem vertical. */
+#sino-lista {
+  overflow-y: auto;
+}
+/* A lista é flex em coluna: sem isto os itens encolhem em vez de rolar quando a altura é limitada. */
+#sino-lista > li {
+  flex-shrink: 0;
+}

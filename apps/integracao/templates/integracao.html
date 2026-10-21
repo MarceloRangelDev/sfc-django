@@ -42,6 +42,7 @@
       {% elif perms.integracao.delete_conexao %}
       <form method="post" action="{% url 'integracao-acao' conexao.pk 'excluir' %}" data-confirmar="{% translate 'Excluir esta conexão?' %}">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Excluir" %}</button></form>
       {% endif %}
+      {% if conexao.provedor == "whatsapp_cloud" and perms.integracao.view_templatewhatsapp %}<a class="btn btn-outline-secondary" href="{% url 'template-whatsapp-list' %}?conexao={{ conexao.pk }}">{% translate "Templates" %}</a>{% endif %}
       {% if tem_mensagens %}<a class="btn btn-outline-secondary" href="{% url 'integracao-mensagens' conexao.pk %}">{% translate "Mensagens" %}</a>{% endif %}
     </div></div>
     {% endif %}

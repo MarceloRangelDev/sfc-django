@@ -51,3 +51,8 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('mesas');</script>
+{% endblock page_js %}

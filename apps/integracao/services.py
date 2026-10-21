@@ -179,6 +179,8 @@ def excluir_conexao(request, conexao):
         raise RegraNegocioError("Desconecte antes de excluir.")
     if conexao.mensagens.exists():
         raise RegraNegocioError("A conexão tem mensagens no histórico e não pode ser excluída.")
+    if conexao.templates_whatsapp.exists():
+        raise RegraNegocioError("A conexão tem templates do WhatsApp cadastrados; exclua-os antes.")
     with transaction.atomic():
         registrar(request, acao=ACAO_EXCLUIR, modulo="integracao", tabela=conexao._meta.db_table, registro_id=conexao.pk, registro_nome=conexao.nome,
                   descricao=f"Excluída conexão ID {conexao.pk} - {conexao.nome}.", silencioso=False)

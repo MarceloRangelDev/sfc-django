@@ -1,9 +1,11 @@
+from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth.models import Group, User
 from django.core.management import call_command
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.auditoria.models import RegistroAuditoria
 from apps.cliente.models import Cliente
@@ -263,7 +265,7 @@ class HistoricoTests(Base):
     def test_filtros_de_entrega_e_leitura(self):
         enviar_notificacao(self.requisicao(), {"titulo": "A", "mensagem": "m", "tipo_destinatario": "todos"})
         DestinatarioNotificacao.objects.filter(usuario=self.op_b).update(status_entrega="falha")
-        DestinatarioNotificacao.objects.filter(usuario=self.gestor_a).update(lida_em="2026-01-01T10:00:00Z")
+        DestinatarioNotificacao.objects.filter(usuario=self.gestor_a).update(lida_em=timezone.now())  # recente: lidas há 48 h ou mais somem
         self.assertEqual({i.usuario.username for i in self.itens(situacao="nao-entregues")}, {"op_b"})
         self.assertEqual(len(self.itens(situacao="entregues")), 3)
         self.assertEqual({i.usuario.username for i in self.itens(situacao="lidas")}, {"gestor_a"})
@@ -351,3 +353,82 @@ class AtualizacaoAutomaticaTests(Base):
         resposta = self.client.get(reverse("notificacao-minhas"))
         self.assertContains(resposta, 'id="sino-notificacoes"')
         self.assertContains(resposta, "notificacoes-sino.js")
+
+
+class RetencaoDasLidasTests(Base):
+    """Lidas somem 48 h depois de lidas; não lidas nunca expiram."""
+
+    def _item(self, user, lida_ha_horas=None):
+        n = Notificacao.objects.create(titulo="T", mensagem="M", tipo_destinatario=Notificacao.DESTINO_USUARIOS)
+        item = DestinatarioNotificacao.objects.create(notificacao=n, usuario=user)
+        if lida_ha_horas is not None:
+            item.lida_em = timezone.now() - timedelta(hours=lida_ha_horas)
+            item.save()
+        return item
+
+    def test_comando_remove_so_lidas_ha_48h_ou_mais(self):
+        velha = self._item(self.gestor_a, 49)
+        recente = self._item(self.gestor_a, 47)
+        nao_lida = self._item(self.gestor_a)
+        call_command("limpar_notificacoes_lidas", verbosity=0)
+        self.assertFalse(DestinatarioNotificacao.objects.filter(pk=velha.pk).exists())
+        self.assertFalse(Notificacao.objects.filter(pk=velha.notificacao_id).exists())  # mensagem órfã também sai
+        self.assertTrue(DestinatarioNotificacao.objects.filter(pk=recente.pk).exists())
+        self.assertTrue(DestinatarioNotificacao.objects.filter(pk=nao_lida.pk).exists())
+
+    def test_expirada_nao_aparece_antes_da_limpeza(self):
+        self._item(self.gestor_a, 60)
+        visivel = self._item(self.gestor_a)
+        self.client.force_login(self.gestor_a)
+        dados = self.client.get(reverse("notificacao-resumo")).json()
+        self.assertEqual(dados["nao_lidas"], 1)
+        self.assertEqual(self.client.get(reverse("notificacao-abrir", args=[visivel.pk])).status_code, 302)
+
+    def test_expirada_nao_pode_ser_aberta(self):
+        velha = self._item(self.gestor_a, 60)
+        self.client.force_login(self.gestor_a)
+        self.assertEqual(self.client.get(reverse("notificacao-abrir", args=[velha.pk])).status_code, 404)
+
+    def test_resumo_traz_mais_de_tres_para_a_lista_rolar(self):
+        for _ in range(6):
+            self._item(self.gestor_a)
+        self.client.force_login(self.gestor_a)
+        self.assertEqual(self.client.get(reverse("notificacao-resumo")).json()["html"].count("<li"), 6)
+
+
+class APIMinhasNotificacoesTests(Base):
+    """API v1: caixa do próprio usuário, com a mesma retenção e o mesmo escopo das telas."""
+
+    def setUp(self):
+        super().setUp()
+        from rest_framework.authtoken.models import Token
+        from rest_framework.test import APIClient
+
+        self.api = APIClient()
+        self.api.credentials(HTTP_AUTHORIZATION=f"Bearer {Token.objects.get_or_create(user=self.gestor_a)[0].key}")
+
+    def _item(self, user, lida_ha_horas=None):
+        return RetencaoDasLidasTests._item(self, user, lida_ha_horas)
+
+    def test_lista_resumo_e_ler_apenas_as_proprias(self):
+        minha, expirada, alheia = self._item(self.gestor_a), self._item(self.gestor_a, 60), self._item(self.op_b)
+        itens = self.api.get("/api/v1/notificacoes/").json()["data"]["itens"]
+        self.assertEqual([i["id"] for i in itens], [minha.pk])  # expirada e a de outro usuário não aparecem
+        self.assertEqual(self.api.get("/api/v1/notificacoes/resumo/").json()["data"]["nao_lidas"], 1)
+        self.assertEqual(self.api.post(f"/api/v1/notificacoes/{alheia.pk}/ler/").status_code, 404)
+        self.assertEqual(self.api.post(f"/api/v1/notificacoes/{expirada.pk}/ler/").status_code, 404)
+        alheia.refresh_from_db()
+        self.assertIsNone(alheia.lida_em)
+        self.assertEqual(self.api.post(f"/api/v1/notificacoes/{minha.pk}/ler/").status_code, 200)
+        minha.refresh_from_db()
+        self.assertIsNotNone(minha.lida_em)  # o prazo de 48 h começa aqui
+
+    def test_ler_todas_so_atinge_as_do_usuario_e_exige_login(self):
+        minha, alheia = self._item(self.gestor_a), self._item(self.op_b)
+        self.assertEqual(self.api.post("/api/v1/notificacoes/ler-todas/").status_code, 200)
+        minha.refresh_from_db(), alheia.refresh_from_db()
+        self.assertIsNotNone(minha.lida_em)
+        self.assertIsNone(alheia.lida_em)
+        from rest_framework.test import APIClient
+
+        self.assertEqual(APIClient().get("/api/v1/notificacoes/").status_code, 401)

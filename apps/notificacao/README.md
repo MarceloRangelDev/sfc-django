@@ -107,3 +107,22 @@ M2M `notificacao_notificacao_segmentos` (→ `modulo_segmento`) e `notificacao_n
 ## Notificações geradas pelo sistema
 
 `services.enviar_para_usuarios(titulo, mensagem, link, usuarios)` cria e entrega uma notificação **sem solicitante** (alertas de estoque, por exemplo): o chamador define os usuários e garante o escopo (ex.: só a própria unidade). Reaproveita a mesma entrega por canais (`_entregar`) e o histórico de `DestinatarioNotificacao`; não gera auditoria de criação, pois não é ação de usuário.
+
+
+## Sino com rolagem e retenção das lidas (48 h)
+
+**Sino.** A lista da navbar (`#sino-lista`) mostra as 10 notificações mais recentes (`resumo_do_usuario(limite=10)`). Com **mais de 3** itens ganha barra de rolagem (`ajustarRolagem()` em `src/assets/js/notificacoes-sino.js` mede a altura dos 3 primeiros itens com o menu aberto e a usa como altura máxima; `#sino-lista` tem `overflow-y: auto` em `demo.css`); com 3 ou menos continua com a altura natural. O contador de não lidas é sempre o total real, não o das 10 listadas.
+
+**Retenção.** Uma notificação **lida** é removida **48 horas depois do momento em que foi lida** (`DestinatarioNotificacao.lida_em`; constante `RETENCAO_LIDAS` em `models.py`). Não lidas **nunca** expiram e o prazo só começa quando `lida_em` é gravado. A regra vale por destinatário (cada pessoa tem a sua leitura e o seu prazo).
+
+- **Remoção no servidor, independente de tela aberta:** `python manage.py limpar_notificacoes_lidas` → `services.limpar_lidas_expiradas()` apaga os destinatários expirados e as `Notificacao` que ficaram sem nenhum destinatário. **Agende a cada hora** (cron `0 * * * * python manage.py limpar_notificacoes_lidas` ou Agendador de Tarefas do Windows). É idempotente e seguro repetir.
+- **Filtro nas consultas:** `DestinatarioNotificacao.objects.vigentes()` exclui as expiradas; sino, "minhas notificações", abrir e histórico o usam. Assim uma notificação expirada nunca aparece, nem pode ser aberta (404), mesmo que o agendamento ainda não tenha rodado.
+- **Escopo preservado:** continua tudo filtrado por `usuario=request.user` (sino, minhas, abrir) ou por `usuarios_acessiveis` (histórico do administrador); a limpeza só atinge linhas com `lida_em` preenchido e vencido.
+- **Banco:** nenhuma coluna nova foi necessária — `lida_em` já existia e já era gravada ao abrir/marcar como lida. Registros antigos já lidos têm `lida_em` real, então expiram 48 h após a leitura de verdade (com a primeira execução do comando, os lidos há mais de 48 h são apagados; não há tabela nem migração a aplicar). Não há exclusão em cascata de outras tabelas além da mensagem órfã.
+- Consequência: o **histórico de envios** (tela do administrador) deixa de listar destinatários cujas notificações já foram lidas há mais de 48 h.
+
+Testes: `python manage.py test apps.notificacao` (inclui `RetencaoDasLidasTests`).
+
+### API (app mobile)
+
+`GET /api/v1/notificacoes/` (`?situacao=lidas|nao-lidas`) · `GET /api/v1/notificacoes/resumo/` · `POST /api/v1/notificacoes/{id}/ler/` · `POST /api/v1/notificacoes/ler-todas/`. Só login; cada usuário alcança apenas as próprias (outro id = 404); as expiradas não aparecem. Código em `apps/api/notificacoes.py`. O envio de notificações continua só pela tela.

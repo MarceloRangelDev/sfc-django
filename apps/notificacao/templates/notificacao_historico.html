@@ -136,3 +136,8 @@
 </nav>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('notificacoes-historico');</script>
+{% endblock page_js %}

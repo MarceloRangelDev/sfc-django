@@ -43,6 +43,8 @@ class Adaptador:
     campos_credenciais = ()
     # [(nome, rótulo)]: configuração NÃO secreta (id do calendário, número, URL base...)
     campos_config = ()
+    # Como `campos_config`, mas NÃO obrigatórios (recursos extras do provedor; conexões antigas continuam válidas sem eles).
+    campos_config_opcionais = ()
     usa_oauth = False
     suporta_webhook = False
     so_tarefas = False  # publica/importa APENAS compromissos do tipo tarefa (sem vencimentos de contas) — ex.: Google Tarefas
@@ -84,6 +86,22 @@ class Adaptador:
     def interpretar_webhook(self, conexao, payload):
         """payload JSON -> [{"id", "tipo", "de", "texto", "quando"}] (um por evento recebido)."""
         return []
+
+    # --- templates de mensagem (WhatsApp oficial) ------------------------------------
+    def listar_templates(self, conexao, credenciais):
+        raise NaoSuportado("Este provedor não tem templates de mensagem.")
+
+    def criar_template(self, conexao, credenciais, template):
+        raise NaoSuportado("Este provedor não tem templates de mensagem.")
+
+    def atualizar_template(self, conexao, credenciais, id_externo, template):
+        raise NaoSuportado("Este provedor não tem templates de mensagem.")
+
+    def obter_template(self, conexao, credenciais, id_externo):
+        raise NaoSuportado("Este provedor não tem templates de mensagem.")
+
+    def excluir_template(self, conexao, credenciais, nome, id_externo=None):
+        raise NaoSuportado("Este provedor não tem templates de mensagem.")
 
     # --- agenda ----------------------------------------------------------------------
     def criar_evento(self, conexao, credenciais, evento):

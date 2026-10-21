@@ -80,10 +80,10 @@ def enviar_para_usuarios(titulo, mensagem, link, usuarios):
     return notificacao, entregues, falhas
 
 
-def resumo_do_usuario(usuario, limite=5):
+def resumo_do_usuario(usuario, limite=10):
     """Dados do sino da navbar: (quantidade de não lidas, últimas notificações).
     Sempre restrito ao PRÓPRIO usuário (usado pela página e pela atualização automática)."""
-    itens = DestinatarioNotificacao.objects.filter(usuario=usuario)
+    itens = DestinatarioNotificacao.objects.vigentes().filter(usuario=usuario)
     return itens.filter(lida_em__isnull=True).count(), list(itens.select_related("notificacao")[:limite])
 
 
@@ -109,3 +109,16 @@ def marcar_todas_como_lidas(usuario):
         status_entrega=DestinatarioNotificacao.ENTREGA_ENTREGUE, entregue_em=agora, erro_entrega=""
     )
     pendentes.update(lida_em=agora)
+
+
+def limpar_lidas_expiradas():
+    """Apaga as notificações lidas há 48 h ou mais (rodada pelo comando agendado
+    `limpar_notificacoes_lidas`, não depende de tela aberta). Só atinge linhas com
+    `lida_em` preenchido; não lidas ficam intactas. Remove também a mensagem
+    (`Notificacao`) que ficou sem nenhum destinatário. Devolve quantos destinatários saíram."""
+    with transaction.atomic():
+        expiradas = DestinatarioNotificacao.objects.expiradas()
+        mensagens = list(expiradas.values_list("notificacao_id", flat=True).distinct())
+        removidos, _ = expiradas.delete()
+        Notificacao.objects.filter(pk__in=mensagens, destinatarios__isnull=True).delete()
+    return removidos

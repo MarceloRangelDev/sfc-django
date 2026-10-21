@@ -47,3 +47,8 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('fiscal-documentos');</script>
+{% endblock page_js %}

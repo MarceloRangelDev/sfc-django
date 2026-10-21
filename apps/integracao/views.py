@@ -27,9 +27,10 @@ from web_project.mixins import ClienteScopedMixin, ListaPaginadaMixin, ListaPorU
 from web_project.regras import RegraNegocioError
 
 from . import services as s
+from . import templates_whatsapp as tw
 from .adaptadores import disponiveis, obter
-from .forms import CompromissoForm, MensagemForm, formulario_conexao, separar
-from .models import Compromisso, Conexao, LogIntegracao, Mensagem
+from .forms import BOTOES_NA_TELA, CompromissoForm, MensagemForm, TemplateWhatsAppForm, formulario_conexao, separar
+from .models import Compromisso, Conexao, LogIntegracao, Mensagem, TemplateWhatsApp
 
 LIMITE_WEBHOOK = (300, 60)  # 300 chamadas por minuto por conexão e IP
 
@@ -472,3 +473,101 @@ class CompromissoUpdateView(_CompromissoForm, AuditoriaFormMixin, ClienteScopedM
     def form_valid(self, form):
         messages.success(self.request, "Compromisso atualizado.")
         return super().form_valid(form)
+
+
+# --------------------------------------------------------------------------
+# Templates do WhatsApp Business (API oficial da Meta)
+# --------------------------------------------------------------------------
+
+def _conexoes_templates(request, acao="view"):
+    """Conexões do WhatsApp oficial da unidade (e filiais autorizadas) do usuário: o ÚNICO ponto de onde a tela escolhe uma conexão."""
+    return Conexao.objects.filter(provedor="whatsapp_cloud", cliente__in=clientes_dos_itens(request.user, acao)).select_related("cliente")
+
+
+def _template(request, pk, acao="view"):
+    return get_object_or_404(TemplateWhatsApp.objects.select_related("conexao", "conexao__cliente"), pk=pk, conexao__cliente__in=clientes_dos_itens(request.user, acao))
+
+
+class TemplateListView(View):
+    def get(self, request):
+        conexoes = _conexoes_templates(request)
+        consulta = TemplateWhatsApp.objects.filter(conexao__in=conexoes).select_related("conexao")
+        filtros = {"conexao": request.GET.get("conexao", ""), "status": request.GET.get("status", "")}
+        if filtros["conexao"].isdigit():
+            consulta = consulta.filter(conexao_id=filtros["conexao"])
+        if filtros["status"] == "rascunho":
+            consulta = consulta.filter(situacao_local=TemplateWhatsApp.RASCUNHO)
+        elif filtros["status"]:
+            consulta = consulta.filter(status_meta=filtros["status"].upper())
+        pagina = Paginator(consulta, 25).get_page(request.GET.get("page"))
+        return _pagina(self, request, "template_whatsapp_lista.html", {
+            "templates_wa": pagina, "page_obj": pagina, "conexoes": conexoes, "filtros": filtros,
+            "pode_criar": request.user.has_perm("integracao.add_templatewhatsapp"), "pode_alterar": request.user.has_perm("integracao.change_templatewhatsapp"),
+            "pode_excluir": request.user.has_perm("integracao.delete_templatewhatsapp"),
+        })
+
+
+class TemplateFormView(View):
+    """Criar (rascunho local) e editar o conteúdo. Nada vai à Meta aqui: o envio é uma ação explícita separada."""
+
+    def _render(self, request, form, template=None):
+        return _pagina(self, request, "template_whatsapp_form.html", {"form": form, "template_wa": template, "botoes_na_tela": range(1, BOTOES_NA_TELA + 1)})
+
+    def get(self, request, pk=None):
+        if pk is None:
+            return self._render(request, TemplateWhatsAppForm(conexoes=_conexoes_templates(request, "add")))
+        t = _template(request, pk, "change")
+        return self._render(request, TemplateWhatsAppForm(initial=TemplateWhatsAppForm.inicial(t), conexoes=[t.conexao], travado=t.enviado), t)
+
+    def post(self, request, pk=None):
+        t = _template(request, pk, "change") if pk else None
+        conexoes = [t.conexao] if t else _conexoes_templates(request, "add")
+        form = TemplateWhatsAppForm(request.POST, initial=TemplateWhatsAppForm.inicial(t) if t else None, conexoes=conexoes, travado=bool(t and t.enviado))
+        if form.is_valid():
+            try:
+                if t:
+                    tw.editar_local(request, t, form.dados())
+                else:
+                    # A conexão vem do POST, mas só vale se estiver entre as autorizadas (as `choices` já a limitam; conferimos de novo no banco).
+                    conexao = get_object_or_404(_conexoes_templates(request, "add"), pk=form.cleaned_data["conexao"])
+                    t = tw.criar_local(request, conexao, form.dados())
+            except RegraNegocioError as erro:
+                form.add_error(None, str(erro))
+            else:
+                messages.success(request, "Template salvo aqui. Ele ainda não foi enviado à Meta." if not t.enviado else "Alterações salvas aqui. Envie à Meta para aplicá-las.")
+                return redirect("template-whatsapp-list")
+        return self._render(request, form, t)
+
+
+class TemplateAcaoView(View):
+    """POST: enviar (cria/atualiza na Meta) | excluir (na Meta e aqui). Permissão de cada ação conferida aqui e a unidade pelo escopo da consulta."""
+
+    def post(self, request, pk, acao):
+        if acao not in ("enviar", "excluir"):
+            raise Http404
+        permissao = "change" if acao == "enviar" else "delete"
+        if not request.user.has_perm(f"integracao.{permissao}_templatewhatsapp"):
+            raise PermissionDenied
+        t = _template(request, pk, permissao)
+        try:
+            if acao == "enviar":
+                t = tw.enviar_para_meta(request, t)
+                messages.success(request, f"Enviado à Meta. Status informado por ela: {t.status_meta or 'sem retorno'}.")
+            else:
+                tw.excluir(request, t)
+                messages.success(request, "Template excluído.")
+        except RegraNegocioError as erro:
+            messages.error(request, str(erro))
+        return redirect("template-whatsapp-list")
+
+
+class TemplateSincronizarView(View):
+    def post(self, request):
+        pk = request.POST.get("conexao", "")
+        conexao = get_object_or_404(_conexoes_templates(request, "change"), pk=pk if pk.isdigit() else 0)
+        try:
+            resumo = tw.sincronizar(request, conexao)
+            messages.success(request, f"Sincronizado com a Meta: {resumo['importados']} novo(s), {resumo['atualizados']} atualizado(s), {resumo['ausentes']} não encontrado(s) lá.")
+        except RegraNegocioError as erro:
+            messages.error(request, str(erro))
+        return redirect("template-whatsapp-list")

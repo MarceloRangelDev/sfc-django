@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, notificacoes, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -38,6 +38,8 @@ router.register("pdv/comandas", pdv.ComandaViewSet, basename="api-pdv-comanda")
 router.register("pedidos", pedidos.PedidoViewSet, basename="api-pedido")
 router.register("integracoes", integracoes.ConexaoViewSet, basename="api-integracao")
 router.register("mensagens", integracoes.MensagemViewSet, basename="api-mensagem")
+router.register("whatsapp-templates", integracoes.TemplateWhatsAppViewSet, basename="api-whatsapp-template")
+router.register("notificacoes", notificacoes.MinhasNotificacoesViewSet, basename="api-notificacao")
 router.register("compromissos", integracoes.CompromissoViewSet, basename="api-compromisso")
 router.register("fiscal/documentos", fiscal.DocumentoFiscalViewSet, basename="api-documento-fiscal")
 router.register("colaboradores", maodeobra.ColaboradorViewSet, basename="api-colaborador")

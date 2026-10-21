@@ -128,3 +128,8 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('usuarios');</script>
+{% endblock page_js %}

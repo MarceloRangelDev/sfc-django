@@ -304,7 +304,7 @@ Detalhes técnicos do desenho original em `Group-ACL.md`. Cada app tem um `READM
 
 ### Notificações e tours
 
-- **Notificações** (`apps/notificacao`): envio para todos, por segmento ou usuários específicos (com tela de confirmação), histórico com filtros/paginação e o sino da navbar com contador e "Ver todas as notificações". A entrega é feita por *canais* (`canais.py`): hoje Web Push; o FCM (mobile) entra como um novo canal.
+- **Notificações** (`apps/notificacao`): envio para todos, por segmento ou usuários específicos (com tela de confirmação), histórico com filtros/paginação e o sino da navbar com contador, rolagem quando há mais de 3 itens e "Ver todas as notificações". Notificações **lidas são removidas 48 h depois de lidas** (comando `limpar_notificacoes_lidas`). A entrega é feita por *canais* (`canais.py`): hoje Web Push; o FCM (mobile) entra como um novo canal.
 - **Tours** (`apps/tour`): `initTour({page, steps})` em qualquer tela; "Não mostrar novamente" é salvo por usuário.
 
 ---
@@ -594,6 +594,25 @@ python manage.py seed_acl         # permissões padrão por perfil (transferênc
 Depois do `migrate`, um `post_migrate` completa as permissões padrão dos perfis para o módulo novo (só acrescenta) e normaliza insumos gerados por processados. **Rollback**: `python manage.py migrate <app> <migration anterior>`; nenhuma migration apaga dados (a tabela `custo_custorateio` foi mantida, sem uso). Antes de produção, faça backup do banco. Cada tabela/coluna afetada está descrita no README do app (`apps/insumo`, `apps/estoque`, `apps/custo`, `apps/precificacao`, `apps/ficha`).
 
 As migrations de tabelas que antes eram só "âncora" de permissão (produto, ficha, precificação, processado) **param com mensagem** se houver registros antigos sem dono, em vez de inventar dados. Módulos novos de negócio são habilitados para clientes que já têm segmento, sem sobrescrever vínculos existentes; para um ajuste manual use `python manage.py seed_modulos`.
+
+### Atualização: Evolution API, templates do WhatsApp, retenção de notificações e tours
+
+```bash
+python manage.py migrate integracao      # 0005 e 0006 (aditivas; 0006 cria a tabela e as permissões dos templates)
+```
+
+| App | Migration | O que faz | Reversível |
+|---|---|---|---|
+| `integracao` | `0005_provedor_whatsapp_evolution` | só atualiza as `choices` de `integracao_conexao.provedor` (provedor `whatsapp_evolution`); sem mudança de esquema | sim |
+| `integracao` | `0006_template_whatsapp` | cria `integracao_templatewhatsapp` (colunas, chaves e índices no `apps/integracao/README.md`) e concede `*_templatewhatsapp` ao Administrador (4) e ao Gestor (3) | sim (remove a tabela; as permissões ficam órfãs e inofensivas) |
+
+Notificações **não** exigem migração: a coluna `lida_em` já existia. Agende o novo comando (a cada hora):
+
+| Comando | Para que serve |
+|---|---|
+| `limpar_notificacoes_lidas` | apaga as notificações lidas há 48 h ou mais (as expiradas já não aparecem nas telas/API mesmo antes de rodar) |
+
+Detalhes: Evolution API e templates em `apps/integracao/README.md` e `apps/integracao/GUIA_INTEGRACOES.md` (seções 1 e 2A); retenção em `apps/notificacao/README.md`; tours em `apps/tour/README.md`. A API nova (`/api/v1/whatsapp-templates/`, `/api/v1/notificacoes/`) está no Swagger (`/api/docs/`).
 
 ### Rotinas agendáveis (cron) e configurações
 
