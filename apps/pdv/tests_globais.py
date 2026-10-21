@@ -272,3 +272,17 @@ class CatalogoPdvTests(PdvBase):
         api = APIClient()
         api.credentials(HTTP_AUTHORIZATION=f"Bearer {Token.objects.get_or_create(user=usuario)[0].key}")
         return api
+
+
+class AdministradorSemClienteDoSistemaTests(GlobaisBase):
+    """Em produção pode não existir cliente marcado como `sistema`: o administrador global ainda precisa ver e usar os campos globais."""
+
+    def test_campos_globais_aparecem_para_administrador_de_qualquer_unidade(self):
+        Cliente.objects.filter(sistema=True).update(sistema=False)
+        self.assertContains(self.client.get(reverse("forma-pagamento-create")), "id_eh_global")
+        self.assertContains(self.client.get(reverse("canal-create")), "id_eh_global")
+        r = self.client.post(reverse("forma-pagamento-create"), {"nome": "Global S/ sistema", "tipo": "outro", "taxa_modo": "sem_taxa", "ativo": "on", "eh_global": "on", "segmentos": [self.produto.pk]})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(FormaPagamento.objects.get(nome="Global S/ sistema").eh_global)
+        self.client.force_login(self.gestor)  # o cliente do segmento liberado já enxerga
+        self.assertContains(self.client.get(reverse("forma-pagamento-list")), "Global S/ sistema")

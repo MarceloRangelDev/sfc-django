@@ -43,9 +43,9 @@ Impacto em dados existentes: nenhum.
 
 Além das formas de cada unidade, o **administrador do sistema** pode cadastrar um canal **global**, disponível para uso por todos os clientes dos **segmentos** escolhidos. Regras (código comum em `web_project/globais.py`):
 
-- O item global continua tendo dono (`cliente` = cliente do sistema, onde o Administrador vive) e ganha `eh_global` + a lista `segmentos`. Quem não é o dono não alcança o item pelo escopo normal de edição (`clientes_dos_itens`): editar/excluir um global de outro dono responde **404**; o dono que não é administrador também **não consegue salvar alteração** (formulário recusa).
+- O item global continua tendo dono (`cliente` = a unidade do administrador que o cadastrou) e ganha `eh_global` + a lista `segmentos`. Quem não é o dono não alcança o item pelo escopo normal de edição (`clientes_dos_itens`): editar/excluir um global de outro dono responde **404**; o dono que não é administrador também **não consegue salvar alteração** (formulário recusa).
 - **Visibilidade para uso** é outra regra, só de leitura: o item aparece para o cliente C se `item.cliente == C` **ou** (`item.eh_global` e o segmento de C está em `item.segmentos`). Vale nas listas (selo “Global”, sem botão de editar), nas escolhas da Precificação e na API (`somente_leitura: true`).
-- Os campos `eh_global`/`segmentos` só existem no formulário/API para o administrador editando itens do cliente do sistema; para os demais são removidos (valor enviado à mão é ignorado). Global exige ao menos um segmento.
+- Os campos `eh_global`/`segmentos` só existem no formulário/API para o administrador do sistema (superusuário ou grupo Administrador, com uma unidade); para os demais são removidos (valor enviado à mão é ignorado). Global exige ao menos um segmento.
 - Tirar um segmento **não apaga** o que já foi feito (precificações e vendas continuam); só deixa de poder ser escolhido de novo. Alterar as taxas de um forma de pagamento global refaz as precificações de **todos** os clientes que o usam (`recalcular_do_canal`); se alguma ficar inviável, a edição é recusada.
 - Migração `0002_escopo_global`: `eh_global` (bool, padrão falso, `db_default`) e a tabela M2M `*_segmentos`. Itens existentes ficam **não globais** (nada muda).
 

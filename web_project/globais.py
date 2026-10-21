@@ -1,7 +1,7 @@
 """Itens GLOBAIS (canais de venda e formas de pagamento): cadastrados uma vez pelo administrador do sistema e liberados a clientes
 por SEGMENTO.
 
-Modelo: o item global continua tendo um dono (`cliente` = cliente do sistema, onde o Administrador vive), uma marca `eh_global` e a lista
+Modelo: o item global continua tendo um dono (`cliente` = a unidade do administrador que o cadastrou), uma marca `eh_global` e a lista
 `segmentos` liberados. Assim a regra de edição não muda: quem não é o dono nunca alcança o item pelo escopo normal
 (`clientes_dos_itens`) e recebe 404 ao tentar editar. A visibilidade para uso (listar, escolher na precificação, receber no PDV) é uma
 regra SEPARADA e só de leitura, concentrada aqui:
@@ -35,14 +35,16 @@ def q_globais_do_usuario(modelo, user):
 
 class GlobalFormMixin:
     """Campos `eh_global` e `segmentos` nos formulários de canal/forma de pagamento. Só aparecem (e só valem) para o administrador do
-    sistema editando itens do cliente do sistema; para os demais são removidos do formulário, então valor enviado à mão é ignorado.
+    sistema (superusuário ou grupo Administrador, com uma unidade); para os demais são removidos do formulário, então valor enviado à mão é ignorado.
     Quem não é administrador também não consegue salvar alterações num item que já seja global (mesmo sendo o dono)."""
 
     def configurar_global(self, solicitante, cliente):
         from apps.modulo.models import Segmento
 
         self.solicitante = solicitante
-        pode = bool(solicitante and administrador_global(solicitante) and cliente is not None and cliente.sistema)
+        # Basta ser administrador global (superusuário ou grupo Administrador) com uma unidade: o item global fica na unidade DELE. Não se
+        # exige o cliente marcado como "sistema" (essa marca pode nem existir em produção, e escondia os campos de quem tem o acesso).
+        pode = bool(solicitante and administrador_global(solicitante) and cliente is not None)
         if pode:
             self.fields["segmentos"].queryset = Segmento.objects.filter(ativo=True)
             self.fields["segmentos"].required = False
