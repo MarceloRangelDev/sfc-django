@@ -316,3 +316,29 @@ class AdminSomenteNoClienteDoSistemaTests(EstruturaBase):
         self.assertEqual(api.post("/api/v1/usuarios/", corpo, format="json").status_code, 400)
         corpo["cliente"] = self.sistema.pk
         self.assertEqual(api.post("/api/v1/usuarios/", corpo, format="json").status_code, 201)
+
+
+class LinkDeSenhaDoUsuarioInicialTests(EstruturaBase):
+    """O link do e-mail enviado ao responsável do cliente novo precisa abrir o formulário de nova senha (e permitir definir a senha)."""
+
+    def test_link_do_email_abre_o_formulario_e_define_a_senha(self):
+        import re
+
+        from django.core import mail
+        from django.test import override_settings
+
+        admin = novo_usuario("adm2", self.matriz_a, "Administrador")
+        self.client.login(username="adm2", password=SENHA)
+        dados = {"tipo_pessoa": "PJ", "cpf_cnpj": "07526557000100", "nome_razao_social": "Cliente Novo Ltda", "nome_fantasia": "", "ativo": "on", "tipo_estabelecimento": "matriz",
+                 "segmento": Segmento.objects.get(slug="produto").pk, "email_gestor": "resp@novo.local", "usuario_nome": "Resp", "usuario_username": "resp_novo"}
+        with override_settings(BASE_URL="https://app.exemplo.com/"), self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("cliente-create"), dados)
+        self.assertEqual(len(mail.outbox), 1)
+        link = re.search(r"https://app\.exemplo\.com(/reset_password/[^\s\"<]+)", mail.outbox[0].body).group(1)
+        self.assertNotIn("//", link)
+        self.client.logout()
+        resposta = self.client.get(link)
+        self.assertEqual(resposta.status_code, 200)  # formulário de nova senha (não 404, nem redireciona por token inválido)
+        resposta = self.client.post(link, {"password": "NovaSenha#12345", "confirm-password": "NovaSenha#12345"})
+        self.assertEqual(resposta.status_code, 302)
+        self.assertTrue(User.objects.get(username="resp_novo").check_password("NovaSenha#12345"))

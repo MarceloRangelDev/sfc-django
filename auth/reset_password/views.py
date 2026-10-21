@@ -36,7 +36,7 @@ class ResetPasswordView(AuthView):
             )
             return redirect("forgot-password")
 
-        return render(request, self.template_name, {"token": token})
+        return render(request, self.template_name, self.get_context_data(token=token))  # inclui layout_path (o template estende dele)
 
     def post(self, request, token):
         profile = self._get_valid_profile(token)
@@ -52,11 +52,11 @@ class ResetPasswordView(AuthView):
 
         if not (new_password and confirm_password):
             messages.error(request, "Preencha todos os campos.")
-            return render(request, self.template_name, {"token": token})
+            return render(request, self.template_name, self.get_context_data(token=token))  # inclui layout_path (o template estende dele)
 
         if new_password != confirm_password:
             messages.error(request, "As senhas não coincidem.")
-            return render(request, self.template_name, {"token": token})
+            return render(request, self.template_name, self.get_context_data(token=token))  # inclui layout_path (o template estende dele)
 
         # O serviço valida a força da senha (AUTH_PASSWORD_VALIDATORS), troca a
         # senha e invalida o token (uso único) numa transação.
@@ -64,7 +64,7 @@ class ResetPasswordView(AuthView):
             user = redefinir_senha(token, new_password)
         except ErroDeAutenticacao as erro:
             messages.error(request, erro.mensagem)
-            return render(request, self.template_name, {"token": token})
+            return render(request, self.template_name, self.get_context_data(token=token))  # inclui layout_path (o template estende dele)
 
         authenticated_user = authenticate(request, username=user.username, password=new_password)
         if authenticated_user:
