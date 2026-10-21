@@ -84,7 +84,7 @@ class ApontamentoForm(forms.ModelForm):
             filtro |= Q(pk=self.instance.colaborador_id)
         self.fields["colaborador"].queryset = Colaborador.objects.filter(filtro).order_by("nome")
         self.fields["colaborador"].empty_label = "Selecione..."
-        filtro_servico = Q(cliente__in=escopo, ativo=True)
+        filtro_servico = Q(cliente__in=escopo, ativo=True, tipo=Produto.SERVICO)
         if self.instance.pk and self.instance.servico_id:
             filtro_servico |= Q(pk=self.instance.servico_id)
         self.fields["servico"].queryset = Produto.objects.filter(filtro_servico).order_by("nome")

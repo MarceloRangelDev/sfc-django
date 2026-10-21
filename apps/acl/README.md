@@ -41,3 +41,12 @@ Telas para criar/editar **Papéis** (`auth.Group`) e marcar, numa matriz *módul
 | permissões padrão de cada perfil | `apps/acl/padroes.py` (usado por `seed_acl`) |
 | permissões ao habilitar módulo | automático: `aplicar_padrao_aos_modulos` roda ao salvar "Módulos do cliente", ao criar cliente, no `seed_modulos` e após o `migrate`; só **acrescenta** e só em módulos cujo perfil padrão ainda não tem nenhuma permissão (respeita configuração existente; perfis personalizados nunca são tocados) |
 | esconder/mostrar um perfil | `web_project/acesso.py::perfis_visiveis` |
+
+
+## Papéis: “Outras permissões” recolhido
+
+Na tela de papéis o grupo **Outras permissões** (ações específicas e módulos de apoio) começa **recolhido**, com o interruptor acessível “Mostrar outras permissões” (`aria-controls`/`aria-expanded`, rótulo associado) e um contador das marcadas. O bloco só fica escondido com `d-none`: as caixas continuam no formulário, então **salvar com o grupo fechado preserva exatamente as marcações já salvas** (teste `OutrasPermissoesRecolhidasTests`).
+
+### Como segmento, módulo, papel e permissão especial se combinam (revisão)
+
+`Usuário → Cliente → Segmento → Módulo habilitado → permissão do papel`: (1) o módulo precisa estar no **segmento** do cliente e **habilitado** para ele (módulos *essenciais* — Configurações, Agenda, Fiscal, **Orçamentos** — dependem só da permissão); (2) a permissão vem dos **papéis** do usuário (`Group`), com a regra padrão por perfil (`padroes.py`: Administrador tudo; Gestor ver/criar/alterar; Operador ver/criar; Visualizador ver) mais as permissões **especiais** de `EXTRAS` (ex.: `orcamento.enviar_orcamento` para Administrador e Gestor); (3) o servidor confere os dois (`module_required` + permissão) em toda rota e endpoint; a interface só esconde. Módulos novos entram: no catálogo (`seed_modulos` + migração `modulo.00NN`), em `SCREEN_APPS` (permissões padrão) e numa migração do próprio app que concede as permissões aos perfis **já existentes** (só acrescenta). Para o **Orçamento**: `modulo.0024_modulo_orcamento` e `orcamento.0001_initial`.

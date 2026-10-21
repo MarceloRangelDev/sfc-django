@@ -337,7 +337,13 @@ def tratar_webhook(conexao, cabecalhos, corpo):
 
 def _hash(evento):
     # "concluido" só entra no hash dos adaptadores que o sincronizam (os demais mantêm o hash antigo: nada é reenviado à toa).
-    base = {k: str(evento.get(k)) for k in ("titulo", "descricao", "inicio", "fim", "todo_o_dia", "concluido") if k != "concluido" or k in evento}
+    # Instantes entram sempre em UTC: o Google devolve "14:00-03:00" e o banco "17:00+00:00" para o MESMO instante; comparar o texto cru
+    # fazia todo evento com hora parecer "alterado" a cada sincronização (e ser reenviado). (Na 1ª sincronização após esta correção cada
+    # item existente pode ser reescrito uma vez, com o mesmo conteúdo.)
+    def texto(valor):
+        return valor.astimezone(tz.utc).isoformat() if isinstance(valor, datetime) and valor.tzinfo else str(valor)
+
+    base = {k: texto(evento.get(k)) for k in ("titulo", "descricao", "inicio", "fim", "todo_o_dia", "concluido") if k != "concluido" or k in evento}
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
 
 
@@ -368,10 +374,12 @@ def eventos_locais(conexao, hoje=None):
         compromissos = compromissos.filter(tipo=Compromisso.TAREFA)
     for c in compromissos:
         evento = {"titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia}
+        if c.todo_o_dia:  # só a DATA vale (a do calendário, não a do instante UTC): evita o evento cair um dia antes/depois no provedor
+            evento.update(inicio=_dia(c.data_inicial), fim=_dia(c.data_final, True))
         if adaptador.so_tarefas:  # a API de tarefas só guarda a DATA: publica como dia inteiro (data local) para o hash bater com o que volta
             # Dia inteiro (inclusive o importado do provedor, guardado em 00:00 UTC) usa a data UTC; compromisso com hora usa a data local.
-            dia = _dia((c.inicio.astimezone(tz.utc) if c.todo_o_dia else timezone.localtime(c.inicio)).date())
-            evento.update(inicio=dia, fim=dia, todo_o_dia=True)
+            data = c.data_inicial if c.todo_o_dia else timezone.localtime(c.inicio).date()
+            evento.update(inicio=_dia(data), fim=_dia(data, True), todo_o_dia=True)  # mesma forma (00:00/23:59 UTC) da importação
         if adaptador.sincroniza_conclusao:
             evento["concluido"] = c.concluido
         eventos[("compromisso", c.pk)] = evento
@@ -451,8 +459,12 @@ def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
             inicio, fim = _interpretar_data(externo["inicio"], externo["todo_o_dia"]), _interpretar_data(externo["fim"], externo["todo_o_dia"])
             if inicio is None or fim is None:
                 continue
-            if externo["todo_o_dia"] and externo["fim"] and fim > inicio:
-                fim = fim - timedelta(days=1)  # o fim externo de dia inteiro é exclusivo
+            if externo["todo_o_dia"]:
+                if externo["fim"] and fim > inicio:
+                    fim = fim - timedelta(days=1)  # o fim externo de dia inteiro é exclusivo
+                # Forma única do dia inteiro importado: 00:00 UTC no primeiro dia e 23:59 UTC no último (a mesma que publicamos em
+                # eventos_locais). Sem isto o hash do que puxamos difere do que empurramos e cada sincronização reescreveria o evento.
+                inicio, fim = _dia(inicio.date()), _dia(fim.date(), True)
             conteudo = {"titulo": externo["titulo"], "descricao": externo.get("descricao", ""), "inicio": inicio, "fim": fim, "todo_o_dia": externo["todo_o_dia"]}
             extras = {}
             if adaptador.sincroniza_conclusao:  # tarefas: o estado "concluído" também vem do provedor
@@ -460,10 +472,21 @@ def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
             if adaptador.so_tarefas:
                 extras["tipo"] = Compromisso.TAREFA
             if item is None:
-                c = Compromisso.objects.create(cliente=conexao.cliente, titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim, todo_o_dia=conteudo["todo_o_dia"], origem=Compromisso.EXTERNA, **extras)
-                ItemSincronizado.objects.create(conexao=conexao, tipo_local="compromisso", id_local=c.pk, id_externo=str(externo["id"]), hash_conteudo=_hash(conteudo), etag=externo.get("etag", ""))
-                resumo["importados"] += 1
-                operacoes += 1
+                # O mesmo evento já importado por OUTRA conexão do mesmo provedor desta unidade (ex.: calendário ligado duas vezes) é
+                # vinculado ao compromisso existente, não duplicado. Compromisso + vínculo são gravados juntos (nunca um sem o outro).
+                existente = ItemSincronizado.objects.filter(
+                    conexao__cliente=conexao.cliente, conexao__provedor=conexao.provedor, tipo_local="compromisso", id_externo=str(externo["id"]),
+                ).exclude(conexao=conexao).first()
+                with transaction.atomic():
+                    id_local = existente.id_local if existente else Compromisso.objects.create(
+                        cliente=conexao.cliente, titulo=conteudo["titulo"][:150], descricao=conteudo["descricao"][:500], inicio=inicio, fim=fim,
+                        todo_o_dia=conteudo["todo_o_dia"], origem=Compromisso.EXTERNA, **extras).pk
+                    novo_item = ItemSincronizado.objects.create(conexao=conexao, tipo_local="compromisso", id_local=id_local, id_externo=str(externo["id"]), hash_conteudo=_hash(conteudo), etag=externo.get("etag", ""))
+                if existente and ("compromisso", id_local) in locais:
+                    mapa[("compromisso", id_local)] = novo_item  # já existe aqui e dentro da janela: o empurrar não deve criá-lo de novo
+                if not existente:
+                    resumo["importados"] += 1
+                    operacoes += 1
             elif item.tipo_local == "compromisso" and item.hash_conteudo != _hash(conteudo):
                 c = Compromisso.objects.filter(pk=item.id_local, cliente=conexao.cliente).first()
                 alterado_externo = _interpretar_data(externo.get("atualizado_em"), False) if externo.get("atualizado_em") else None

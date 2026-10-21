@@ -11,6 +11,7 @@ from django.views.generic import CreateView, ListView, UpdateView
 from apps.auditoria.utils import registrar as registrar_auditoria
 from apps.auditoria.utils import tirar_foto
 from apps.canal.models import CanalVenda
+from web_project.globais import q_globais_do_usuario
 from apps.categoria.models import Categoria
 from apps.custo.services import custo_operacional_da_categoria
 from apps.ficha.models import Ficha
@@ -121,7 +122,7 @@ class PrecificacaoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
             # escolha (static/js/precificacao-lista.js) e a repete na URL, então filtros e páginas a mantêm.
             visao=self.request.GET.get("visao") if self.request.GET.get("visao") in ("tabela", "cartoes") else "tabela",
             produtos=Produto.objects.filter(cliente__in=escopo).order_by("nome"),
-            canais=CanalVenda.objects.filter(cliente__in=escopo).order_by("nome", "descricao"),
+            canais=CanalVenda.objects.filter(Q(cliente__in=escopo) | q_globais_do_usuario(CanalVenda, self.request.user)).distinct().order_by("nome", "descricao"),
             metodos=Precificacao.METODO_CHOICES,
             produto_selecionado=self.request.GET.get("produto", ""),
             categorias=Categoria.objects.filter(cliente__in=escopo).order_by("nome"),
@@ -197,7 +198,7 @@ class PrecificacaoCalcularView(View):
         # A prévia precisa enxergar também as fichas/canais de filiais que o usuário pode ver (edição).
         escopo = clientes_dos_itens(request.user, "view")
         form.fields["ficha"].queryset = Ficha.objects.filter(cliente__in=escopo, ativo=True).select_related("produto")
-        form.fields["canal"].queryset = CanalVenda.objects.filter(cliente__in=escopo, ativo=True)
+        form.fields["canal"].queryset = CanalVenda.objects.filter(Q(cliente__in=escopo) | q_globais_do_usuario(CanalVenda, request.user), ativo=True).distinct()
         valido = form.is_valid()
         resposta = {"erros": {} if valido else {k: v[0] for k, v in form.errors.items()}, "itens": [], "resultado": None}
         ficha = form.cleaned_data.get("ficha") if hasattr(form, "cleaned_data") else None

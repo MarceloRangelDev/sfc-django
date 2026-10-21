@@ -15,9 +15,10 @@ from apps.canal.services import salvar_canal
 from apps.custo.forms import CustoForm
 from apps.custo.models import TIPO_CHOICES, CustoOperacional
 from apps.custo.services import salvar_custo
-from apps.ficha.forms import FichaForm, ItemFormSet as FichaItemFormSet
-from apps.ficha.models import Ficha, FichaItem
+from apps.ficha.forms import FichaForm, ItemFormSet as FichaItemFormSet, MaoDeObraFormSet
+from apps.ficha.models import Ficha, FichaItem, FichaMaoDeObra
 from apps.ficha.services import salvar_ficha
+from apps.maodeobra.models import segmento_permite
 from apps.precificacao.forms import PrecificacaoForm
 from apps.precificacao.models import Precificacao
 from apps.precificacao.services import salvar_precificacao
@@ -26,6 +27,7 @@ from apps.processado.models import LIMITE_OBSERVACOES, LIMITE_RECEITA, Processad
 from apps.processado.services import excluir_processado, salvar_processado
 from apps.produto.forms import ProdutoForm
 from apps.produto.models import Produto
+from web_project.acesso import cliente_do_usuario
 from web_project.documento import exportar_documento, interpretar_booleano
 from web_project.regras.dinheiro import DinheiroService
 
@@ -53,7 +55,7 @@ class ProdutoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Produto
-        fields = ["id", "nome", "descricao", "categoria", "categoria_nome", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "descricao", "categoria", "categoria_nome", "tipo", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
@@ -61,10 +63,12 @@ class ProdutoEntrada(serializers.Serializer):
     nome = serializers.CharField(max_length=150)
     categoria = serializers.IntegerField(help_text="Id da categoria ATIVA da sua empresa (ver /categorias/).")
     descricao = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    tipo = serializers.ChoiceField(choices=[c for c, _ in Produto.TIPO_CHOICES], required=False,
+                                   help_text="produto (padrão) ou servico. Só vale no segmento Serviço e Produto: nos demais o tipo é o do segmento e este campo é ignorado.")
     ativo = serializers.BooleanField(required=False)
 
 
-@documentar("produtos", ProdutoSerializer, ProdutoEntrada, [OpenApiParameter("categoria", int), OpenApiParameter("ordenar", str, description="nome, criado_em (prefixo - = decrescente)")])
+@documentar("produtos", ProdutoSerializer, ProdutoEntrada, [OpenApiParameter("categoria", int), OpenApiParameter("tipo", str, enum=["produto", "servico"], description="Só produtos ou só serviços."), OpenApiParameter("ordenar", str, description="nome, criado_em (prefixo - = decrescente)")])
 class ProdutoViewSet(RecursoViewSet):
     """Produtos da empresa do usuário. DELETE apaga o que não tem uso e apenas DESATIVA o que já tem fichas/precificações."""
 
@@ -72,16 +76,19 @@ class ProdutoViewSet(RecursoViewSet):
     permissao_app, permissao_model, modulo_slug = "produto", "produto", "produto"
     campos_busca = ("nome", "descricao")
     rotulo = "Produto"
+    padroes = {"ativo": True, "tipo": "produto"}
 
     def consulta_base(self):
         return Produto.objects.select_related("categoria")
 
     def filtrar(self, queryset, params):
         queryset = super().filtrar(queryset, params)
+        if params.get("tipo") in dict(Produto.TIPO_CHOICES):
+            queryset = queryset.filter(tipo=params["tipo"])
         return queryset.filter(categoria_id=params["categoria"]) if params.get("categoria", "").isdigit() else queryset
 
     def dados_atuais(self, p):
-        return {"nome": p.nome, "categoria": p.categoria_id, "descricao": p.descricao, "ativo": p.ativo}
+        return {"nome": p.nome, "categoria": p.categoria_id, "descricao": p.descricao, "tipo": p.tipo, "ativo": p.ativo}
 
 
 # ===================================================================================================
@@ -112,14 +119,23 @@ class CanalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CanalVenda
-        fields = ["id", "nome", "descricao", "taxa_percentual_total", "taxa_fixa_total", "liquido_percentual", "taxas", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "descricao", "taxa_percentual_total", "taxa_fixa_total", "liquido_percentual", "taxas", "ativo",
+                  "eh_global", "segmentos", "somente_leitura", "criado_em", "atualizado_em"]
         read_only_fields = fields
+
+    somente_leitura = serializers.SerializerMethodField(help_text="true para canal global de outro dono: pode usar, não alterar.")
+
+    def get_somente_leitura(self, canal):
+        usuario_cliente = cliente_do_usuario(self.context["request"].user)
+        return usuario_cliente is None or canal.cliente_id != usuario_cliente.pk
 
 
 class CanalEntrada(serializers.Serializer):
     nome = serializers.CharField(max_length=150)
     descricao = serializers.CharField(max_length=255, required=False, allow_blank=True)
     ativo = serializers.BooleanField(required=False)
+    eh_global = serializers.BooleanField(required=False, help_text="Só o administrador do sistema; ignorado para os demais.")
+    segmentos = serializers.ListField(child=serializers.IntegerField(), required=False, help_text="Ids dos segmentos liberados (obrigatório para canal global).")
     taxas = TaxaEntrada(many=True, required=False, help_text="Substitui TODAS as taxas do canal (omitida na edição = mantém).")
 
 
@@ -133,20 +149,29 @@ class CanalViewSet(RecursoViewSet):
     campos_busca = ("nome", "descricao")
     colunas_ordenaveis = {"nome": "nome", "taxas": "taxa_percentual_total", "criado_em": "criado_em"}
     rotulo = "Canal de venda"
+    incluir_globais = True  # lista também os canais globais liberados ao segmento (somente leitura)
 
     def consulta_base(self):
-        return CanalVenda.objects.prefetch_related("taxas")
+        return CanalVenda.objects.prefetch_related("taxas", "segmentos")
 
     def dados_atuais(self, c):
         taxas = [{"descricao": t.descricao, "percentual": t.percentual, "valor_fixo": t.valor_fixo} for t in c.taxas.all()]
-        return {"nome": c.nome, "descricao": c.descricao, "ativo": c.ativo, "taxas": taxas}
+        return {"nome": c.nome, "descricao": c.descricao, "ativo": c.ativo, "taxas": taxas, "eh_global": c.eh_global, "segmentos": [s.pk for s in c.segmentos.all()]}
+
+    def listas_do_formulario(self, dados):
+        return {"segmentos": list(dados.get("segmentos") or [])}
+
+    def kwargs_do_formulario(self, instancia):
+        return {**super().kwargs_do_formulario(instancia), "solicitante": self.request.user}
 
     def gravar(self, request, contexto, dados, instancia, foto):
         canal = contexto["form"].instance
         if instancia is None:
             canal.cliente = self.cliente()
         taxas = [CanalTaxa(descricao=t.get("descricao", ""), percentual=t.get("percentual"), valor_fixo=t.get("valor_fixo")) for t in dados.get("taxas", [])]
-        return salvar_canal(request, canal, taxas, foto_antes=foto)  # audita e refaz as precificações
+        form = contexto["form"]
+        segmentos = form.cleaned_data.get("segmentos") if "segmentos" in form.fields else None  # só o administrador do sistema envia
+        return salvar_canal(request, canal, taxas, foto_antes=foto, segmentos=segmentos)  # audita e refaz as precificações
 
 
 # ===================================================================================================
@@ -344,21 +369,36 @@ class ProcessadoViewSet(ReceitaApiMixin, RecursoViewSet):
         return Response(status=204)
 
 
+class MaoDeObraEntrada(serializers.Serializer):
+    colaborador = serializers.IntegerField(help_text="Id de um colaborador ATIVO da sua empresa (ver /colaboradores/).")
+    horas = serializers.DecimalField(max_digits=7, decimal_places=2, min_value=Decimal("0.01"), help_text='Horas dele por execução, com ponto decimal (ex.: "1.5").')
+
+
+class MaoDeObraSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    colaborador = serializers.IntegerField(source="colaborador_id")
+    colaborador_nome = serializers.CharField(source="colaborador.nome")
+    horas = serializers.DecimalField(max_digits=7, decimal_places=2)
+    custo = serializers.IntegerField(help_text="Valor da hora × horas, em centavos (calculado).")
+
+
 class FichaSerializer(SaidaComReceita):
     produto_nome = serializers.CharField(source="produto.nome", read_only=True)
     custo_total_formatado = serializers.CharField(read_only=True)
     itens = ItemSerializer(many=True, read_only=True)
+    mao_de_obra = MaoDeObraSerializer(many=True, read_only=True)
 
     class Meta:
         model = Ficha
-        fields = ["id", "nome", "produto", "produto_nome", "custo_total", "custo_total_formatado", "receita", "observacoes", "itens", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "produto", "produto_nome", "custo_total", "custo_total_formatado", "receita", "observacoes", "itens", "mao_de_obra", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
 class FichaEntrada(EntradaReceita):
     produto = serializers.IntegerField(help_text="Id de um produto ATIVO da sua empresa (ver /produtos/). A ficha usa o nome do produto.")
     ativo = serializers.BooleanField(required=False)
-    itens = ItemEntrada(many=True, help_text="Substitui TODOS os itens (ao menos um; sem insumo repetido).")
+    itens = ItemEntrada(many=True, required=False, help_text="Substitui TODOS os itens (sem insumo repetido). Obrigatório com ao menos um nos segmentos Produto; opcional em Serviço e em Serviço e Produto.")
+    mao_de_obra = MaoDeObraEntrada(many=True, required=False, help_text="Substitui TODA a mão de obra (sem colaborador repetido). Só segmentos Serviço e Serviço e Produto; omitida = mantém.")
 
 
 @documentar("fichas-tecnicas", FichaSerializer, FichaEntrada, [OpenApiParameter("produto", int)])
@@ -374,21 +414,32 @@ class FichaViewSet(ReceitaApiMixin, RecursoViewSet):
     permissoes_por_acao = {"exportar": "view"}
 
     def consulta_base(self):
-        return Ficha.objects.select_related("produto").prefetch_related(Prefetch("itens", FichaItem.objects.select_related("insumo", "medida")))
+        return Ficha.objects.select_related("produto").prefetch_related(
+            Prefetch("itens", FichaItem.objects.select_related("insumo", "medida")), Prefetch("mao_de_obra", FichaMaoDeObra.objects.select_related("colaborador")),
+        )
 
     def filtrar(self, queryset, params):
         queryset = super().filtrar(queryset, params)
         return queryset.filter(produto_id=params["produto"]) if params.get("produto", "").isdigit() else queryset
 
     def dados_atuais(self, f):
-        return {"produto": f.produto_id, "ativo": f.ativo, "itens": _itens_atuais(f.itens.all()), **self.receita_atual(f)}
+        return {"produto": f.produto_id, "ativo": f.ativo, "itens": _itens_atuais(f.itens.all()),
+                "mao_de_obra": [{"colaborador": m.colaborador_id, "horas": m.horas} for m in f.mao_de_obra.all()], **self.receita_atual(f)}
 
     def preparar(self, dados, instancia):
         contexto = super().preparar(dados, instancia)
         base = Ficha(cliente=instancia.cliente if instancia is not None else self.cliente())
-        formset = FichaItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida", "quantidade")), instance=base, cliente=base.cliente)
-        if not formset.is_valid():
-            raise serializers.ValidationError(erros_de(contexto["form"], formset))
+        usa_mao_de_obra = segmento_permite(base.cliente)  # mesma regra da tela: insumos opcionais e mão de obra só nesses segmentos
+        formset = FichaItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida", "quantidade")), instance=base, cliente=base.cliente, itens_opcionais=usa_mao_de_obra)
+        formsets = [formset]
+        if usa_mao_de_obra:
+            mo_formset = MaoDeObraFormSet(dados_do_formset(dados.get("mao_de_obra", []), ("colaborador", "horas"), prefixo="mao_de_obra"), instance=base, cliente=base.cliente)
+            formsets.append(mo_formset)
+            contexto["mo_formset"] = mo_formset
+        elif dados.get("mao_de_obra"):
+            raise serializers.ValidationError({"mao_de_obra": ["O segmento desta empresa não usa mão de obra."]})
+        if not all(f.is_valid() for f in formsets):
+            raise serializers.ValidationError(erros_de(contexto["form"], *formsets))
         contexto["formset"] = formset
         return contexto
 
@@ -397,7 +448,9 @@ class FichaViewSet(ReceitaApiMixin, RecursoViewSet):
         if instancia is None:
             ficha.cliente = self.cliente()
         itens = [FichaItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"]) for f in contexto["formset"].itens_validos()]
-        return salvar_ficha(request, ficha, itens, foto_antes=foto)
+        mo = contexto.get("mo_formset")
+        mao_de_obra = None if mo is None else [FichaMaoDeObra(colaborador=f.cleaned_data["colaborador"], horas=f.cleaned_data["horas"]) for f in mo.linhas_validas()]
+        return salvar_ficha(request, ficha, itens, foto_antes=foto, mao_de_obra=mao_de_obra)
 
 
 # ===================================================================================================
@@ -416,7 +469,7 @@ class PrecificacaoSerializer(serializers.ModelSerializer):
             "id", "nome", "ficha", "ficha_nome", "produto", "produto_nome", "canal", "canal_nome", "canal_descricao", "canal_descricao_completa",
             "taxa_percentual", "taxa_fixa", "custo_operacional", "custo_operacional_manual", "metodo_lucro", "percentual_lucro", "valor_lucro",
             "custo_ficha", "custo_total", "taxas_percentuais_valor", "lucro", "preco_venda", "preco_venda_formatado", "cmv_percentual",
-            "usar_no_pdv", "ativo", "criado_em", "atualizado_em",
+            "usar_no_pdv", "motivo_fora_do_pdv", "ativo", "criado_em", "atualizado_em",
         ]
         read_only_fields = fields
 

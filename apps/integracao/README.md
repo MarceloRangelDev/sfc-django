@@ -133,3 +133,14 @@ python manage.py migrate integracao   # 0005 (choices do provedor) e 0006 (templ
 ```
 
 Testes: `python manage.py test apps.integracao.tests_templates apps.integracao.tests_evolution` (a rede é sempre simulada; nada fala com a Meta/Evolution reais).
+
+
+## Agenda: correções do calendário e do Google Agenda
+
+**Modal do calendário** (`agenda/salvar`): o modal não tem `ativo` nem `concluido`; antes, clicar numa data criava o compromisso **inativo** (sumia do calendário) e editar **zerava** `concluido`/`ativo` e qualquer campo omitido. Agora: criar ⇒ ativo; editar altera **só o que veio no POST** (`_completar_com_atuais`); “Dia inteiro” é sempre enviado (marcado `on` / desmarcado vazio). A API de compromissos também passou a ter `concluido` (PATCH não o zera). `fim` antes do `início` é recusado.
+
+**Dia inteiro e fusos**: dia inteiro guarda **datas**, não instantes. O sistema grava meia-noite local (início) e 23:59 local (fim); o evento importado do calendário externo fica 00:00/23:59 **UTC**. `Compromisso.data_inicial/data_final` aplicam a regra (UTC se 00:00/23:59 UTC; senão a data local). O calendário recebe datas (`allDay`, fim exclusivo) — o importado deixou de aparecer um dia antes no fuso do Brasil — e arrastar/soltar aceita datas. O que se publica no provedor usa a mesma regra.
+
+**Sincronização do Google Agenda** (`adaptadores/agenda.py`, `services.sincronizar_agenda`): lista **todas as páginas** (`nextPageToken`, até 20 × 250); acima do limite recusa a sincronização, e **nunca trabalha com lista parcial** (o núcleo desativa compromissos que “sumiram” do calendário, então truncar causaria exclusões indevidas); ignora cancelados; respeita `timeZone` quando o horário vem sem deslocamento; recorrentes são expandidos (`singleEvents`, cada ocorrência tem id próprio); o hash de conteúdo compara instantes em **UTC** (antes, “14:00-03:00” vs “17:00+00:00” fazia todo evento com hora ser reenviado a cada sincronização — na 1ª sincronização após a atualização cada item pode ser reescrito uma vez, com o mesmo conteúdo); a importação é **atômica** (compromisso + vínculo) e o mesmo evento já importado por outra conexão do mesmo provedor **da mesma unidade** é vinculado, não duplicado; nada cruza unidades. Janela: 1 dia atrás até 60 dias à frente.
+
+**Erros úteis**: 401/403/404 do Google viram mensagens objetivas (reconectar, ativar a API, conferir o ID do calendário) sem repetir o corpo da resposta nem credenciais; a Agenda mostra um aviso (só a quem tem `integracao.view_conexao`) quando uma conexão de calendário está com erro.

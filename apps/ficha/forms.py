@@ -1,11 +1,15 @@
+from decimal import Decimal
+
 from django import forms
 from django.db.models import Q
-from django.forms import inlineformset_factory
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
+from apps.maodeobra.models import Colaborador
 from apps.processado.forms import BaseItemFormSet, CamposReceitaMixin, ProcessadoItemForm
 from apps.produto.models import Produto
+from web_project.forms import DecimalBRField
 
-from .models import Ficha, FichaItem
+from .models import Ficha, FichaItem, FichaMaoDeObra
 from .services import nome_da_ficha
 
 CONTROLE = {"class": "form-control"}
@@ -51,4 +55,55 @@ class FichaItemForm(ProcessadoItemForm):
 # BaseItemFormSet (apps/processado/forms.py): insumos da unidade, sem repetição, ao menos um item.
 ItemFormSet = inlineformset_factory(
     Ficha, FichaItem, form=FichaItemForm, formset=BaseItemFormSet, extra=1, can_delete=True,
+)
+
+
+class FichaMaoDeObraForm(forms.ModelForm):
+    horas = DecimalBRField(
+        max_digits=7, decimal_places=2, min_value=Decimal("0.01"), label="Horas",
+        widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}),
+        error_messages={"invalid": "Informe as horas.", "min_value": "As horas devem ser maiores que zero."},
+    )
+
+    class Meta:
+        model = FichaMaoDeObra
+        fields = ["colaborador", "horas"]
+        widgets = {"colaborador": forms.Select(attrs={"class": "form-select"})}
+
+    def __init__(self, *args, colaboradores=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Só colaboradores da MESMA unidade (tenant); o campo rejeita ids de fora.
+        self.fields["colaborador"].queryset = colaboradores if colaboradores is not None else Colaborador.objects.none()
+        self.fields["colaborador"].empty_label = "Selecione..."
+
+
+class BaseMaoDeObraFormSet(BaseInlineFormSet):
+    def __init__(self, *args, cliente=None, **kwargs):
+        # Ativos da unidade; os já usados nesta ficha continuam válidos mesmo se forem desativados depois.
+        filtro = Q(cliente=cliente, ativo=True)
+        instancia = kwargs.get("instance")
+        if instancia is not None and instancia.pk:
+            filtro |= Q(pk__in=instancia.mao_de_obra.values("colaborador_id"), cliente=cliente)
+        self.colaboradores = Colaborador.objects.filter(filtro).order_by("nome")
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["colaboradores"] = self.colaboradores
+        return kwargs
+
+    def linhas_validas(self):
+        return [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        ids = [f.cleaned_data["colaborador"].pk for f in self.linhas_validas()]
+        if len(ids) != len(set(ids)):
+            raise forms.ValidationError("Um colaborador só pode aparecer uma vez na ficha; some as horas.")
+
+
+MaoDeObraFormSet = inlineformset_factory(
+    Ficha, FichaMaoDeObra, form=FichaMaoDeObraForm, formset=BaseMaoDeObraFormSet, extra=1, can_delete=True,
 )

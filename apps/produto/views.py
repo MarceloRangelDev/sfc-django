@@ -46,6 +46,8 @@ class ProdutoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         categoria = self.request.GET.get("categoria", "")
         if categoria.isdigit():
             queryset = queryset.filter(categoria_id=categoria)
+        if self.request.GET.get("tipo") in dict(Produto.TIPO_CHOICES):  # só relevante em Serviço e Produto
+            queryset = queryset.filter(tipo=self.request.GET["tipo"])
         return self.ordenar(self.filtrar_status(queryset))
 
     def get(self, request, *args, **kwargs):
@@ -76,6 +78,8 @@ class ProdutoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context["categorias"] = Categoria.objects.filter(cliente__in=self.clientes_do_escopo()).order_by("nome")
         context["categoria_selecionada"] = self.request.GET.get("categoria", "")
+        context["tipo_selecionado"] = self.request.GET.get("tipo", "")
+        context["tipos"] = Produto.TIPO_CHOICES
         return context
 
 

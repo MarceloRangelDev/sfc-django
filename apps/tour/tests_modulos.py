@@ -70,7 +70,21 @@ TELAS = {
     "integracoes": "apps/integracao/templates/integracoes.html",
     "templates-whatsapp": "apps/integracao/templates/template_whatsapp_lista.html",
     "template-whatsapp-form": "apps/integracao/templates/template_whatsapp_form.html",
+    "servicos": "apps/maodeobra/templates/servico.html",
+    "servico-form": "apps/maodeobra/templates/servico_form.html",
+    "orcamentos": "apps/orcamento/templates/orcamento.html",
+    "orcamento-form": "apps/orcamento/templates/orcamento_form.html",
+    "orcamento-detalhe": "apps/orcamento/templates/orcamento_detalhe.html",
+    "orcamento-enviar": "apps/orcamento/templates/orcamento_enviar.html",
+    "agenda": "apps/integracao/templates/compromisso.html",
+    "cliente-form": "apps/cliente/templates/cliente_form.html",
+    "papel-form": "apps/acl/templates/acl_papel_form.html",
+    "apontamento-form": "apps/maodeobra/templates/apontamento_form.html",
+    "colaborador-form": "apps/maodeobra/templates/colaborador_form.html",
+    "pdv-venda": "apps/pdv/templates/pdv.html",
 }
+
+
 def _registro():
     """{chave: {"passos": quantidade, "seletores": [seletores literais]}} lido do arquivo JS
     (sem executá-lo). Passos montados por helpers (NOVO(...), FILTROS(...)) contam como passo

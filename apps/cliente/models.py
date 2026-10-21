@@ -70,6 +70,13 @@ class Cliente(models.Model):
     REGIME_CHOICES = [("mei", "MEI"), ("simples", "Simples Nacional"), ("presumido", "Lucro Presumido"), ("real", "Lucro Real")]
     regime_tributario = models.CharField(max_length=10, blank=True, default="", db_default="", choices=REGIME_CHOICES, verbose_name="Regime tributário")
     emite_nota_fiscal = models.BooleanField(default=False, db_default=False, verbose_name="Emite nota fiscal")
+    # Contato da empresa (opcionais): saem no cabeçalho dos documentos emitidos pelo sistema, como o PDF do orçamento.
+    # O e-mail/WhatsApp aqui é da EMPRESA e não se confunde com o e-mail de login do usuário.
+    endereco = models.CharField(max_length=255, blank=True, default="", db_default="", verbose_name="Endereço")
+    cidade = models.CharField(max_length=100, blank=True, default="", db_default="", verbose_name="Cidade")
+    uf = models.CharField(max_length=2, blank=True, default="", db_default="", verbose_name="UF")
+    email_contato = models.EmailField(max_length=100, blank=True, default="", db_default="", verbose_name="E-mail de contato")
+    whatsapp = models.CharField(max_length=20, blank=True, default="", db_default="", verbose_name="WhatsApp")
     # Marca o cliente dono do sistema ("SISTEMA FATURANDO CERTO SERVIÇOS
     # LTDA"): único ao qual um usuário Admin pode estar vinculado.
     sistema = models.BooleanField(default=False, db_default=False, editable=False, verbose_name="Cliente do sistema")

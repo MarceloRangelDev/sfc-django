@@ -29,6 +29,7 @@ SCREEN_APPS = [
     "maodeobra",
     "integracao",
     "fiscal",
+    "orcamento",
     "ficha",
     "precificacao",
     "custo",
@@ -80,9 +81,9 @@ EXTRAS = {
     "Visualizador": [*PAINEL, *FOTO_PERFIL],
     "Operador": [*PAINEL, *FOTO_PERFIL, ("pdv", "abrir_caixa"), ("pedido", "mover_pedido"), ("integracao", "change_compromisso")],
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
-    "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("kanban", "mover_cartao"), ("assinatura", "gerenciar_assinatura"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota')],
+    "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("kanban", "mover_cartao"), ("assinatura", "gerenciar_assinatura"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota'), ("orcamento", "enviar_orcamento")],
     "Gestor": [
-        *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR,
+        *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR, ("orcamento", "enviar_orcamento"),
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("assinatura", "view_assinatura"), ("assinatura", "gerenciar_assinatura"),
         ("cliente", "view_cliente"),

@@ -85,3 +85,33 @@ class FichaItem(models.Model):
     @property
     def custo_formatado(self):
         return DinheiroService.formatar(self.custo)
+
+
+class FichaMaoDeObra(models.Model):
+    """Mão de obra cadastrada (colaborador) usada na ficha de um SERVIÇO: quantas horas dele cada execução consome. O custo é
+    valor da hora do colaborador × horas, calculado no servidor (services.custo_da_mao_de_obra) e refeito quando o valor da hora
+    muda. Só existe para segmentos que usam mão de obra (Serviço e Produto e Serviço); nada aqui é obrigatório: uma ficha pode ter só
+    insumos, só mão de obra, os dois ou, nesses segmentos, nenhum."""
+
+    ficha = models.ForeignKey(Ficha, on_delete=models.CASCADE, related_name="mao_de_obra")
+    # PROTECT: colaborador usado numa ficha não é apagado (a tela de colaboradores só o desativa).
+    colaborador = models.ForeignKey("maodeobra.Colaborador", on_delete=models.PROTECT, related_name="usos_em_fichas")
+    horas = models.DecimalField(
+        max_digits=7, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"), message="As horas devem ser maiores que zero.")],
+    )
+    # Custo destes colaborador × horas, em centavos (calculado a cada recálculo).
+    custo = models.PositiveBigIntegerField(default=0, editable=False)
+
+    class Meta:
+        verbose_name = "Mão de obra da ficha"
+        verbose_name_plural = "Mão de obra da ficha"
+        ordering = ["id"]
+        constraints = [models.UniqueConstraint(fields=["ficha", "colaborador"], name="ficha_mao_de_obra_unica")]
+
+    def __str__(self):
+        return f"{self.colaborador} ({self.horas} h)"
+
+    @property
+    def custo_formatado(self):
+        return DinheiroService.formatar(self.custo)

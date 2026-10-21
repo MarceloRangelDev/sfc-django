@@ -123,12 +123,13 @@ class ClienteCreateView(ClienteFormKwargsMixin, AuditoriaFormMixin, CreateView):
         # Cliente + usuário Gestor + auditoria numa transação (apps/cliente/services.py).
         try:
             self.object = criar_cliente(
-                self.request, form.save(commit=False), form.cleaned_data["perfis"], form.cleaned_data["email_gestor"]
+                self.request, form.save(commit=False), form.cleaned_data["perfis"], form.cleaned_data["email_gestor"],
+                form.cleaned_data["usuario_nome"], form.cleaned_data["usuario_username"],
             )
         except ValidationError as erro:  # nada foi gravado (transação desfeita)
             form.add_error(None, erro)
             return self.form_invalid(form)
-        messages.success(self.request, "Cliente cadastrado com sucesso. O usuário Gestor foi criado automaticamente.")
+        messages.success(self.request, "Cliente cadastrado com sucesso. O usuário inicial foi criado e recebe por e-mail o link para definir a senha.")
         return redirect(self.get_success_url())
 
 

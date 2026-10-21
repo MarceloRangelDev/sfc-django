@@ -67,7 +67,7 @@
       <tbody>
         {% for canal in canais %}
         <tr>
-          <td>{{ canal.nome }}</td>
+          <td>{{ canal.nome }}{% if canal.eh_global %} <span class="badge bg-label-info" title="{% translate 'Canal global, liberado pelo administrador do sistema' %}">{% translate "Global" %}</span>{% endif %}</td>
           <td>{{ canal.descricao|default:"—" }}</td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=canal %}</td>{% endif %}
           <td class="text-end">{{ canal.taxa_percentual_formatada }}{% if canal.taxa_fixa_total %} + {{ canal.taxa_fixa_formatada }}{% endif %}</td>
@@ -78,7 +78,7 @@
             {% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}
           </td>
           <td>
-            {% if perms.canal.change_canalvenda and canal.cliente_id == user.profile.cliente_id or perms.canal.change_canalvenda and perms.cliente.change_itensfilial %}
+            {% if perms.canal.change_canalvenda and canal.cliente_id == user.profile.cliente_id or perms.canal.change_canalvenda and perms.cliente.change_itensfilial and not canal.eh_global %}
             <a href="{% url 'canal-edit' canal.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
             {% endif %}
           </td>

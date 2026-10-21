@@ -1,0 +1,67 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Orçamento" %} nº {{ orcamento.numero }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-4 mb-2">
+  <h4 class="mb-0">{% translate "Orçamento" %} nº {{ orcamento.numero }} <span class="badge bg-label-{% if orcamento.status == 'aprovado' %}success{% elif orcamento.status == 'recusado' or orcamento.status == 'cancelado' %}secondary{% elif orcamento.status == 'enviado' %}info{% else %}warning{% endif %} ms-2">{{ orcamento.get_status_display }}</span></h4>
+  <div class="d-flex flex-wrap gap-2" id="orcamento-acoes">
+    <a href="{% url 'orcamento-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if pode_alterar %}<a href="{% url 'orcamento-edit' orcamento.pk %}" class="btn btn-outline-primary">{% translate "Editar" %}</a>{% endif %}
+    <a href="{% url 'orcamento-pdf' orcamento.pk %}" target="_blank" rel="noopener" class="btn btn-outline-secondary"><i class="icon-base ti tabler-printer me-1"></i>{% translate "Imprimir / PDF" %}</a>
+    {% if orcamento.status != "cancelado" and orcamento.status != "recusado" %}<a href="{% url 'orcamento-enviar' orcamento.pk %}" class="btn btn-primary" id="btn-enviar-orcamento"><i class="icon-base ti tabler-send me-1"></i>{% translate "Enviar / imprimir..." %}</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card mb-4" id="orcamento-itens-detalhe">
+      <div class="table-responsive"><table class="table">
+        <thead><tr><th>#</th><th>{% translate "Descrição" %}</th><th>{% translate "Tipo" %}</th><th class="text-end">{% translate "Qtde." %}</th><th class="text-end">{% translate "Preço unit." %}</th><th class="text-end">{% translate "Desconto" %}</th><th class="text-end">{% translate "Total" %}</th></tr></thead>
+        <tbody>
+          {% for i in itens %}<tr><td>{{ forloop.counter }}</td><td>{{ i.descricao }}</td><td>{{ i.get_tipo_display }}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.preco_unitario|moeda }}</td><td class="text-end">{% if i.desconto %}{{ i.desconto|moeda }}{% else %}&mdash;{% endif %}</td><td class="text-end">{{ i.total|moeda }}</td></tr>{% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th colspan="6" class="text-end">{% translate "Soma dos itens" %}</th><th class="text-end">{{ orcamento.subtotal|moeda }}</th></tr>
+          {% if orcamento.desconto_itens %}<tr><td colspan="6" class="text-end">{% translate "Descontos nos itens" %}</td><td class="text-end">- {{ orcamento.desconto_itens|moeda }}</td></tr>{% endif %}
+          {% if orcamento.desconto %}<tr><td colspan="6" class="text-end">{% translate "Desconto geral" %}</td><td class="text-end">- {{ orcamento.desconto|moeda }}</td></tr>{% endif %}
+          <tr><th colspan="6" class="text-end fs-5">{% translate "Total" %}</th><th class="text-end fs-5">{{ orcamento.total|moeda }}</th></tr>
+        </tfoot>
+      </table></div>
+    </div>
+    {% if orcamento.observacoes %}<div class="card mb-4"><div class="card-body"><h6>{% translate "Observações" %}</h6><p class="mb-0" style="white-space:pre-line">{{ orcamento.observacoes }}</p></div></div>{% endif %}
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-4"><div class="card-body">
+      <h6>{% translate "Destinatário" %}</h6>
+      <p class="mb-1">{{ orcamento.destinatario_nome }}</p>
+      {% if orcamento.destinatario_email %}<p class="mb-1 small text-muted">{{ orcamento.destinatario_email }}</p>{% endif %}
+      {% if orcamento.destinatario_whatsapp %}<p class="mb-1 small text-muted">{{ orcamento.destinatario_whatsapp }}</p>{% endif %}
+      {% if orcamento.validade %}<hr><p class="mb-0 small">{% translate "Válido até" %} {{ orcamento.validade|date:"d/m/Y" }}</p>{% endif %}
+    </div></div>
+    {% if pode_alterar or pode_excluir %}
+    <div class="card mb-4" id="orcamento-situacao"><div class="card-body d-flex flex-wrap gap-2">
+      {% if orcamento.editavel and perms.orcamento.change_orcamento %}
+      <form method="post" action="{% url 'orcamento-acao' orcamento.pk 'aprovar' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">{% translate "Marcar aprovado" %}</button></form>
+      <form method="post" action="{% url 'orcamento-acao' orcamento.pk 'recusar' %}" data-confirmar="{% translate 'Marcar como recusado? Depois disso o orçamento não poderá mais ser alterado.' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% translate "Marcar recusado" %}</button></form>
+      <form method="post" action="{% url 'orcamento-acao' orcamento.pk 'cancelar' %}" data-confirmar="{% translate 'Cancelar este orçamento? Esta ação não pode ser desfeita.' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% translate "Cancelar orçamento" %}</button></form>
+      {% endif %}
+      {% if pode_excluir %}<form method="post" action="{% url 'orcamento-acao' orcamento.pk 'excluir' %}" data-confirmar="{% translate 'Excluir este rascunho?' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% translate "Excluir rascunho" %}</button></form>{% endif %}
+    </div></div>
+    {% endif %}
+    <div class="card"><div class="card-header"><h6 class="mb-0">{% translate "Envios e impressões" %}</h6></div>
+      <ul class="list-group list-group-flush">
+        {% for e in envios %}<li class="list-group-item small"><span class="badge bg-label-{% if e.status == 'ok' %}success{% else %}danger{% endif %}">{{ e.get_canal_display }}</span> {{ e.criado_em|date:"d/m H:i" }}{% if e.destino %} · {{ e.destino }}{% endif %}{% if e.itens_omitidos %} · {{ e.itens_omitidos|length }} {% translate "item(ns) omitido(s)" %}{% endif %}<div class="text-muted">{{ e.detalhe }}</div></li>
+        {% empty %}<li class="list-group-item text-muted small">{% translate "Nada enviado ainda." %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('orcamento-detalhe');</script>
+{% endblock page_js %}

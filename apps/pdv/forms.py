@@ -5,6 +5,7 @@ from django import forms
 from web_project.forms import MoedaCentavosField
 
 from apps.pdvconfig.models import FormaPagamento, Mesa
+from web_project.globais import disponiveis_para
 
 CONTROLE = {"class": "form-control"}
 SELECT = {"class": "form-select"}
@@ -47,7 +48,7 @@ class DevolucaoForm(forms.Form):
 
     def __init__(self, *args, cliente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["forma_estorno"].queryset = FormaPagamento.objects.filter(cliente=cliente, ativo=True).order_by("nome")
+        self.fields["forma_estorno"].queryset = disponiveis_para(FormaPagamento, cliente, ativo=True).order_by("nome")
 
     def clean_quantidade(self):
         return self.cleaned_data["quantidade"].quantize(Decimal("0.001"))

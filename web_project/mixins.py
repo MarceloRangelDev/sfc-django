@@ -6,12 +6,14 @@ conforme a permissão) sempre da mesma forma.
 """
 from django.contrib import messages
 from django.db import models, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views import View
 
 from apps.auditoria.utils import registrar_exclusao
 from web_project.acesso import clientes_dos_itens
+from web_project.globais import q_globais_do_usuario
 
 
 class ClienteScopedMixin:
@@ -29,12 +31,18 @@ class ClienteScopedMixin:
     """
 
     acao_escopo = "view"
+    # Listagens de canais/formas de pagamento mostram também os itens GLOBAIS liberados ao segmento do usuário (web_project/globais.py).
+    # Só na ação "view": editar/excluir continua restrito ao escopo de unidades, então um global de outro dono dá 404.
+    incluir_globais = False
 
     def clientes_do_escopo(self):
         return clientes_dos_itens(self.request.user, self.acao_escopo)
 
     def get_queryset(self):
-        return super().get_queryset().select_related("cliente").filter(cliente__in=self.clientes_do_escopo())
+        filtro = Q(cliente__in=self.clientes_do_escopo())
+        if self.incluir_globais and self.acao_escopo == "view" and not self.request.GET.get("unidade"):
+            filtro |= q_globais_do_usuario(self.model, self.request.user)
+        return super().get_queryset().select_related("cliente").filter(filtro)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -114,11 +122,12 @@ class ExcluirOuDesativarView(View):
     url_lista = None
     rotulo = "registro"
     artigo = "o"
+    filtro_extra = {}  # restringe o alvo (ex.: só serviços na tela de Serviços)
 
     def post(self, request, pk):
         with transaction.atomic():
             objeto = get_object_or_404(
-                self.model.objects.select_for_update(), pk=pk, cliente__in=clientes_dos_itens(request.user, "delete")
+                self.model.objects.select_for_update(), pk=pk, cliente__in=clientes_dos_itens(request.user, "delete"), **self.filtro_extra
             )
             nome = str(objeto)
             if em_uso(objeto):

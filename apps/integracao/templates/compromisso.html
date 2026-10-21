@@ -15,6 +15,9 @@
     {% if perms.integracao.add_compromisso %}<a href="{% url 'compromisso-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo" %}</a>{% endif %}
   </div>
 </div>
+{% for c in conexoes_com_erro %}
+<div class="alert alert-warning" role="alert">{% blocktranslate with nome=c.nome %}A sincronização de "{{ nome }}" está com problema:{% endblocktranslate %} {{ c.ultimo_erro|default:"verifique a conexão." }} <a href="{% url 'integracao-detalhe' c.pk %}" class="alert-link">{% translate "Abrir conexão" %}</a></div>
+{% endfor %}
 {% if visao == "calendario" %}
 <style>
   #agendaCalendario .fc-event.concluido { opacity: .55; text-decoration: line-through; }
@@ -69,7 +72,7 @@
     <thead><tr><th>{% translate "Início" as label %}{% include "_th_ordenavel.html" with campo="inicio" label=label %}</th><th>{% translate "Fim" %}</th><th>{% translate "Título" as label %}{% include "_th_ordenavel.html" with campo="titulo" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Tipo" %}</th><th>{% translate "Origem" %}</th><th></th></tr></thead>
     <tbody>
       {% for c in compromissos %}<tr>
-        <td>{{ c.inicio|date:"d/m/Y H:i" }}</td><td>{{ c.fim|date:"d/m/Y H:i" }}</td><td class="{% if c.concluido %}text-decoration-line-through text-muted{% endif %}">{{ c.titulo }}{% if c.concluido %} <span class="badge bg-label-success">{% translate "concluído" %}</span>{% endif %}{% if c.todo_o_dia %} <span class="badge bg-label-info">{% translate "dia inteiro" %}</span>{% endif %}</td>
+        <td>{% if c.todo_o_dia %}{{ c.data_inicial|date:"d/m/Y" }} <span class="badge bg-label-secondary">{% translate "dia inteiro" %}</span>{% else %}{{ c.inicio|date:"d/m/Y H:i" }}{% endif %}</td><td>{% if c.todo_o_dia %}{{ c.data_final|date:"d/m/Y" }}{% else %}{{ c.fim|date:"d/m/Y H:i" }}{% endif %}</td><td class="{% if c.concluido %}text-decoration-line-through text-muted{% endif %}">{{ c.titulo }}{% if c.concluido %} <span class="badge bg-label-success">{% translate "concluído" %}</span>{% endif %}{% if c.todo_o_dia %} <span class="badge bg-label-info">{% translate "dia inteiro" %}</span>{% endif %}</td>
         {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=c %}</td>{% endif %}<td>{{ c.get_tipo_display }}</td><td>{% if c.origem == "externa" %}{% translate "calendário externo" %}{% else %}{% translate "sistema" %}{% endif %}</td>
         <td>{% if perms.integracao.change_compromisso and c.cliente_id == user.profile.cliente_id or perms.integracao.change_compromisso and perms.cliente.change_itensfilial %}<a href="{% url 'compromisso-edit' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
           <form method="post" action="{% url 'compromisso-concluir' c.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-icon btn-text-success rounded-pill" title="{% if c.concluido %}{% translate 'Reabrir' %}{% else %}{% translate 'Marcar como concluído' %}{% endif %}"><i class="icon-base ti {% if c.concluido %}tabler-rotate-clockwise{% else %}tabler-check{% endif %}"></i></button></form>
@@ -92,6 +95,7 @@
 
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('agenda');</script>
 <script>
   (function () {
     // Lembra a visão escolhida (tabela/calendário) neste navegador; sem parâmetro na URL, aplica a lembrada.
@@ -117,8 +121,11 @@
       dateClick: function (info) {
         if (alvo.dataset.podeCriar !== '1') return;
         var dia = info.dateStr.slice(0, 10), h = info.dateStr.length > 10 ? info.dateStr.slice(11, 16) : '09:00';
-        var fimH = ('0' + (parseInt(h.slice(0, 2), 10) + 1) % 24).slice(-2) + h.slice(2);
-        abrirModal(null, { tipo: 'compromisso', titulo: '', descricao: '', todo_o_dia: false, inicio: dia + 'T' + h, fim: dia + 'T' + fimH, lembrete_minutos: '' });
+        // Fim = início + 1 h, passando para o dia seguinte quando o clique é depois das 23h (senão o fim ficaria antes do início).
+        var fim = new Date(dia + 'T' + h + ':00'); fim.setHours(fim.getHours() + 1);
+        var p = function (n) { return ('0' + n).slice(-2); };
+        var fimTxt = fim.getFullYear() + '-' + p(fim.getMonth() + 1) + '-' + p(fim.getDate()) + 'T' + p(fim.getHours()) + ':' + p(fim.getMinutes());
+        abrirModal(null, { tipo: 'compromisso', titulo: '', descricao: '', todo_o_dia: false, inicio: dia + 'T' + h, fim: fimTxt, lembrete_minutos: '' });
       },
       eventClick: function (info) {
         info.jsEvent.preventDefault();
@@ -150,7 +157,8 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var corpo = new URLSearchParams(new FormData(form));
-      if (!form.elements.todo_o_dia.checked) corpo.delete('todo_o_dia');
+      // O servidor só altera o que vem no corpo: "Dia inteiro" é sempre enviado, marcado ("on") ou desmarcado (vazio).
+      corpo.set('todo_o_dia', form.elements.todo_o_dia.checked ? 'on' : '');
       var url = idAtual ? urlCom(alvo.dataset.urlSalvarEdit, idAtual) : alvo.dataset.urlSalvar;
       postar(url, corpo).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (res) {
         if (res.ok) { modal.hide(); calendario.refetchEvents(); return; }

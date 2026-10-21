@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -20,16 +22,24 @@ class ClienteForm(forms.ModelForm):
     cadastrar FILIAIS da sua matriz, que herdam o segmento dela.
     """
 
+    # Usuário inicial (Gestor): nada é criado "por conta própria"; o cadastro informa quem é. A senha NÃO é digitada aqui:
+    # o responsável recebe por e-mail um link para defini-la (mesmo fluxo do "Esqueci minha senha").
+    usuario_nome = forms.CharField(
+        required=False, max_length=150, label="Nome do responsável", widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    usuario_username = forms.CharField(
+        required=False, max_length=150, label="Usuário (login)", widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "off"}),
+    )
     email_gestor = forms.EmailField(
-        required=False, label="E-mail do usuário Gestor",
-        help_text="Um usuário Gestor com o nome do cliente é criado automaticamente; ele define a senha por 'Esqueci minha senha'.",
+        required=False, label="E-mail do responsável",
+        help_text="Cria o usuário Gestor deste cliente. Ele recebe um link por e-mail para definir a senha.",
         widget=forms.EmailInput(attrs={"class": "form-control"}),
     )
 
     class Meta:
         model = Cliente
         fields = ["tipo_pessoa", "cpf_cnpj", "nome_razao_social", "nome_fantasia", "ativo",
-                  "tipo_estabelecimento", "matriz", "segmento", "perfis"]
+                  "tipo_estabelecimento", "matriz", "segmento", "perfis", "endereco", "cidade", "uf", "email_contato", "whatsapp"]
         widgets = {
             "tipo_pessoa": forms.Select(attrs={"class": "form-select"}),
             "cpf_cnpj": forms.TextInput(attrs={"class": "form-control", "placeholder": "000.000.000-00 ou 00.000.000/0000-00", "data-mask": "cpf-cnpj"}),
@@ -40,6 +50,11 @@ class ClienteForm(forms.ModelForm):
             "matriz": forms.Select(attrs={"class": "form-select"}),
             "segmento": forms.Select(attrs={"class": "form-select"}),
             "perfis": forms.CheckboxSelectMultiple(),
+            "endereco": forms.TextInput(attrs={"class": "form-control"}),
+            "cidade": forms.TextInput(attrs={"class": "form-control"}),
+            "uf": forms.TextInput(attrs={"class": "form-control", "maxlength": 2, "style": "text-transform:uppercase"}),
+            "email_contato": forms.EmailInput(attrs={"class": "form-control"}),
+            "whatsapp": forms.TextInput(attrs={"class": "form-control", "placeholder": "+5511999990000", "inputmode": "tel"}),
         }
 
     def __init__(self, *args, solicitante, **kwargs):
@@ -54,7 +69,8 @@ class ClienteForm(forms.ModelForm):
         self.fields["matriz"].empty_label = "---"
         self.fields["segmento"].queryset = Segmento.objects.filter(ativo=True)
         self.fields["perfis"].queryset = perfis_visiveis(solicitante)
-        self.fields["email_gestor"].required = self.criando
+        for campo in ("email_gestor", "usuario_nome", "usuario_username"):
+            self.fields[campo].required = self.criando
         self.fields["tipo_estabelecimento"].required = False  # vazio = mantém o atual (padrão: matriz)
 
         if not self.global_:
@@ -65,10 +81,36 @@ class ClienteForm(forms.ModelForm):
                 self.fields["tipo_estabelecimento"].initial = Cliente.TIPO_FILIAL
                 self.fields["matriz"].required = True
         if not self.criando:
-            del self.fields["email_gestor"]
+            for campo in ("email_gestor", "usuario_nome", "usuario_username"):
+                del self.fields[campo]
+
+    # Agrupamentos usados pelo template (a ordem das seções na tela).
+    @property
+    def contato_campos(self):
+        return [self[c] for c in ("endereco", "cidade", "uf", "email_contato", "whatsapp")]
+
+    @property
+    def usuario_campos(self):
+        return [self[c] for c in ("usuario_nome", "usuario_username", "email_gestor") if c in self.fields]
 
     def clean_tipo_estabelecimento(self):
         return self.cleaned_data.get("tipo_estabelecimento") or self.instance.tipo_estabelecimento or Cliente.TIPO_MATRIZ
+
+    def clean_uf(self):
+        return (self.cleaned_data.get("uf") or "").strip().upper()
+
+    def clean_whatsapp(self):
+        # Só dígitos e "+": é o formato que os conectores de mensagem esperam.
+        numero = re.sub(r"[^\d+]", "", self.cleaned_data.get("whatsapp") or "")
+        if numero and not re.fullmatch(r"\+?\d{10,15}", numero):
+            raise ValidationError("Informe o WhatsApp com DDI e DDD (10 a 15 dígitos).")
+        return numero
+
+    def clean_usuario_username(self):
+        username = (self.cleaned_data.get("usuario_username") or "").strip()
+        if username and User.objects.filter(username__iexact=username).exists():
+            raise ValidationError("Este usuário já existe.")
+        return username
 
     def clean_email_gestor(self):
         email = (self.cleaned_data.get("email_gestor") or "").strip().lower()

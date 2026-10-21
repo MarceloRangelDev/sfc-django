@@ -98,6 +98,22 @@ class Precificacao(models.Model):
     def __str__(self):
         return self.nome
 
+    @property
+    def motivo_fora_do_pdv(self):
+        """Marcada para o PDV mas fora do catálogo dele? Devolve o motivo (mesmos critérios de pdv.services.produtos_do_pdv); vazio quando
+        aparece ou quando não está marcada. Serve para explicar "marquei e não aparece" na lista e na API."""
+        if not self.usar_no_pdv:
+            return ""
+        if not self.ativo:
+            return "A precificação está inativa."
+        if not self.produto.ativo:
+            return "O produto está inativo."
+        if not self.ficha.ativo:
+            return "A ficha técnica está inativa."
+        if self.preco_venda <= 0:
+            return "O preço de venda é zero."
+        return ""
+
     @staticmethod
     def _reais(centavos):
         return DinheiroService.formatar(centavos)

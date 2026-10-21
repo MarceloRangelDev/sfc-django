@@ -275,6 +275,8 @@ class SenhaECadastroTests(BaseAPITests):
         from rest_framework.settings import api_settings
         from rest_framework.throttling import ScopedRateThrottle
 
+        original = ScopedRateThrottle.THROTTLE_RATES
+        self.addCleanup(setattr, ScopedRateThrottle, "THROTTLE_RATES", original)  # não vazar "2/hour" para os demais testes da suíte
         ScopedRateThrottle.THROTTLE_RATES = api_settings.DEFAULT_THROTTLE_RATES
         codigos = [self.anonimo.post(f"{V1}/auth/register/", {"username": f"u{i}", "email": f"u{i}@t.local", "password": "x"}, format="json").status_code for i in range(4)]
         self.assertEqual(codigos[-1], 429)
@@ -549,7 +551,7 @@ class ClientePerfilModuloAPITests(BaseAPITests):
     def cliente_payload(self, **extra):
         dados = {
             "tipo_pessoa": "PJ", "cpf_cnpj": "11.222.333/0001-81", "nome_razao_social": "Nova Empresa",
-            "email_gestor": "gestor.nova@teste.local",
+            "email_gestor": "gestor.nova@teste.local", "usuario_nome": "Gestora Nova", "usuario_username": "gestora_nova",
         }
         dados.update(extra)
         return dados

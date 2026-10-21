@@ -137,6 +137,7 @@
           <th class="text-end">{% translate "Lucro" as label %}{% include "_th_ordenavel.html" with campo="lucro" label=label %}</th>
           <th class="text-end">{% translate "Preço de venda" as label %}{% include "_th_ordenavel.html" with campo="preco" label=label %}</th>
           <th class="text-end">{% translate "CMV" as label %}{% include "_th_ordenavel.html" with campo="cmv" label=label %}</th>
+          <th>{% translate "PDV" %}</th>
           <th>{% translate "Status" %}</th>
           <th>{% translate "Ações" %}</th>
         </tr>
@@ -151,6 +152,7 @@
           <td class="text-end">{{ p.lucro_formatado }}</td>
           <td class="text-end"><strong>{{ p.preco_venda_formatado }}</strong></td>
           <td class="text-end">{{ p.cmv_percentual|floatformat:2 }}%</td>
+          <td>{% if p.usar_no_pdv %}{% if p.motivo_fora_do_pdv %}<span class="badge bg-label-warning" title="{{ p.motivo_fora_do_pdv }}">{% translate "Marcada, mas fora do PDV" %}</span><div class="small text-warning text-wrap" style="max-width:14rem">{{ p.motivo_fora_do_pdv }}</div>{% else %}<span class="badge bg-label-success">{% translate "No PDV" %}</span>{% endif %}{% else %}<span class="text-muted">&mdash;</span>{% endif %}</td>
           <td>
             {% if p.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>
             {% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}
@@ -168,7 +170,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhuma precificação encontrada." %}</td></tr>
+        <tr><td colspan="{% if mostrar_unidade %}10{% else %}9{% endif %}" class="text-center py-6">{% translate "Nenhuma precificação encontrada." %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

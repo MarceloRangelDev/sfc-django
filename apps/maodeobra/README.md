@@ -37,3 +37,8 @@ Tudo é da unidade do usuário (outra unidade devolve 404); colaborador e aponta
 ## Limites
 
 O custo calculado **não** alimenta automaticamente a Precificação de serviços (o preço do serviço continua sendo definido pela Precificação existente); o relatório serve de base para esse custo.
+
+## Serviços (cadastro) e mão de obra na ficha
+
+- **Serviços** (aba *Serviços*, `/mao-de-obra/servicos`): lista/cadastra/altera/exclui os serviços usados no apontamento. Serviço é um produto do tipo `servico` (ver `apps/produto/README.md`); não há cadastro duplicado. O apontamento só oferece serviços **ativos da unidade** (o atual segue válido na edição). Exclusão: apagar se sem uso; **só desativar** se há apontamento, ficha ou precificação. Permissões: módulo `mao-de-obra` + `produto.view/add/change/delete_produto`; só segmentos Serviço e Serviço e Produto.
+- **Fichas de serviço** podem incluir colaboradores e horas (ver `apps/ficha/README.md`). Alterar o valor da hora recalcula as fichas/precificações que usam o colaborador.

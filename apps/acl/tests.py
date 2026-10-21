@@ -87,3 +87,34 @@ class PerfisTests(TestCase):
         self.client.login(username="adm", password=SENHA)
         self.client.post(reverse("acl-papel-create"), {"nome": "Teste", "permissoes": [proibida.pk]})
         self.assertFalse(Group.objects.get(name="Teste").permissions.filter(pk=proibida.pk).exists())
+
+
+class OutrasPermissoesRecolhidasTests(TestCase):
+    """"Outras permissões" começa recolhido, mas continua no formulário: salvar sem abrir o grupo não perde nenhuma marcação."""
+
+    setUp = PerfisTests.setUp  # mesmo cenário (Administrador + Gestor), sem reexecutar os testes de PerfisTests
+    novo = PerfisTests.novo
+
+    def marcadas(self, html):
+        import re
+
+        return sorted(int(m) for m in re.findall(r'name="permissoes" value="(\d+)"[^>]*\bchecked\b', html))
+
+    def test_grupo_vem_recolhido_com_interruptor_acessivel(self):
+        self.client.login(username="adm", password=SENHA)
+        html = self.client.get(reverse("acl-papel-edit", args=[Group.objects.get(name="Gestor").pk])).content.decode()
+        self.assertIn('id="outras-permissoes" class="d-none"', html)
+        self.assertIn('id="mostrar_outras"', html)
+        self.assertIn('aria-controls="outras-permissoes"', html)
+        self.assertIn('for="mostrar_outras"', html)  # rótulo associado ao checkbox
+
+    def test_salvar_com_o_grupo_recolhido_preserva_as_permissoes(self):
+        self.client.login(username="adm", password=SENHA)
+        gestor = Group.objects.get(name="Gestor")
+        html = self.client.get(reverse("acl-papel-edit", args=[gestor.pk])).content.decode()
+        marcadas = set(self.marcadas(html))
+        self.assertTrue(marcadas)
+        # O navegador envia as caixas marcadas mesmo dentro do bloco escondido (d-none não remove os campos).
+        self.client.post(reverse("acl-papel-edit", args=[gestor.pk]), {"nome": "Gestor", "permissoes": sorted(marcadas)})
+        # Tudo o que a tela mostrava marcado (matriz + outras permissões, visíveis ou não) continua, e nada a mais aparece.
+        self.assertEqual(set(Group.objects.get(name="Gestor").permissions.values_list("pk", flat=True)), marcadas)

@@ -16,6 +16,7 @@
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
   {% if formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
+  {% if mo_formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ mo_formset.non_form_errors }}</div>{% endif %}
 
   <div class="card mb-6">
     <div class="card-body">
@@ -53,7 +54,7 @@
 
   <div class="card mb-6">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">{% translate "Itens da ficha" %}</h5>
+      <h5 class="mb-0">{% translate "Itens da ficha" %}{% if mo_formset %} <small class="text-muted fw-normal">({% translate "insumos opcionais" %})</small>{% endif %}</h5>
       <span class="fs-5" aria-live="polite">{% translate "Custo total" %}: <strong class="total-ficha">{% if object %}{{ object.custo_total_formatado }}{% else %}R$ 0,00{% endif %}</strong></span>
     </div>
     {{ formset.management_form }}
@@ -93,6 +94,38 @@
       <div class="small text-muted mt-3">{% translate "O custo é calculado pelo servidor e confirmado ao salvar." %}</div>
     </div>
   </div>
+
+  {% if mo_formset %}
+  <div class="card mb-6" id="cartaoMaoDeObra">
+    <div class="card-header"><h5 class="mb-0">{% translate "Mão de obra" %} <small class="text-muted fw-normal">({% translate "opcional" %})</small></h5>
+      <div class="form-text">{% translate "Colaboradores cadastrados em Mão de obra e as horas de cada um por execução do serviço. O custo é o valor da hora × horas." %}</div></div>
+    {{ mo_formset.management_form }}
+    <div class="table-responsive">
+      <table class="table" id="tabelaMaoDeObra">
+        <thead><tr><th style="min-width: 260px;">{% translate "Colaborador" %}</th><th>{% translate "Horas" %}</th><th>{% translate "Custo" %}</th><th>{% translate "Remover" %}</th></tr></thead>
+        <tbody>
+          {% for f in mo_formset %}
+          <tr class="linha-mo">
+            <td>{{ f.id }}{{ f.colaborador }}{% if f.colaborador.errors %}<div class="text-danger small">{{ f.colaborador.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.horas }}{% if f.horas.errors %}<div class="text-danger small">{{ f.horas.errors|striptags }}</div>{% endif %}</td>
+            <td class="custo-mo text-nowrap">{% if f.instance.pk %}{{ f.instance.custo_formatado }}{% else %}&mdash;{% endif %}</td>
+            <td class="text-center">{% if f.instance.pk %}{{ f.DELETE }}{% else %}<button type="button" class="btn btn-sm btn-text-danger remover-linha-mo" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body"><button type="button" class="btn btn-outline-primary" id="adicionarMaoDeObra"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar mão de obra" %}</button></div>
+  </div>
+  <template id="modeloMaoDeObra">
+    <tr class="linha-mo">
+      <td>{{ mo_formset.empty_form.id }}{{ mo_formset.empty_form.colaborador }}</td>
+      <td>{{ mo_formset.empty_form.horas }}</td>
+      <td class="custo-mo text-nowrap">&mdash;</td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha-mo" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button></td>
+    </tr>
+  </template>
+  {% endif %}
 
   <template id="modeloLinha">
     <tr class="linha-item">

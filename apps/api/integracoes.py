@@ -174,7 +174,7 @@ class MensagemViewSet(viewsets.ViewSet):
 class CompromissoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Compromisso
-        fields = ["id", "tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "lembrete_minutos", "pedido", "origem", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "tipo", "titulo", "descricao", "inicio", "fim", "todo_o_dia", "lembrete_minutos", "pedido", "origem", "concluido", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
@@ -186,6 +186,7 @@ class CompromissoEntrada(serializers.Serializer):
     fim = serializers.DateTimeField()
     todo_o_dia = serializers.BooleanField(required=False)
     lembrete_minutos = serializers.ChoiceField(choices=[0, 15, 60, 1440], required=False, allow_null=True, help_text="Minutos antes do início (0 = na hora); vazio = sem lembrete.")
+    concluido = serializers.BooleanField(required=False, help_text="Marca como concluído. Omitido na edição = mantém.")
     ativo = serializers.BooleanField(required=False)
 
 
@@ -202,7 +203,7 @@ class CompromissoViewSet(RecursoViewSet):
     padroes = {"tipo": "compromisso", "ativo": True}
 
     def dados_atuais(self, c):
-        return {"tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia, "lembrete_minutos": c.lembrete_minutos, "ativo": c.ativo}
+        return {"tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia, "lembrete_minutos": c.lembrete_minutos, "concluido": c.concluido, "ativo": c.ativo}
 
     def destroy(self, request, *args, **kwargs):
         from django.db import transaction
@@ -273,7 +274,7 @@ class TemplateWhatsAppViewSet(viewsets.ViewSet):
         except (TemplateWhatsApp.DoesNotExist, ValueError):
             raise NotFound from None
 
-    @extend_schema(parameters=[OpenApiParameter("conexao", int), OpenApiParameter("status", str, description="`rascunho` ou um status da Meta (APPROVED, PENDING, REJECTED...)")], responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(parameters=[OpenApiParameter("conexao", int), OpenApiParameter("status", str, description="`rascunho` ou um status da Meta (APPROVED, PENDING, REJECTED...)")], responses={200: OpenApiTypes.OBJECT}, operation_id="whatsapp_templates_list")
     def list(self, request):
         consulta = self._escopo(request)
         p = request.query_params

@@ -59,13 +59,21 @@
           {% if form.segmento.errors %}<div class="text-danger small mt-1">{{ form.segmento.errors|striptags }}</div>{% endif %}
         </div>
         {% endif %}
-        {% if form.email_gestor %}
-        <div class="col-md-6">
-          <label for="{{ form.email_gestor.id_for_label }}" class="form-label">{{ form.email_gestor.label }}</label>
-          {{ form.email_gestor }}
-          {% if form.email_gestor.errors %}<div class="text-danger small mt-1">{{ form.email_gestor.errors|striptags }}</div>{% endif %}
-          <div class="form-text">{{ form.email_gestor.help_text }}</div>
+        <div class="col-12"><h6 class="mb-0">{% translate "Contato da empresa" %}</h6><div class="form-text">{% translate "Aparece nos documentos emitidos, como o PDF do orçamento. Opcional." %}</div></div>
+        {% for campo in form.contato_campos %}
+        <div class="{% if campo.name == 'endereco' %}col-md-6{% elif campo.name == 'uf' %}col-md-2{% else %}col-md-4{% endif %}">
+          <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>{{ campo }}
+          {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
         </div>
+        {% endfor %}
+        {% if form.email_gestor %}
+        <div class="col-12"><h6 class="mb-0">{% translate "Usuário inicial (Gestor)" %}</h6><div class="form-text">{{ form.email_gestor.help_text }}</div></div>
+        {% for campo in form.usuario_campos %}
+        <div class="col-md-4">
+          <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>{{ campo }}
+          {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endfor %}
         {% endif %}
         <div class="col-12">
           <label class="form-label d-block">{% translate "Perfis disponíveis para os usuários deste cliente" %}</label>
@@ -147,3 +155,8 @@
 {% endif %}
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('cliente-form');</script>
+{% endblock page_js %}

@@ -32,13 +32,19 @@ def _texto_taxas(canal):
     return " + ".join(t.texto for t in canal.taxas.all()) or None
 
 
-def salvar_canal(request, canal, taxas, foto_antes=None):
+def _texto_segmentos(canal):
+    return ", ".join(sorted(canal.segmentos.values_list("nome", flat=True))) or None
+
+
+def salvar_canal(request, canal, taxas, foto_antes=None, segmentos=None):
     """Grava o canal e SUBSTITUI as taxas por `taxas` (lista de CanalTaxa sem
-    canal), recalculando os totais. Tudo ou nada."""
+    canal), recalculando os totais. Tudo ou nada. `segmentos` (canal global): lista de Segmento liberados;
+    None = não mexe (o formulário só oferece o campo ao administrador do sistema)."""
     validar_taxas(taxas)
     criando = canal.pk is None
     with transaction.atomic():
         antes_taxas = None if criando else _texto_taxas(canal)
+        antes_segmentos = None if criando else _texto_segmentos(canal)
         percentual, fixo = calcular_totais(taxas)
         canal.taxa_percentual_total, canal.taxa_fixa_total = percentual, fixo
         canal.save()
@@ -46,6 +52,8 @@ def salvar_canal(request, canal, taxas, foto_antes=None):
         for taxa in taxas:
             taxa.canal = canal
         CanalTaxa.objects.bulk_create(taxas)
+        if segmentos is not None:
+            canal.segmentos.set(segmentos)
         if not criando:  # precificações que usam o canal passam a usar as taxas novas
             from apps.precificacao.services import recalcular_do_canal  # import tardio: evita ciclo entre apps
 
@@ -58,6 +66,8 @@ def salvar_canal(request, canal, taxas, foto_antes=None):
             depois_taxas = _texto_taxas(canal)
             if antes_taxas != depois_taxas:
                 alteracoes.append({"campo": "taxas", "rotulo": "Taxas", "antes": antes_taxas, "depois": depois_taxas})
+            if antes_segmentos != _texto_segmentos(canal):
+                alteracoes.append({"campo": "segmentos", "rotulo": "Segmentos liberados", "antes": antes_segmentos, "depois": _texto_segmentos(canal)})
             if alteracoes:
                 registrar_alteracoes(request, canal, alteracoes)
     return canal

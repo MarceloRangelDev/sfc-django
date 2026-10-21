@@ -1,8 +1,10 @@
 import secrets
+from datetime import timezone as fuso_utc
 
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from .adaptadores import CHOICES
 
@@ -144,6 +146,25 @@ class Compromisso(models.Model):
 
     def __str__(self):
         return self.titulo
+
+    @staticmethod
+    def _dia_inteiro(momento):
+        """Data (calendário) de um instante guardado para um evento de DIA INTEIRO. Dois formatos convivem: o importado de um calendário externo
+        é guardado à 00:00 UTC (só existe a data) e o digitado no sistema é normalizado para a meia-noite LOCAL (CompromissoForm). 00:00/23:59
+        UTC => a data é a UTC (usar a local mostraria o dia anterior, UTC-3); caso contrário vale a data local."""
+        utc = momento.astimezone(fuso_utc.utc)
+        if (utc.hour, utc.minute, utc.second) in ((0, 0, 0), (23, 59, 0)):  # 00:00 UTC (início) ou 23:59 UTC (fim) do dia importado
+            return utc.date()
+        return timezone.localtime(momento).date()
+
+    @property
+    def data_inicial(self):
+        return self._dia_inteiro(self.inicio)
+
+    @property
+    def data_final(self):
+        # o fim externo de dia inteiro já é guardado como o último dia (23:59), nunca como a meia-noite seguinte
+        return self._dia_inteiro(self.fim)
 
 
 class ItemSincronizado(models.Model):

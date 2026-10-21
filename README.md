@@ -221,6 +221,7 @@ sfc-django/
 │   ├── pedido/                 # Pedidos e cozinha: fila de produção, confirmação com baixa de estoque, eventos
 │   ├── maodeobra/              # Mão de obra por hora/dia: colaboradores, apontamentos, hora extra e relatório (serviço)
 │   ├── integracao/             # Integrações (WhatsApp, Instagram, Google Agenda, iCloud), mensagens, webhooks e agenda
+│   ├── orcamento/              # Orçamentos de produtos/serviços: PDF, e-mail, WhatsApp e link público
 │   ├── fiscal/                 # Fiscal: cadastro, certificado A1 cifrado, pedidos de documento e fila (SEM emissão real ainda)
 │   ├── pdvconfig/              # Configurações do PDV: formas de pagamento (taxa), mesas e ajustes
 │   ├── cotacao/                # Cotações entre lojas: comparativo, vencedores, conta a pagar, PDF/Excel
@@ -613,6 +614,25 @@ Notificações **não** exigem migração: a coluna `lida_em` já existia. Agend
 | `limpar_notificacoes_lidas` | apaga as notificações lidas há 48 h ou mais (as expiradas já não aparecem nas telas/API mesmo antes de rodar) |
 
 Detalhes: Evolution API e templates em `apps/integracao/README.md` e `apps/integracao/GUIA_INTEGRACOES.md` (seções 1 e 2A); retenção em `apps/notificacao/README.md`; tours em `apps/tour/README.md`. A API nova (`/api/v1/whatsapp-templates/`, `/api/v1/notificacoes/`) está no Swagger (`/api/docs/`).
+
+### Atualização: agenda, canais/formas globais, serviços, orçamento e cadastro de clientes
+
+```bash
+python manage.py migrate        # aplica na ordem do grafo (tudo aditivo)
+python manage.py seed_acl       # opcional: reaplica as permissões padrão (a migração do orçamento já concede aos perfis existentes)
+```
+
+| App | Migration | O que faz | Reversível |
+|---|---|---|---|
+| `cliente` | `0010_contato_da_empresa` | `endereco`, `cidade`, `uf`, `email_contato`, `whatsapp` (opcionais, padrão vazio) em `cliente_cliente` | sim |
+| `canal` | `0002_escopo_global` | `canal_canalvenda.eh_global` (padrão `false`) + tabela `canal_canalvenda_segmentos` | sim |
+| `pdvconfig` | `0003_escopo_global` | `pdvconfig_formapagamento.eh_global` (padrão `false`) + `pdvconfig_formapagamento_segmentos` | sim |
+| `produto` | `0004_tipo_servico` | `produto_produto.tipo` (`produto`/`servico`, padrão `produto`) e **converte para `servico`** os produtos de clientes do segmento Serviço | sim (não apaga dados) |
+| `ficha` | `0004_mao_de_obra_na_ficha` | tabela `ficha_fichamaodeobra` (mão de obra nas fichas de serviço) | sim |
+| `orcamento` | `0001_initial` | tabelas `orcamento_orcamento`, `_orcamentoitem`, `_orcamentoenvio`, `_orcamentolink`; cria e concede as permissões do módulo aos perfis existentes | sim (remove as tabelas) |
+| `modulo` | `0024_modulo_orcamento` | acrescenta “Orçamentos” ao catálogo (módulo essencial: só depende da permissão) | sim |
+
+Colunas, tipos, índices e regras de cada tabela estão no README do app (`apps/cliente`, `apps/canal`, `apps/pdvconfig`, `apps/produto`, `apps/ficha`, `apps/orcamento`). **Comportamentos que mudam e merecem atenção:** o cadastro de cliente passa a exigir nome/usuário/e-mail do responsável (API: `usuario_nome` e `usuario_username` novos e obrigatórios na criação); a primeira sincronização do Google Agenda depois da atualização pode reescrever uma vez cada evento com hora (o hash passou a comparar instantes em UTC); o catálogo do PDV deixou de cortar em 80 itens. Faça backup do banco antes de produção. Para enviar orçamento por e-mail configure `RESEND_API_KEY` e `MAIL_FROM_EMAIL`; para WhatsApp use uma conexão ativa em Integrações e `BASE_URL` (links do PDF); mantenha `enviar_mensagens_pendentes` agendado a cada minuto.
 
 ### Rotinas agendáveis (cron) e configurações
 

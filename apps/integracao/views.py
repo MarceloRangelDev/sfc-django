@@ -1,5 +1,7 @@
 import json
+import re
 import secrets
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -11,7 +13,7 @@ from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonRespon
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -325,6 +327,11 @@ class CompromissoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         context["tipos"] = Compromisso.TIPO_CHOICES
         context["visao"] = "calendario" if self.request.GET.get("visao") == "calendario" else "tabela"
         context["tipo"] = self.request.GET.get("tipo", "")
+        # Quem gere integrações vê, na Agenda, as conexões de calendário com problema (mensagem já sem segredos); os demais não.
+        if self.request.user.has_perm("integracao.view_conexao"):
+            context["conexoes_com_erro"] = [
+                c for c in Conexao.objects.filter(cliente__in=clientes_dos_itens(self.request.user, "view"), status=Conexao.ERRO) if c.adaptador.sincroniza_agenda
+            ]
         return context
 
 
@@ -343,24 +350,51 @@ class CompromissoEventosView(View):
             queryset = queryset.filter(inicio__lt=fim, fim__gte=inicio)
         pode_mover = request.user.has_perm("integracao.change_compromisso")
         editaveis = set(_compromissos_do_usuario(request.user, "change").values_list("pk", flat=True)) if pode_mover else set()
-        eventos = [
-            {
-                "id": c.pk, "title": c.titulo, "start": c.inicio.isoformat(), "end": c.fim.isoformat(), "allDay": c.todo_o_dia,
+        eventos = []
+        for c in queryset.order_by("inicio")[:1000]:
+            if c.todo_o_dia:
+                # Dia inteiro: o calendário recebe DATAS (fim exclusivo = dia seguinte). Mandar o instante UTC faria o importado
+                # (guardado 00:00 UTC) aparecer no dia anterior no fuso do Brasil.
+                inicio_cal, fim_cal = c.data_inicial.isoformat(), (c.data_final + timedelta(days=1)).isoformat()
+                inicio_form, fim_form = f"{c.data_inicial.isoformat()}T00:00", f"{c.data_final.isoformat()}T23:59"
+            else:
+                inicio_cal, fim_cal = c.inicio.isoformat(), c.fim.isoformat()
+                inicio_form, fim_form = timezone.localtime(c.inicio).strftime("%Y-%m-%dT%H:%M"), timezone.localtime(c.fim).strftime("%Y-%m-%dT%H:%M")
+            eventos.append({
+                "id": c.pk, "title": c.titulo, "start": inicio_cal, "end": fim_cal, "allDay": c.todo_o_dia,
                 "editable": c.pk in editaveis,
                 "classNames": [f"tipo-{c.tipo}"] + (["concluido"] if c.concluido else []),
                 "extendedProps": {
                     "tipo": c.get_tipo_display(), "concluido": c.concluido, "origem": c.origem,
                     # Dados para o modal de edição (horário local, formato do <input datetime-local>).
                     "form": {
-                        "tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "todo_o_dia": c.todo_o_dia,
-                        "inicio": timezone.localtime(c.inicio).strftime("%Y-%m-%dT%H:%M"), "fim": timezone.localtime(c.fim).strftime("%Y-%m-%dT%H:%M"),
+                        "tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "todo_o_dia": c.todo_o_dia, "inicio": inicio_form, "fim": fim_form,
                         "lembrete_minutos": "" if c.lembrete_minutos is None else str(c.lembrete_minutos),
                     },
                 },
-            }
-            for c in queryset.order_by("inicio")[:1000]
-        ]
+            })
         return JsonResponse(eventos, safe=False)
+
+
+def _completar_com_atuais(post, instancia):
+    """Dados do modal + o que ele não enviou. O modal não tem os campos `ativo` e `concluido`; como o formulário trata campo ausente
+    como "vazio/desmarcado", sem isto criar nasceria INATIVO (e sumiria do calendário) e editar apagaria `concluido`/`ativo` e qualquer
+    campo omitido. Regra: criar => ativo; editar => só muda o que veio no POST (chave presente, mesmo vazia, é decisão do usuário)."""
+    dados = post.copy()
+    if instancia is None:
+        dados.setdefault("ativo", "on")
+        return dados
+    atuais = {
+        "tipo": instancia.tipo, "titulo": instancia.titulo, "descricao": instancia.descricao,
+        "inicio": timezone.localtime(instancia.inicio).strftime("%Y-%m-%dT%H:%M"), "fim": timezone.localtime(instancia.fim).strftime("%Y-%m-%dT%H:%M"),
+        "lembrete_minutos": "" if instancia.lembrete_minutos is None else str(instancia.lembrete_minutos),
+    }
+    for campo, valor in atuais.items():
+        dados.setdefault(campo, valor)
+    for campo in ("todo_o_dia", "concluido", "ativo"):  # caixas: ausente = desmarcada; só as verdadeiras precisam ser repostas
+        if campo not in dados and getattr(instancia, campo):
+            dados[campo] = "on"
+    return dados
 
 
 class CompromissoSalvarView(View):
@@ -377,7 +411,7 @@ class CompromissoSalvarView(View):
             instancia = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
             cliente = instancia.cliente
         antes = tirar_foto(instancia) if instancia else None
-        form = CompromissoForm(request.POST, instance=instancia, cliente=cliente)
+        form = CompromissoForm(_completar_com_atuais(request.POST, instancia), instance=instancia, cliente=cliente)
         if not form.is_valid():
             return JsonResponse({"erros": {k: [str(e) for e in v] for k, v in form.errors.items()}}, status=400)
         with transaction.atomic():
@@ -392,6 +426,23 @@ class CompromissoSalvarView(View):
         return JsonResponse({"ok": True, "id": compromisso.pk})
 
 
+def _so_data(texto):
+    """True para 'AAAA-MM-DD' (o Python 3.11+ também lê isso como data-hora à meia-noite, então a forma do texto é que decide)."""
+    return re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(texto or "")) is not None
+
+
+def _ler_momento(texto):
+    """'2026-10-21T09:00:00-03:00' ou '2026-10-21' (dia inteiro) -> (datetime aware, veio_so_data). Vazio/ilegível -> (None, False)."""
+    texto = str(texto or "")
+    if _so_data(texto):
+        dia = parse_date(texto)
+        return (timezone.make_aware(datetime.combine(dia, time.min)), True) if dia is not None else (None, False)
+    momento = parse_datetime(texto)
+    if momento is not None:
+        return (timezone.make_aware(momento) if timezone.is_naive(momento) else momento), False
+    return None, False
+
+
 class CompromissoMoverView(View):
     """POST JSON {inicio, fim?, todo_o_dia}: arrastar e soltar no calendário. Mantém a duração se `fim` não vier."""
 
@@ -399,26 +450,36 @@ class CompromissoMoverView(View):
         compromisso = get_object_or_404(_compromissos_do_usuario(request.user, "change"), pk=pk)
         try:
             dados = json.loads(request.body or b"{}")
-            novo_inicio = parse_datetime(str(dados.get("inicio", "")))
-            novo_fim = parse_datetime(str(dados.get("fim") or "")) if dados.get("fim") else None
-        except ValueError:
+            novo_inicio, so_data_inicio = _ler_momento(dados.get("inicio"))
+            novo_fim, _ = _ler_momento(dados.get("fim")) if dados.get("fim") else (None, False)
+        except (ValueError, TypeError, AttributeError):
             return JsonResponse({"erro": "Dados inválidos."}, status=400)
         if novo_inicio is None:
             return JsonResponse({"erro": "Data inválida."}, status=400)
-        if timezone.is_naive(novo_inicio):
-            novo_inicio = timezone.make_aware(novo_inicio)
-        if novo_fim is None:
-            novo_fim = novo_inicio + (compromisso.fim - compromisso.inicio)
-        elif timezone.is_naive(novo_fim):
-            novo_fim = timezone.make_aware(novo_fim)
+        era_dia_inteiro = compromisso.todo_o_dia
+        dia_inteiro = bool(dados["todo_o_dia"]) if "todo_o_dia" in dados else (era_dia_inteiro or so_data_inicio)
+        if dia_inteiro:
+            # Só as datas importam: mantém a quantidade de dias (ou usa o fim informado, que no calendário é exclusivo).
+            primeiro = timezone.localtime(novo_inicio).date()
+            if novo_fim is not None and _so_data(dados.get("fim")):
+                ultimo = max(primeiro, timezone.localtime(novo_fim).date() - timedelta(days=1))
+            elif era_dia_inteiro:
+                ultimo = primeiro + (compromisso.data_final - compromisso.data_inicial)
+            else:
+                ultimo = primeiro
+            fuso = timezone.get_current_timezone()
+            novo_inicio = timezone.make_aware(datetime.combine(primeiro, time.min), fuso)
+            novo_fim = timezone.make_aware(datetime.combine(ultimo, time(23, 59)), fuso)
+        elif novo_fim is None:
+            # De "dia inteiro" para horário sem fim informado: 1 hora; senão mantém a duração.
+            novo_fim = novo_inicio + (timedelta(hours=1) if era_dia_inteiro else compromisso.fim - compromisso.inicio)
         if novo_fim < novo_inicio:
             return JsonResponse({"erro": "O fim não pode ser anterior ao início."}, status=400)
         antes = tirar_foto(compromisso)
         with transaction.atomic():
             compromisso.inicio, compromisso.fim = novo_inicio, novo_fim
             compromisso.lembrete_enviado_em = None  # novo horário: o lembrete vale de novo
-            if "todo_o_dia" in dados:
-                compromisso.todo_o_dia = bool(dados["todo_o_dia"])
+            compromisso.todo_o_dia = dia_inteiro
             compromisso.save()
             registrar_edicao(request, compromisso, antes, modulo="integracao")
         return JsonResponse({"ok": True})

@@ -7,6 +7,7 @@ basta apontar `EMAIL_BACKEND` para esta classe (ver config/settings.py) que todo
 código existente que usa `django.core.mail.EmailMessage` / `send_mail` continua
 funcionando normalmente, só que passando pelo Resend.
 """
+import base64
 import logging
 
 from django.conf import settings
@@ -83,5 +84,14 @@ class ResendEmailBackend(BaseEmailBackend):
             params["bcc"] = list(message.bcc)
         if getattr(message, "reply_to", None):
             params["reply_to"] = list(message.reply_to)
+
+        # Anexos (ex.: PDF do orçamento): `EmailMessage.attach(nome, bytes, mime)` -> o Resend recebe o conteúdo em Base64.
+        anexos = []
+        for anexo in getattr(message, "attachments", []) or []:
+            if isinstance(anexo, (tuple, list)) and len(anexo) >= 2:
+                conteudo = anexo[1].encode() if isinstance(anexo[1], str) else anexo[1]
+                anexos.append({"filename": anexo[0], "content": base64.b64encode(conteudo).decode("ascii")})
+        if anexos:
+            params["attachments"] = anexos
 
         resend.Emails.send(params)

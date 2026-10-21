@@ -16,12 +16,14 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, serializers, viewsets
 from rest_framework.response import Response
 
 from apps.auditoria.utils import registrar_criacao, registrar_edicao, registrar_exclusao, tirar_foto
 from web_project.acesso import cliente_do_usuario
+from web_project.globais import q_globais_do_cliente
 from web_project.mixins import em_uso
 
 from .permissions import PermissaoDoSistema
@@ -101,6 +103,9 @@ class RecursoViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     ordenacao_padrao = ["nome"]
     padroes = {"ativo": True}
     rotulo = "Registro"
+    # Canais/formas de pagamento: leitura (list/retrieve) inclui os itens GLOBAIS liberados ao segmento do usuário (web_project/globais.py).
+    # Escrita nunca: update/destroy só alcançam itens do próprio cliente (outro dono = 404).
+    incluir_globais = False
 
     # --- consulta ---------------------------------------------------------------------------
     def cliente(self):
@@ -127,6 +132,8 @@ class RecursoViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
             return self.modelo.objects.none()
         cliente = self.cliente()
         queryset = self.consulta_base().filter(cliente=cliente) if cliente else self.modelo.objects.none()
+        if cliente and self.incluir_globais and self.action in ("list", "retrieve"):
+            queryset = self.consulta_base().filter(Q(cliente=cliente) | q_globais_do_cliente(self.modelo, cliente)).distinct()
         if self.action == "list":
             queryset = self.filtrar(queryset, self.request.query_params)
         return _ordenar(queryset, self.request.query_params, self.colunas_ordenaveis, self.ordenacao_padrao)
@@ -153,10 +160,14 @@ class RecursoViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
 
     def preparar(self, dados, instancia):
         """Valida com o formulário da tela; devolve {"form": ...} (e, se houver, o formset). Levanta 400 se inválido."""
-        form = self.form_class(para_formulario(dados, self.campos_moeda), instance=instancia, **self.kwargs_do_formulario(instancia))
+        form = self.form_class({**para_formulario(dados, self.campos_moeda), **self.listas_do_formulario(dados)}, instance=instancia, **self.kwargs_do_formulario(instancia))
         if not form.is_valid():
             raise serializers.ValidationError(erros_de(form))
         return {"form": form}
+
+    def listas_do_formulario(self, dados):
+        """Campos de LISTA que o formulário aceita (ex.: `segmentos`); `para_formulario` ignora listas, então cada recurso informa os seus."""
+        return {}
 
     def kwargs_do_formulario(self, instancia):
         return {"cliente": instancia.cliente if instancia is not None else self.cliente()}

@@ -1,4 +1,6 @@
 """Matriz/Filial, isolamento entre estruturas, Gestor padrão e regras do Admin."""
+from unittest import mock
+
 from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
@@ -156,16 +158,18 @@ class GestorPadraoTests(EstruturaBase):
         self.dados = {
             "tipo_pessoa": "PJ", "cpf_cnpj": "07526557000100", "nome_razao_social": "Cliente Novo Ltda",
             "nome_fantasia": "", "ativo": "on", "tipo_estabelecimento": "matriz",
-            "segmento": Segmento.objects.get(slug="produto").pk, "email_gestor": "gestor.novo@teste.local",
+            "segmento": Segmento.objects.get(slug="produto").pk, "email_gestor": "gestor.novo@teste.local", "usuario_nome": "Gestor Novo", "usuario_username": "gestor_novo",
         }
 
-    def test_criar_cliente_cria_usuario_gestor_vinculado_com_o_mesmo_nome(self):
-        resposta = self.client.post(reverse("cliente-create"), self.dados)
+    def test_criar_cliente_cria_usuario_gestor_com_os_dados_informados(self):
+        with mock.patch("apps.cliente.services.iniciar_redefinicao_de_senha") as link, self.captureOnCommitCallbacks(execute=True):
+            resposta = self.client.post(reverse("cliente-create"), self.dados)
         self.assertRedirects(resposta, reverse("cliente-list"))
+        link.assert_called_once_with("gestor.novo@teste.local")  # o link de senha sai depois do commit
         cliente = Cliente.objects.get(cpf_cnpj="07526557000100")
-        usuario = User.objects.get(username="Cliente Novo Ltda")
+        usuario = User.objects.get(username="gestor_novo")
         self.assertEqual(usuario.profile.cliente, cliente)
-        self.assertEqual(usuario.first_name, "Cliente Novo Ltda")
+        self.assertEqual(usuario.first_name, "Gestor Novo")
         self.assertEqual([g.name for g in usuario.groups.all()], ["Gestor"])
         self.assertFalse(usuario.has_usable_password())  # senha definida por "Esqueci minha senha"
         self.assertIn(Group.objects.get(name="Gestor"), cliente.perfis.all())
@@ -182,17 +186,34 @@ class GestorPadraoTests(EstruturaBase):
         resposta = self.client.post(reverse("cliente-create"), self.dados)
         self.assertEqual(resposta.status_code, 200)  # formulário com erro
         self.assertFalse(Cliente.objects.filter(cpf_cnpj="07526557000100").exists())
-        self.assertFalse(User.objects.filter(username="Cliente Novo Ltda").exists())
+        self.assertFalse(User.objects.filter(username="gestor_novo").exists())
+
+    def test_dados_do_usuario_inicial_sao_obrigatorios_e_o_login_e_unico(self):
+        for campo in ("usuario_nome", "usuario_username", "email_gestor"):
+            dados = {k: v for k, v in self.dados.items() if k != campo}
+            self.assertEqual(self.client.post(reverse("cliente-create"), dados).status_code, 200, campo)
+        self.assertFalse(Cliente.objects.filter(cpf_cnpj="07526557000100").exists())
+        self.dados["usuario_username"] = "ADM"  # já existe (sem diferenciar maiúsculas)
+        self.assertEqual(self.client.post(reverse("cliente-create"), self.dados).status_code, 200)
+        self.assertFalse(Cliente.objects.filter(cpf_cnpj="07526557000100").exists())
+
+    def test_falha_no_envio_do_link_nao_desfaz_o_cadastro(self):
+        with mock.patch("apps.cliente.services.iniciar_redefinicao_de_senha", side_effect=RuntimeError("e-mail fora")), self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("cliente-create"), self.dados)
+        self.assertTrue(User.objects.filter(username="gestor_novo").exists())
+
+    def test_contato_da_empresa_e_validado_e_normalizado(self):
+        self.dados.update(endereco="Rua A, 10", cidade="Recife", uf="pe", email_contato="contato@empresa.local", whatsapp="+55 (81) 99999-0000")
+        self.client.post(reverse("cliente-create"), self.dados)
+        c = Cliente.objects.get(cpf_cnpj="07526557000100")
+        self.assertEqual((c.uf, c.whatsapp, c.cidade), ("PE", "+5581999990000", "Recife"))
+        self.dados.update(cpf_cnpj="11222333000181", whatsapp="123", usuario_username="outro_gestor", email_gestor="o@teste.local")
+        self.assertEqual(self.client.post(reverse("cliente-create"), self.dados).status_code, 200)  # WhatsApp inválido
 
     def test_email_do_gestor_duplicado_e_rejeitado(self):
         self.dados["email_gestor"] = "adm@teste.local"
         self.client.post(reverse("cliente-create"), self.dados)
         self.assertFalse(Cliente.objects.filter(cpf_cnpj="07526557000100").exists())
-
-    def test_username_repetido_recebe_o_documento(self):
-        User.objects.create_user(username="Cliente Novo Ltda", email="outro@teste.local")
-        self.client.post(reverse("cliente-create"), self.dados)
-        self.assertTrue(User.objects.filter(username="Cliente Novo Ltda 07526557000100").exists())
 
     def test_gestor_de_uma_estrutura_so_cria_filial_da_propria_matriz(self):
         gestor = novo_usuario("gestor_a", self.matriz_a, "Gestor")

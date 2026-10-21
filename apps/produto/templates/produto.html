@@ -31,6 +31,15 @@
           {% for c in categorias %}<option value="{{ c.pk }}" {% if categoria_selecionada == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
         </select>
       </div>
+      {% if user.profile.precifica_servico and user.profile.precifica_produto %}
+      <div class="col-md-auto">
+        <label class="form-label" for="tipo">{% translate "Tipo" %}</label>
+        <select id="tipo" name="tipo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if tipo_selecionado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div class="col-md-auto">
         <label class="form-label" for="status">{% translate "Status" %}</label>
         <select id="status" name="status" class="form-select">
@@ -79,7 +88,7 @@
         {% for produto in produtos %}
         <tr>
           <td>{% include "imagens/_thumb.html" with tipo="produto" pk=produto.pk %}</td>
-          <td>{{ produto.nome }}</td>
+          <td>{{ produto.nome }}{% if produto.tipo == "servico" %} <span class="badge bg-label-info">{% translate "Serviço" %}</span>{% endif %}</td>
           <td>{{ produto.categoria.nome }}{% if not produto.categoria.ativo %} <span class="badge bg-label-secondary">{% translate "inativa" %}</span>{% endif %}</td>
           <td><code>{{ produto.codigo_barras|default:"—" }}</code></td>
           <td>{{ produto.descricao|default:"—" }}</td>

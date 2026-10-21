@@ -144,7 +144,11 @@ class ProcessadoItemForm(forms.ModelForm):
 
 
 class BaseItemFormSet(BaseInlineFormSet):
-    def __init__(self, *args, cliente=None, **kwargs):
+    # Segmentos Serviço e Produto e Serviço: insumos deixam de ser obrigatórios na ficha (a ficha pode ter só mão de obra, ou nada).
+    itens_opcionais = False
+
+    def __init__(self, *args, cliente=None, itens_opcionais=False, **kwargs):
+        self.itens_opcionais = itens_opcionais
         # Insumos selecionáveis: ativos da unidade, exceto o gerado por este
         # próprio processado (evita ciclo direto; o indireto é checado ao salvar).
         self.insumos = Insumo.objects.filter(cliente=cliente, ativo=True).select_related("medida").order_by("nome")
@@ -168,7 +172,7 @@ class BaseItemFormSet(BaseInlineFormSet):
         if any(self.errors):
             return
         itens = self.itens_validos()
-        if not itens:
+        if not itens and not self.itens_opcionais:
             raise forms.ValidationError("Inclua ao menos um insumo na ficha técnica.")
         ids = [f.cleaned_data["insumo"].pk for f in itens]
         if len(ids) != len(set(ids)):

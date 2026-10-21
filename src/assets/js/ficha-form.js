@@ -10,6 +10,9 @@
  * Marcação esperada: <form data-calculo-url="..." data-prefixo="...">; linhas em
  * `tbody#tabelaItens tr.linha-item` com campos terminados em -insumo, -medida
  * e -quantidade, uma `td.custo-item` por linha e elementos `.total-ficha`.
+ * Ficha de serviço: opcionalmente `tbody#tabelaMaoDeObra tr.linha-mo` (campos -colaborador e
+ * -horas, `td.custo-mo`), botão #adicionarMaoDeObra e <template id="modeloMaoDeObra">; o total
+ * enviado/recebido soma insumos + mão de obra.
  */
 (function () {
   'use strict';
@@ -43,6 +46,19 @@
 
   function campo(linha, sufixo) { return linha.querySelector('[name$="' + sufixo + '"]'); }
 
+  // Mão de obra (só na ficha de serviço): mesma ideia, tabela própria com o prefixo "mao_de_obra".
+  var corpoMo = document.querySelector('#tabelaMaoDeObra tbody');
+  var totalMo = document.getElementById('id_mao_de_obra-TOTAL_FORMS');
+  function linhasMo() { return corpoMo ? Array.prototype.slice.call(corpoMo.querySelectorAll('tr.linha-mo')) : []; }
+
+  function iniciarBuscaMo(contexto) {
+    if (!$.fn.select2) return;
+    $(contexto).find('select[name$="-colaborador"]').each(function () {
+      if ($(this).data('select2')) return;
+      $(this).select2({ width: '100%', placeholder: 'Selecione...', dropdownParent: $(document.body) });
+    });
+  }
+
   function mostrarTotal(texto) {
     document.querySelectorAll('.total-ficha').forEach(function (el) { el.textContent = texto; });
   }
@@ -59,10 +75,16 @@
         quantidade: campo(l, '-quantidade').value
       };
     });
+    var rowsMo = linhasMo();
+    var dadosMo = rowsMo.map(function (l) {
+      var remover = campo(l, '-DELETE');
+      if (remover && remover.checked) return { colaborador: '', horas: '' };
+      return { colaborador: campo(l, '-colaborador').value, horas: campo(l, '-horas').value };
+    });
     fetch(form.dataset.calculoUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'Accept': 'application/json' },
-      body: JSON.stringify({ itens: dados })
+      body: JSON.stringify({ itens: dados, mao_de_obra: dadosMo })
     })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function (d) {
@@ -79,6 +101,13 @@
           var extenso = l.querySelector('.extenso-item');
           if (extenso) extenso.textContent = item.extenso || '';
         });
+        rowsMo.forEach(function (l, i) {
+          var celula = l.querySelector('td.custo-mo');
+          var linha = (d.mao_de_obra || [])[i] || {};
+          celula.textContent = linha.custo || '—';
+          celula.title = linha.erro || '';
+          celula.classList.toggle('text-danger', !!linha.erro);
+        });
         mostrarTotal(d.total);
       })
       .catch(function () { /* mantém os valores atuais */ });
@@ -87,9 +116,10 @@
   function agendar() { clearTimeout(temporizador); temporizador = setTimeout(atualizar, 300); }
 
   iniciarBusca(form);
+  iniciarBuscaMo(form);
   agendar();  // formulário de edição já vem preenchido: mostra custos e extenso sem esperar uma digitação
   // Delegado em jQuery: recebe tanto eventos nativos quanto o 'change' do select2.
-  $(form).on('change input', '#tabelaItens select, #tabelaItens input', agendar);
+  $(form).on('change input', '#tabelaItens select, #tabelaItens input, #tabelaMaoDeObra select, #tabelaMaoDeObra input', agendar);
 
   document.getElementById('adicionarLinha').addEventListener('click', function () {
     var html = document.getElementById('modeloLinha').innerHTML.replace(/__prefix__/g, total.value);
@@ -97,6 +127,20 @@
     total.value = parseInt(total.value, 10) + 1;
     iniciarBusca(corpo.lastElementChild);
   });
+
+  var botaoMo = document.getElementById('adicionarMaoDeObra');
+  if (botaoMo && corpoMo && totalMo) {
+    botaoMo.addEventListener('click', function () {
+      var html = document.getElementById('modeloMaoDeObra').innerHTML.replace(/__prefix__/g, totalMo.value);
+      corpoMo.insertAdjacentHTML('beforeend', html);
+      totalMo.value = parseInt(totalMo.value, 10) + 1;
+      iniciarBuscaMo(corpoMo.lastElementChild);
+    });
+    corpoMo.addEventListener('click', function (e) {
+      var botao = e.target.closest('.remover-linha-mo');
+      if (botao) { botao.closest('tr').remove(); agendar(); }
+    });
+  }
 
   corpo.addEventListener('click', function (e) {
     var botao = e.target.closest('.remover-linha');

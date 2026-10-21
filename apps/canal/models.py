@@ -40,6 +40,10 @@ class CanalVenda(models.Model):
     taxa_fixa_total = models.PositiveBigIntegerField(default=0, editable=False, verbose_name="Total de taxas fixas (centavos)")
     # Exclusão lógica por inativação: canal usado em precificações nunca some.
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    # Escopo GLOBAL (ver web_project/globais.py): o item pertence ao cliente do sistema, mas fica disponível, só para uso, aos clientes
+    # dos `segmentos` escolhidos. Só o administrador do sistema marca/edita isto.
+    eh_global = models.BooleanField(default=False, db_default=False, verbose_name="Global")
+    segmentos = models.ManyToManyField("modulo.Segmento", blank=True, related_name="canais_venda_globais", verbose_name="Segmentos liberados")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

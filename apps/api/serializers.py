@@ -262,14 +262,17 @@ class ClienteSerializer(serializers.ModelSerializer):
     perfis = serializers.PrimaryKeyRelatedField(many=True, queryset=Group.objects.all(), required=False)
     cpf_cnpj_formatado = serializers.CharField(read_only=True)
     email_gestor = serializers.EmailField(
-        write_only=True, required=False, help_text="Obrigatório ao criar: e-mail do usuário Gestor criado automaticamente.",
+        write_only=True, required=False, help_text="Obrigatório ao criar: e-mail do usuário Gestor inicial (recebe o link para definir a senha).",
     )
+    usuario_nome = serializers.CharField(write_only=True, required=False, max_length=150, help_text="Obrigatório ao criar: nome do responsável.")
+    usuario_username = serializers.CharField(write_only=True, required=False, max_length=150, help_text="Obrigatório ao criar: usuário (login) do responsável.")
 
     class Meta:
         model = Cliente
         fields = [
             "id", "tipo_pessoa", "cpf_cnpj", "cpf_cnpj_formatado", "nome_razao_social", "nome_fantasia",
-            "ativo", "tipo_estabelecimento", "matriz", "segmento", "perfis", "email_gestor", "criado_em", "atualizado_em",
+            "ativo", "tipo_estabelecimento", "matriz", "segmento", "perfis", "email_gestor", "usuario_nome", "usuario_username",
+            "endereco", "cidade", "uf", "email_contato", "whatsapp", "criado_em", "atualizado_em",
         ]
         read_only_fields = ["criado_em", "atualizado_em"]
         extra_kwargs = {"cpf_cnpj": {"validators": []}}  # unicidade checada no documento normalizado (abaixo)
@@ -295,8 +298,12 @@ class ClienteSerializer(serializers.ModelSerializer):
             matriz = dados.get("matriz")
             if base is None:
                 dados["segmento"] = matriz.segmento if matriz else None
-        if base is None and not dados.get("email_gestor"):
-            raise serializers.ValidationError({"email_gestor": ["Informe o e-mail do usuário Gestor."]})
+        if base is None:
+            faltando = {c: ["Obrigatório ao criar o cliente."] for c in ("email_gestor", "usuario_nome", "usuario_username") if not dados.get(c)}
+            if faltando:
+                raise serializers.ValidationError(faltando)
+            if User.objects.filter(username__iexact=dados["usuario_username"]).exists():
+                raise serializers.ValidationError({"usuario_username": ["Este usuário já existe."]})
         email = dados.get("email_gestor")
         if email and (User.objects.filter(email__iexact=email).exists() or Profile.objects.filter(email__iexact=email).exists()):
             raise serializers.ValidationError({"email_gestor": ["Este e-mail já está cadastrado."]})
@@ -323,14 +330,15 @@ class ClienteSerializer(serializers.ModelSerializer):
 
     def create(self, dados):
         perfis = dados.pop("perfis", [])
-        email_gestor = dados.pop("email_gestor")
+        email_gestor, nome, username = dados.pop("email_gestor"), dados.pop("usuario_nome"), dados.pop("usuario_username")
         try:
-            return criar_cliente(self.context["request"], Cliente(**dados), perfis, email_gestor)  # cliente + Gestor + auditoria
+            return criar_cliente(self.context["request"], Cliente(**dados), perfis, email_gestor, nome, username)  # cliente + Gestor + auditoria
         except DjangoValidationError as erro:
             raise serializers.ValidationError({"non_field_errors": erro.messages}) from None
 
     def update(self, cliente, dados):
-        dados.pop("email_gestor", None)
+        for campo in ("email_gestor", "usuario_nome", "usuario_username"):
+            dados.pop(campo, None)
         return super().update(cliente, dados)
 
 

@@ -31,6 +31,14 @@
             {{ form.ativo }}
             <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label>
           </div>
+        {% if form.eh_global %}
+        <div class="col-12" id="canal-global">
+          <div class="form-check form-switch">{{ form.eh_global }}<label class="form-check-label" for="{{ form.eh_global.id_for_label }}">{% translate "Canal global (disponível a todos os clientes dos segmentos escolhidos)" %}</label></div>
+          <label for="{{ form.segmentos.id_for_label }}" class="form-label mt-3">{% translate "Segmentos liberados" %}</label>{{ form.segmentos }}
+          <div class="form-text">{% translate "Clientes só podem usar o canal global; apenas o administrador do sistema o altera. Segure Ctrl para escolher vários." %}</div>
+          {% if form.segmentos.errors %}<div class="text-danger small mt-1">{{ form.segmentos.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
         </div>
       </div>
     </div>

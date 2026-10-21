@@ -12,6 +12,7 @@ import re
 import urllib.parse
 import uuid
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
 
@@ -25,6 +26,22 @@ def _erro(erro):
 
 def _iso(valor):
     return valor.isoformat() if hasattr(valor, "isoformat") else str(valor)
+
+
+def _com_fuso(momento):
+    """`start`/`end` de evento com hora: devolve o ISO com deslocamento. O Google manda o deslocamento em `dateTime`; se vier sem (só com
+    `timeZone`), aplica o fuso informado em vez de assumir UTC."""
+    texto = momento.get("dateTime") or ""
+    try:
+        naive = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return texto
+    if naive.tzinfo is None and momento.get("timeZone"):
+        try:
+            return naive.replace(tzinfo=ZoneInfo(momento["timeZone"])).isoformat()
+        except (ZoneInfoNotFoundError, ValueError):
+            return texto
+    return texto
 
 
 class GoogleCalendar(Adaptador):
@@ -95,10 +112,22 @@ class GoogleCalendar(Adaptador):
             inicio, fim = {"dateTime": _iso(evento["inicio"])}, {"dateTime": _iso(evento["fim"])}
         return {"summary": evento["titulo"][:200], "description": (evento.get("descricao") or "")[:1000], "start": inicio, "end": fim}
 
+    # Mensagens úteis para o usuário por código HTTP (nunca repetem o corpo da resposta nem credenciais). 429/5xx seguem o caminho
+    # "temporário" do núcleo (pausa e nova tentativa); os demais marcam a conexão com erro.
+    MENSAGENS_HTTP = {
+        401: "O Google recusou a autorização (401): o acesso expirou ou foi revogado. Reconecte a conta.",
+        403: "O Google negou o acesso (403). Ative a API do Google Agenda no projeto do Google Cloud e confirme a permissão neste calendário.",
+        404: "Calendário não encontrado (404). Confira o ID do calendário na conexão.",
+    }
+    MAX_PAGINAS = 20  # 20 × 250 = 5.000 eventos na janela; acima disso a sincronização é recusada (nunca roda com lista parcial)
+
     def _chamar(self, metodo, url, credenciais, corpo=None):
         try:
             return rede.requisitar(metodo, url, self._cab(credenciais), corpo, json_resposta=metodo != "DELETE")
         except rede.ErroDeRede as erro:
+            mensagem = self.MENSAGENS_HTTP.get(erro.status)
+            if mensagem:
+                raise ErroIntegracao(mensagem, temporario=False) from None
             raise _erro(erro) from None
 
     def testar(self, conexao, credenciais):
@@ -121,17 +150,29 @@ class GoogleCalendar(Adaptador):
                 raise
 
     def listar_eventos(self, conexao, credenciais, desde, ate):
-        params = urllib.parse.urlencode({"timeMin": _iso(desde), "timeMax": _iso(ate), "singleEvents": "true", "maxResults": 250, "showDeleted": "false"})
-        _, _, dados = self._chamar("GET", f"{self.URL_API}/{self._cal(conexao)}/events?{params}", credenciais)
-        eventos = []
-        for item in dados.get("items", []):
-            inicio, fim = item.get("start", {}), item.get("end", {})
-            todo = "date" in inicio
-            eventos.append({
-                "id": item["id"], "titulo": item.get("summary", "(sem título)"), "descricao": item.get("description", ""), "todo_o_dia": todo,
-                "inicio": inicio.get("dateTime") or inicio.get("date"), "fim": fim.get("dateTime") or fim.get("date"), "atualizado_em": item.get("updated"), "etag": item.get("etag", ""),
-            })
-        return eventos
+        """Eventos da janela, TODAS as páginas. `singleEvents` expande os recorrentes (cada ocorrência é um evento com id próprio) e
+        `showDeleted=false` omite os cancelados. Nunca devolve uma lista parcial: o núcleo desativa compromissos que "sumiram" do
+        calendário, então truncar causaria exclusões indevidas; passou do limite de páginas, recusa a sincronização."""
+        eventos, token = [], ""
+        for _ in range(self.MAX_PAGINAS):
+            params = {"timeMin": _iso(desde), "timeMax": _iso(ate), "singleEvents": "true", "maxResults": 250, "showDeleted": "false"}
+            if token:
+                params["pageToken"] = token
+            _, _, dados = self._chamar("GET", f"{self.URL_API}/{self._cal(conexao)}/events?{urllib.parse.urlencode(params)}", credenciais)
+            for item in dados.get("items", []):
+                if item.get("status") == "cancelled" or "id" not in item:
+                    continue
+                inicio, fim = item.get("start", {}), item.get("end", {})
+                todo = "date" in inicio
+                eventos.append({
+                    "id": item["id"], "titulo": item.get("summary") or "(sem título)", "descricao": item.get("description", ""), "todo_o_dia": todo,
+                    "inicio": _com_fuso(inicio) if not todo else inicio.get("date"), "fim": _com_fuso(fim) if not todo else fim.get("date"),
+                    "atualizado_em": item.get("updated"), "etag": item.get("etag", ""),
+                })
+            token = dados.get("nextPageToken", "")
+            if not token:
+                return eventos
+        raise ErroIntegracao(f"O calendário tem mais de {self.MAX_PAGINAS * 250} eventos na janela de sincronização; para evitar exclusões indevidas a sincronização foi recusada. Use um calendário com menos eventos.", temporario=False)
 
 
 class GoogleTasks(GoogleCalendar):
@@ -151,14 +192,12 @@ class GoogleTasks(GoogleCalendar):
     sincroniza_conclusao = True
     URL_API = "https://tasks.googleapis.com/tasks/v1/lists"
 
-    def _chamar(self, metodo, url, credenciais, corpo=None):
-        try:
-            return super()._chamar(metodo, url, credenciais, corpo)
-        except ErroIntegracao as erro:
-            if "403" in str(erro):  # causa comum: API desligada no projeto ou escopo ausente na tela de consentimento
-                raise ErroIntegracao("O Google recusou o acesso (403). Ative a \"Google Tasks API\" no projeto do Google Cloud e confirme que o escopo "
-                                     "\"tasks\" está na tela de consentimento; depois reconecte a conta.") from None
-            raise
+    MENSAGENS_HTTP = {
+        **GoogleCalendar.MENSAGENS_HTTP,
+        403: "O Google recusou o acesso (403). Ative a \"Google Tasks API\" no projeto do Google Cloud e confirme que o escopo "
+             "\"tasks\" está na tela de consentimento; depois reconecte a conta.",  # causa comum: API desligada no projeto ou escopo ausente
+        404: "Lista de tarefas não encontrada (404). Confira o ID da lista na conexão.",
+    }
 
     def _lista(self, conexao):
         return urllib.parse.quote(conexao.config.get("tasklist") or "@default", safe="@")

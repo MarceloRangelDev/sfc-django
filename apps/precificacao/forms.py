@@ -4,6 +4,7 @@ from django import forms
 from django.db.models import Q
 
 from apps.canal.models import CanalVenda
+from web_project.globais import q_globais_do_cliente
 from apps.ficha.models import Ficha
 from web_project.forms import DecimalBRField, MoedaCentavosField
 
@@ -65,6 +66,7 @@ class PrecificacaoForm(forms.ModelForm):
         # Fichas e canais ATIVOS da mesma unidade (o campo rejeita ids de fora);
         # ao editar, os atuais continuam válidos mesmo se desativados depois.
         filtro_ficha, filtro_canal = Q(cliente=self.cliente, ativo=True), Q(cliente=self.cliente, ativo=True)
+        filtro_canal |= Q(q_globais_do_cliente(CanalVenda, self.cliente), ativo=True)  # canais globais liberados ao segmento
         if self.instance.pk:
             filtro_ficha |= Q(pk=self.instance.ficha_id)
             filtro_canal |= Q(pk=self.instance.canal_id)
@@ -75,7 +77,7 @@ class PrecificacaoForm(forms.ModelForm):
         repetidos = {i for i in ids if ids.count(i) > 1}
         self.fields["ficha"].label_from_instance = lambda f: f"{f.produto.categoria.nome} — {f.produto.nome}" + (f" ({f.nome})" if f.produto_id in repetidos else "")
         self.fields["ficha"].empty_label = "Selecione..."
-        self.fields["canal"].queryset = CanalVenda.objects.filter(filtro_canal).order_by("nome", "descricao")
+        self.fields["canal"].queryset = CanalVenda.objects.filter(filtro_canal).distinct().order_by("nome", "descricao")
         self.fields["canal"].empty_label = "Personalizado (informar abaixo)"
         self.fields["canal"].label_from_instance = str
         self.fields["canal_nome"].required = False

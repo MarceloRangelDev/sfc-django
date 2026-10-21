@@ -10,6 +10,8 @@ from django.views.generic import CreateView, ListView, UpdateView
 
 from apps.auditoria.mixins import AuditoriaFormMixin
 from apps.auditoria.utils import registrar as registrar_auditoria
+from apps.produto.forms import ServicoForm
+from apps.produto.models import Produto
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
 from web_project.exportacao import exportar_excel, exportar_pdf, sanitizar_texto_excel
@@ -238,3 +240,63 @@ class RelatorioView(SegmentoMixin, View):
         return render(request, "mao_obra_relatorio.html", TemplateLayout.init(self, {
             "ativa": "relatorio", "filtro": form, "linhas": linhas, "total": total, "total_fmt": DinheiroService.formatar(total),
         }))
+
+
+# --------------------------------------------------------------------------
+# Serviços do apontamento
+#
+# Serviço é um Produto com tipo "servico" (mesmo cadastro, ficha, precificação e vínculo com o apontamento). Estas telas só
+# oferecem, dentro de Mão de obra, o atalho para listar/cadastrar/alterar/excluir os serviços, reaproveitando o formulário, o escopo de
+# unidades e as permissões de produto (produto.*_produto) e a regra de exclusão: serviço usado em apontamento, ficha ou precificação
+# nunca é apagado, só desativado.
+# --------------------------------------------------------------------------
+
+class ServicoListView(_Lista):
+    model = Produto
+    template_name = "servico.html"
+    context_object_name = "servicos"
+    colunas_ordenaveis = {"nome": "nome", "categoria": "categoria__nome"}
+
+    def get_queryset(self):
+        queryset = super().get_queryset().filter(tipo=Produto.SERVICO).select_related("categoria")
+        termo = self.request.GET.get("q", "").strip()
+        if termo:
+            queryset = queryset.filter(Q(nome__icontains=termo) | Q(descricao__icontains=termo) | Q(categoria__nome__icontains=termo))
+        return self.ordenar(self.filtrar_status(queryset))
+
+
+class ServicoFormMixin(SegmentoMixin):
+    model = Produto
+    form_class = ServicoForm
+    template_name = "servico_form.html"
+    success_url = reverse_lazy("servico-list")
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tipo=Produto.SERVICO)  # editar por aqui só alcança serviços
+
+    def get_context_data(self, **kwargs):
+        return TemplateLayout.init(self, super().get_context_data(**kwargs))
+
+
+class ServicoCreateView(ServicoFormMixin, SalvarEAdicionarMixin, AuditoriaFormMixin, ClienteScopedMixin, CreateView):
+    acao_escopo, nome_url_novo = "add", "servico-create"
+
+    def form_valid(self, form):
+        messages.success(self.request, "Serviço cadastrado com sucesso.")
+        return super().form_valid(form)
+
+
+class ServicoUpdateView(ServicoFormMixin, AuditoriaFormMixin, ClienteScopedMixin, UpdateView):
+    acao_escopo = "change"
+
+    def form_valid(self, form):
+        messages.success(self.request, "Serviço atualizado com sucesso.")
+        return super().form_valid(form)
+
+
+class ServicoExcluirView(SegmentoMixin, ExcluirOuDesativarView):
+    model = Produto
+    url_lista = "servico-list"
+    rotulo = "serviço"
+    artigo = "o"
+    filtro_extra = {"tipo": Produto.SERVICO}

@@ -30,6 +30,7 @@
 
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('colaborador-form');</script>
 <script src="{% static_v 'js/form-salvar.js' %}"></script>
 <script>
   // Prévia dos valores derivados do mês (o servidor recalcula ao salvar, com as mesmas regras).

@@ -171,6 +171,8 @@
             lista.appendChild(el('div', { 'class': 'col-6 col-lg-4' }, [b]));
           });
           if (!d.itens || !d.itens.length) lista.appendChild(el('div', { 'class': 'col-12 text-muted', text: 'Nenhum produto com preço do PDV encontrado.' }));
+          // Catálogo maior que o limite da tela: avisa em vez de esconder o resto (a busca encontra qualquer produto).
+          if (d.truncado) lista.appendChild(el('div', { 'class': 'col-12 small text-warning', text: 'Mostrando ' + d.itens.length + ' de ' + d.total + ' produtos. Use a busca para achar os demais.' }));
         });
     }
     // Leitor de código de barras/QR (digita o código e dá Enter) ou câmera: o produto com esse código entra direto no carrinho.

@@ -54,3 +54,17 @@ Testes: `apps/api/tests_cadastros.py`, `tests_estoque_financeiro.py` e `tests_op
 |---|---|
 | novo recurso na API | ViewSet + Serializer + `urls.py` (declare `permissao_app`, `permissao_model`, `modulo_slug`) e **filtre o queryset pelo escopo** |
 | regra de negócio | no *service*/form compartilhado, nunca só no serializer |
+
+## Novos recursos desta atualização (resumo; detalhes no Swagger, `/api/docs/`)
+
+| Recurso | Endpoints | Observações |
+|---|---|---|
+| Orçamentos (tag `orcamentos`) | `GET/POST /api/v1/orcamentos/`, `GET/PATCH/PUT/DELETE /{id}/`, `POST /{id}/aprovar|recusar|cancelar/`, `GET /{id}/pdf/`, `GET /{id}/canais/`, `POST /{id}/enviar/` | Permissões `orcamento.*` (+ `enviar_orcamento`; WhatsApp também `integracao.enviar_mensagem`). Totais calculados no servidor; unidade do usuário (outra = 404); fechado = 422. `enviar`: `omitir_itens` só afeta a versão; alterar o salvo exige `persistir_alteracao` **e** `confirmar_persistencia`. PDF em `application/pdf`. |
+| Canais de venda | `/api/v1/canais-venda/` (ampliado) | Lista também canais **globais** liberados ao segmento (`eh_global`, `segmentos`, `somente_leitura`); só o administrador do sistema grava `eh_global`/`segmentos`; global de outro dono: PATCH/DELETE = 404. |
+| Formas de pagamento | `/api/v1/formas-pagamento/` (ampliado) | Mesma regra de globais. |
+| Produtos/serviços | `/api/v1/produtos/` (ampliado) | `tipo` (`produto`/`servico`, só escolhível em Serviço e Produto) e filtro `?tipo=`. |
+| Fichas técnicas | `/api/v1/fichas-tecnicas/` (ampliado) | `mao_de_obra: [{colaborador, horas}]` (segmentos Serviço e Serviço e Produto); `itens` opcional nesses segmentos. |
+| Clientes | `/api/v1/clientes/` (ampliado) | Criação exige `usuario_nome`, `usuario_username`, `email_gestor` (o responsável recebe link de senha por e-mail); novos campos `endereco`, `cidade`, `uf`, `email_contato`, `whatsapp`. |
+| Compromissos (agenda) | `/api/v1/compromissos/` (ampliado) | `concluido` na entrada/saída; PATCH não zera campos omitidos. |
+| Catálogo do PDV | `/api/v1/pdv/produtos/` (ampliado) | Paginado (`pagina`, `por_pagina` ≤ 200, padrão 100) em `data.itens` + `data.paginacao`; busca por nome, categoria ou código. |
+| Precificações | `/api/v1/precificacoes/` (ampliado) | `motivo_fora_do_pdv` (por que uma precificação marcada para o PDV não aparece). |

@@ -157,8 +157,15 @@ class FormaPagamentoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FormaPagamento
-        fields = ["id", "nome", "tipo", "taxa_modo", "taxa_percentual", "taxa_fixa", "descricao_da_taxa", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "tipo", "taxa_modo", "taxa_percentual", "taxa_fixa", "descricao_da_taxa", "ativo", "eh_global", "segmentos", "somente_leitura",
+                  "criado_em", "atualizado_em"]
         read_only_fields = fields
+
+    somente_leitura = serializers.SerializerMethodField(help_text="true para forma global de outro dono: pode usar, não alterar.")
+
+    def get_somente_leitura(self, forma):
+        cliente = cliente_do_usuario(self.context["request"].user)
+        return cliente is None or forma.cliente_id != cliente.pk
 
 
 class FormaPagamentoEntrada(serializers.Serializer):
@@ -168,6 +175,8 @@ class FormaPagamentoEntrada(serializers.Serializer):
     taxa_percentual = serializers.DecimalField(max_digits=7, decimal_places=4, required=False, allow_null=True, help_text="Em %, usado nos modos percentual e ambas.")
     taxa_fixa = serializers.IntegerField(min_value=0, required=False, allow_null=True, help_text="Centavos por transação, usado nos modos fixa e ambas.")
     ativo = serializers.BooleanField(required=False)
+    eh_global = serializers.BooleanField(required=False, help_text="Só o administrador do sistema; ignorado para os demais.")
+    segmentos = serializers.ListField(child=serializers.IntegerField(), required=False, help_text="Ids dos segmentos liberados (obrigatório para forma global).")
 
 
 @documentar("pdv-config", FormaPagamentoSerializer, FormaPagamentoEntrada)
@@ -179,9 +188,25 @@ class FormaPagamentoViewSet(RecursoViewSet):
     campos_moeda = ("taxa_fixa",)
     rotulo = "Forma de pagamento"
     padroes = {"ativo": True, "taxa_modo": "sem_taxa"}
+    incluir_globais = True  # lista também as formas globais liberadas ao segmento (somente leitura)
+
+    def consulta_base(self):
+        return FormaPagamento.objects.prefetch_related("segmentos")
 
     def dados_atuais(self, f):
-        return {"nome": f.nome, "tipo": f.tipo, "taxa_modo": f.taxa_modo, "taxa_percentual": f.taxa_percentual, "taxa_fixa": f.taxa_fixa, "ativo": f.ativo}
+        return {"nome": f.nome, "tipo": f.tipo, "taxa_modo": f.taxa_modo, "taxa_percentual": f.taxa_percentual, "taxa_fixa": f.taxa_fixa, "ativo": f.ativo,
+                "eh_global": f.eh_global, "segmentos": [s.pk for s in f.segmentos.all()]}
+
+    def listas_do_formulario(self, dados):
+        return {"segmentos": list(dados.get("segmentos") or [])}
+
+    def kwargs_do_formulario(self, instancia):
+        return {**super().kwargs_do_formulario(instancia), "solicitante": self.request.user}
+
+    def gravar(self, request, contexto, dados, instancia, foto):
+        forma = super().gravar(request, contexto, dados, instancia, foto)
+        contexto["form"].save_m2m()  # segmentos (a gravação padrão usa commit=False)
+        return forma
 
 
 class MesaSerializer(serializers.ModelSerializer):
@@ -251,6 +276,10 @@ class ConfiguracaoPdvView(APIView):
 # Catálogo, caixa, vendas e comandas
 # --------------------------------------------------------------------------
 
+class PaginacaoCatalogoPdv(PaginacaoPadrao):
+    page_size, max_page_size = 100, 200  # o app costuma mostrar o catálogo inteiro: página grande por padrão
+
+
 @extend_schema(tags=["pdv"])
 class ProdutoPdvViewSet(viewsets.ViewSet):
     """Produtos vendáveis no PDV (precificação marcada para o PDV) da unidade do caixa aberto."""
@@ -259,12 +288,16 @@ class ProdutoPdvViewSet(viewsets.ViewSet):
     modulo_slug = "pdv"
     permissoes = {"list": "pdv.add_venda"}
 
-    @extend_schema(parameters=[OpenApiParameter("q", str)], responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(parameters=[OpenApiParameter("q", str, description="Nome, categoria ou código de barras"), OpenApiParameter("pagina", int), OpenApiParameter("por_pagina", int, description="Padrão 100, máximo 200")],
+                   responses={200: OpenApiTypes.OBJECT}, summary="Catálogo do PDV (paginado; a lista continua em data.itens)")
     def list(self, request):
+        """Antes cortava em 80 produtos sem avisar; agora devolve todos, em páginas (`data.paginacao` traz o total)."""
         caixa = _caixa_do_usuario(request)
+        paginador = PaginacaoCatalogoPdv()
+        pagina = paginador.paginate_queryset(s.produtos_do_pdv(caixa.cliente, request.query_params.get("q", ""), limite=None), request)
         itens = [{"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
-                 for p in s.produtos_do_pdv(caixa.cliente, request.query_params.get("q", ""))]
-        return resposta({"itens": itens})
+                 for p in pagina]
+        return paginador.get_paginated_response(itens)
 
 
 @extend_schema(tags=["pdv"])

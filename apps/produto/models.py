@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -22,6 +23,11 @@ class Produto(models.Model):
     )
     # EAN do fabricante ou o código interno gerado no cadastro (ver codigos.py); lido no PDV por leitor de barras/QR.
     codigo_barras = models.CharField(max_length=32, blank=True, default="", db_default="", verbose_name="Código de barras")
+    # Serviço usa o mesmo cadastro (ficha, precificação, PDV, apontamento de mão de obra); `tipo` só diferencia a nomenclatura e
+    # as regras por segmento (ver clean). Segmento Serviço => só serviços; Produto => só produtos; Serviço e Produto => escolhe.
+    PRODUTO, SERVICO = "produto", "servico"
+    TIPO_CHOICES = [(PRODUTO, "Produto"), (SERVICO, "Serviço")]
+    tipo = models.CharField(max_length=7, choices=TIPO_CHOICES, default=PRODUTO, db_default=PRODUTO, verbose_name="Tipo")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -40,6 +46,24 @@ class Produto(models.Model):
 
     def __str__(self):
         return self.nome
+
+    @staticmethod
+    def tipo_imposto_pelo_segmento(cliente):
+        """'servico' / 'produto' quando o segmento do cliente só admite um deles; None quando admite os dois (ou não há segmento)."""
+        segmento = getattr(cliente, "segmento", None)
+        if segmento is None:
+            return None
+        if segmento.precifica_servico and not segmento.precifica_produto:
+            return Produto.SERVICO
+        if segmento.precifica_produto and not segmento.precifica_servico:
+            return Produto.PRODUTO
+        return None
+
+    def clean(self):
+        """Vale para tela, API e qualquer gravação: o tipo precisa ser compatível com o segmento do cliente."""
+        imposto = self.tipo_imposto_pelo_segmento(self.cliente) if self.cliente_id else None
+        if imposto and self.tipo != imposto:
+            raise ValidationError({"tipo": f"O segmento desta empresa só admite {dict(self.TIPO_CHOICES)[imposto].lower()}s."})
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

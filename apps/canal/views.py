@@ -20,6 +20,7 @@ class CanalListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
     model = CanalVenda
     template_name = "canal.html"
     context_object_name = "canais"
+    incluir_globais = True  # canais globais liberados ao segmento do usuário aparecem (somente leitura)
     colunas_ordenaveis = {"nome": "nome", "taxas": "taxa_percentual_total", "criado_em": "criado_em"}
 
     def get_queryset(self):
@@ -40,6 +41,11 @@ class CanalFormMixin:
     form_class = CanalForm
     template_name = "canal_form.html"
     success_url = reverse_lazy("canal-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["solicitante"] = self.request.user  # decide se os campos de canal global aparecem
+        return kwargs
 
     def get_formset(self):
         dados = self.request.POST if self.request.method == "POST" else None
@@ -71,7 +77,10 @@ class CanalFormMixin:
             for f in formset.taxas_validas()
         ]
         try:
-            salvar_canal(self.request, canal, taxas, foto_antes=getattr(self, "_foto_antes", None))
+            salvar_canal(
+                self.request, canal, taxas, foto_antes=getattr(self, "_foto_antes", None),
+                segmentos=form.cleaned_data.get("segmentos") if "segmentos" in form.fields else None,
+            )
         except ValidationError as erro:
             form.add_error(None, erro)
             return self.render_to_response(self.get_context_data(form=form, formset=formset))

@@ -1,0 +1,69 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Serviços" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Mão de obra" %}</h4>
+  {% if perms.produto.add_produto %}<a href="{% url 'servico-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo serviço" %}</a>{% endif %}
+</div>
+{% include "_mo_nav.html" with ativa="servicos" %}
+<div class="alert alert-info">{% translate "Os serviços são os mesmos cadastros de produto do tipo serviço: aparecem no apontamento, na ficha técnica e na precificação. Serviço em uso só é desativado, nunca apagado." %}</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select"><option value="">{% translate "Ativos" %}</option><option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option><option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option></select></div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr>
+        <th>{% translate "Serviço" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>
+        <th>{% translate "Categoria" as label %}{% include "_th_ordenavel.html" with campo="categoria" label=label %}</th>
+        <th>{% translate "Descrição" %}</th>
+        {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+        <th>{% translate "Status" %}</th><th>{% translate "Ações" %}</th>
+      </tr></thead>
+      <tbody>
+        {% for s in servicos %}
+        <tr>
+          <td>{{ s.nome }}</td>
+          <td>{{ s.categoria.nome }}</td>
+          <td>{{ s.descricao|default:"—" }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=s %}</td>{% endif %}
+          <td>{% if s.ativo %}<span class="badge bg-label-success">{% translate "Ativo" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativo" %}</span>{% endif %}</td>
+          <td>
+            {% if perms.produto.change_produto and s.cliente_id == user.profile.cliente_id or perms.produto.change_produto and perms.cliente.change_itensfilial %}
+            <a href="{% url 'servico-edit' s.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
+            {% endif %}
+            {% if perms.produto.delete_produto and s.cliente_id == user.profile.cliente_id or perms.produto.delete_produto and perms.cliente.delete_itensfilial %}
+            <form method="post" action="{% url 'servico-excluir' s.pk %}" class="d-inline" data-confirmar="{% translate 'Excluir este serviço? Se já foi usado em apontamentos, fichas ou precificações, ele será apenas desativado.' %}">{% csrf_token %}<button type="submit" class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}6{% else %}5{% endif %}" class="text-center py-6">{% translate "Nenhum serviço cadastrado." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('servicos');</script>
+{% endblock page_js %}

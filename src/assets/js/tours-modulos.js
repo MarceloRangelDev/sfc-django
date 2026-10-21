@@ -323,6 +323,76 @@
       { element: '[name="exemplos_corpo"]', title: 'Exemplos', text: 'A Meta exige um exemplo para cada variável, um por linha, na ordem.', position: 'bottom' },
       { element: '#tpl-wa-botoes', title: 'Botões', text: 'Respostas rápidas, link https ou telefone. Opcional.', position: 'top' },
       { element: 'form button[type="submit"].btn-primary', title: 'Salvar', text: 'Salva como rascunho. Para submeter à Meta use Enviar à Meta na lista.', position: 'top' }
+    ],
+
+    // ------------------------------------------------------------------ Orçamentos, serviços e telas de formulário
+    'servicos': [
+      NOVO('Novo serviço', 'Cadastre um serviço (é um produto do tipo serviço): ele aparece no apontamento, na ficha técnica, na precificação e nos orçamentos.'),
+      FILTROS('Pesquise pelo nome, descrição ou categoria e veja ativos ou inativos.'),
+      TABELA('Serviço usado em apontamento, ficha ou precificação não é apagado: só é desativado.')
+    ],
+    'servico-form': [
+      { element: '#id_nome', title: 'Nome do serviço', text: 'Como o serviço aparece no apontamento, na ficha e no orçamento. Produtos e serviços compartilham os nomes: não pode repetir.', position: 'bottom' },
+      { element: '#id_categoria', title: 'Categoria', text: 'Agrupa o serviço nos relatórios e na precificação. Só aparecem categorias ativas.', position: 'bottom' },
+      { element: '#id_codigo_barras', title: 'Código', text: 'Opcional: em branco o sistema gera um código interno.', position: 'bottom' },
+      SALVAR
+    ],
+    'orcamentos': [
+      NOVO('Novo orçamento', 'Monte uma proposta com produtos, serviços ou os dois, com descontos e totais calculados pelo sistema.'),
+      FILTROS('Procure pelo número ou pelo destinatário e filtre pela situação (rascunho, enviado, aprovado, recusado, cancelado).'),
+      TABELA('Abra o orçamento para editar, enviar ou acompanhar. O ícone da impressora gera o PDF.')
+    ],
+    'orcamento-form': [
+      { element: '#orcamento-destinatario', title: 'Destinatário', text: 'Escolha um cliente final do cadastro (os contatos são copiados) ou digite os dados. E-mail e WhatsApp são usados no envio.', position: 'bottom' },
+      { element: '#orcamento-itens', title: 'Itens', text: 'Produtos e serviços do cadastro, ou linhas avulsas. Sem preço digitado vale o da precificação marcada para o PDV. O total vem do servidor.', position: 'top' },
+      { element: '#adicionarLinhaOrcamento', title: 'Adicionar item', text: 'Inclua quantos itens precisar; cada linha aceita um desconto próprio.', position: 'top' },
+      { element: '#id_desconto', title: 'Desconto geral', text: 'Desconto em reais sobre o total dos itens (além dos descontos de cada linha).', position: 'top' },
+      SALVAR
+    ],
+    'orcamento-detalhe': [
+      { element: '#orcamento-acoes', title: 'Ações', text: 'Editar (enquanto estiver em rascunho ou enviado), imprimir o PDF completo ou enviar.', position: 'bottom' },
+      { element: '#btn-enviar-orcamento', title: 'Enviar / imprimir', text: 'Permite tirar itens só da versão enviada ou impressa, sem mexer no orçamento salvo.', position: 'bottom' },
+      { element: '#orcamento-itens-detalhe', title: 'Itens e totais', text: 'Valores calculados pelo servidor, com descontos de cada item e o desconto geral.', position: 'top' },
+      { element: '#orcamento-situacao', title: 'Situação', text: 'Marque aprovado, recusado ou cancele. Depois de fechado o orçamento não pode mais ser alterado.', position: 'top' }
+    ],
+    'orcamento-enviar': [
+      { element: '#orcamento-versao-aviso', title: 'Só esta versão', text: 'Desmarcar um item o tira apenas do PDF ou da mensagem que você vai gerar agora.', position: 'bottom' },
+      { element: '#orcamento-versao-itens', title: 'Itens da versão', text: 'O total do PDF é recalculado só com os itens marcados.', position: 'top' },
+      { element: '#orcamento-persistir', title: 'Alteração permanente', text: 'Só se você marcar e confirmar os itens desmarcados também saem do orçamento salvo.', position: 'top' },
+      { element: '#btn-gerar-pdf', title: 'PDF / impressão', text: 'Abre o PDF em outra aba para imprimir ou salvar.', position: 'top' }
+    ],
+    'agenda': [
+      { element: '[data-visao="calendario"]', title: 'Calendário', text: 'Alterna entre a tabela e o calendário. No calendário, clique num dia para criar e num compromisso para editar; arraste para reagendar.', position: 'bottom' },
+      NOVO('Novo compromisso', 'Crie reservas, entregas, eventos e tarefas. Eles sincronizam com o Google Agenda ou o iCloud quando houver conexão.'),
+      { element: '.table-responsive, #agendaCalendario', title: 'Seus compromissos', text: 'Registros importados do calendário externo aparecem marcados. Dia inteiro mostra só a data.', position: 'top' }
+    ],
+    'cliente-form': [
+      { element: '#id_cpf_cnpj', title: 'CPF/CNPJ', text: 'Identifica o cliente (e a empresa dona dos dados). É validado pelos dígitos verificadores.', position: 'bottom' },
+      { element: '[name="endereco"]', title: 'Contato da empresa', text: 'Endereço, e-mail e WhatsApp aparecem nos documentos emitidos, como o PDF do orçamento. A logo é enviada abaixo.', position: 'bottom' },
+      { element: '[name="usuario_username"]', title: 'Usuário inicial', text: 'Informe quem será o responsável: ele recebe por e-mail um link para definir a senha. Nenhuma senha trafega aqui.', position: 'top' },
+      SALVAR
+    ],
+    'papel-form': [
+      { element: '#nome', title: 'Nome do papel', text: 'Perfil de acesso que você atribui aos usuários.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Permissões por módulo', text: 'Marque o que o papel pode ver, criar, alterar e excluir em cada módulo.', position: 'top' },
+      { element: '#mostrar_outras', title: 'Outras permissões', text: 'Ações específicas (enviar orçamento, abrir caixa...). O grupo começa recolhido, mas as marcações salvas continuam valendo.', position: 'top' }
+    ],
+    'apontamento-form': [
+      { element: '#id_colaborador', title: 'Colaborador', text: 'Quem trabalhou. Os valores usados são os do cadastro dele, gravados no lançamento.', position: 'bottom' },
+      { element: '#id_servico', title: 'Serviço', text: 'Opcional: um serviço cadastrado em Mão de obra > Serviços.', position: 'bottom' },
+      { element: '#id_tipo', title: 'Por hora ou por dia', text: 'Por hora usa início, fim e pausa (com hora extra); por dia usa dias × diária.', position: 'bottom' },
+      SALVAR
+    ],
+    'colaborador-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Quem presta o serviço (funcionário, autônomo, prestador).', position: 'bottom' },
+      { element: '#id_valor_hora', title: 'Valor da hora', text: 'Base do custo de mão de obra nos apontamentos e nas fichas de serviço. Se informar o valor por mês, hora e dia são derivados dele.', position: 'bottom' },
+      SALVAR
+    ],
+    'pdv-venda': [
+      { element: '#pdvBusca', title: 'Buscar produto', text: 'Digite o nome ou a categoria, ou leia o código de barras/QR. Catálogos grandes mostram um aviso: use a busca para achar o resto.', position: 'bottom' },
+      { element: '#pdvProdutos', title: 'Produtos do PDV', text: 'Só aparecem produtos com precificação marcada para o PDV, ativos e com preço. Na lista de Precificação, a coluna PDV explica quando algum não aparece.', position: 'top' },
+      { element: '#pdvCarrinho', title: 'Venda', text: 'Itens, quantidades e totais calculados pelo servidor.', position: 'left' },
+      { element: '#pdvPagamentos', title: 'Pagamento', text: 'Uma ou mais formas de pagamento; formas globais liberadas ao seu segmento também aparecem.', position: 'left' }
     ]
   };
 

@@ -40,6 +40,8 @@ Não é preciso migration nem cadastro: a chave `page` é livre. Passos cujo ele
 - Depois de "Não mostrar novamente" não abre mais sozinho, mas o botão **?** (canto inferior direito) inicia o tour quando o usuário quiser.
 - `auto: false` em `initTour` desliga a abertura automática (só o botão **?**).
 
+Nesta atualização: Serviços (lista e formulário), Orçamentos (lista, formulário, detalhe e enviar/imprimir), Agenda, formulário de Cliente, de Papel, de Apontamento e de Colaborador, e a tela de venda do PDV.
+
 Tours existentes: **Insumos** (`apps/insumo/templates/insumo.html`), **Clientes** e **Categorias**, mais os do registro `tours-modulos.js` (módulos de negócio) e, nesta atualização, as telas que ainda não tinham: Lista de compras, Consumidores, Cotações, Medidas, Mão de obra (colaboradores e apontamentos), Usuários, Papéis, Mesas, Formas de pagamento, Insumos globais, Histórico de notificações, Pedidos, Vendas do PDV, Auditoria, Notas fiscais, Integrações e Templates do WhatsApp (lista e formulário). Telas de formulário simples, detalhe, impressão/comprovante, a tela do PDV/cozinha (operação em tempo real) e a Agenda/Kanban (que têm interações próprias) ficaram sem tour.
 
 ## Banco de dados — `tour_tourpreferencia`

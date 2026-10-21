@@ -35,10 +35,20 @@ class _Lista(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
 
+class _SolicitanteNoFormulario:
+    """Entrega o usuário ao formulário: ele decide se os campos de forma global aparecem (só para o administrador do sistema)."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["solicitante"] = self.request.user
+        return kwargs
+
+
 class FormaPagamentoListView(_Lista):
     model = FormaPagamento
     template_name = "forma_pagamento.html"
     context_object_name = "formas"
+    incluir_globais = True  # formas globais liberadas ao segmento do usuário aparecem (somente leitura)
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
@@ -57,7 +67,7 @@ class _Form:
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
 
-class FormaPagamentoCreateView(_Form, SalvarEAdicionarMixin, AuditoriaFormMixin, ClienteScopedMixin, CreateView):
+class FormaPagamentoCreateView(_SolicitanteNoFormulario, _Form, SalvarEAdicionarMixin, AuditoriaFormMixin, ClienteScopedMixin, CreateView):
     model, form_class, template_name = FormaPagamento, FormaPagamentoForm, "forma_pagamento_form.html"
     success_url = reverse_lazy("forma-pagamento-list")
     acao_escopo, nome_url_novo = "add", "forma-pagamento-create"
@@ -67,7 +77,7 @@ class FormaPagamentoCreateView(_Form, SalvarEAdicionarMixin, AuditoriaFormMixin,
         return super().form_valid(form)
 
 
-class FormaPagamentoUpdateView(_Form, AuditoriaFormMixin, ClienteScopedMixin, UpdateView):
+class FormaPagamentoUpdateView(_SolicitanteNoFormulario, _Form, AuditoriaFormMixin, ClienteScopedMixin, UpdateView):
     model, form_class, template_name = FormaPagamento, FormaPagamentoForm, "forma_pagamento_form.html"
     success_url = reverse_lazy("forma-pagamento-list")
     acao_escopo = "change"

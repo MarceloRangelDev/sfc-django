@@ -47,13 +47,13 @@
       <tbody>
         {% for forma in formas %}
         <tr>
-          <td>{{ forma.nome }}</td>
+          <td>{{ forma.nome }}{% if forma.eh_global %} <span class="badge bg-label-info" title="{% translate 'Forma global, liberada pelo administrador do sistema' %}">{% translate "Global" %}</span>{% endif %}</td>
           {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=forma %}</td>{% endif %}
           <td>{{ forma.get_tipo_display }}</td>
           <td>{{ forma.descricao_da_taxa }}</td>
           <td>{% if forma.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}</td>
           <td>
-            {% if perms.pdvconfig.change_formapagamento and forma.cliente_id == user.profile.cliente_id or perms.pdvconfig.change_formapagamento and perms.cliente.change_itensfilial %}
+            {% if perms.pdvconfig.change_formapagamento and forma.cliente_id == user.profile.cliente_id or perms.pdvconfig.change_formapagamento and perms.cliente.change_itensfilial and not forma.eh_global %}
             <a href="{% url 'forma-pagamento-edit' forma.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>
             {% endif %}
           </td>

@@ -4,6 +4,7 @@ from django import forms
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from web_project.forms import DecimalBRField, MoedaCentavosField
+from web_project.globais import GlobalFormMixin
 
 from .models import CanalTaxa, CanalVenda
 
@@ -11,19 +12,22 @@ CONTROLE = {"class": "form-control"}
 LIMITE_FIXO = 10**12  # centavos (R$ 10 bilhões por venda: teto de segurança)
 
 
-class CanalForm(forms.ModelForm):
+class CanalForm(GlobalFormMixin, forms.ModelForm):
     class Meta:
         model = CanalVenda
-        fields = ["nome", "descricao", "ativo"]
+        fields = ["nome", "descricao", "ativo", "eh_global", "segmentos"]
         widgets = {
             "nome": forms.TextInput(attrs=CONTROLE),
             "descricao": forms.TextInput(attrs=CONTROLE),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "eh_global": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "segmentos": forms.SelectMultiple(),
         }
 
-    def __init__(self, *args, cliente=None, unidades=None, **kwargs):
+    def __init__(self, *args, cliente=None, unidades=None, solicitante=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.cliente = self.instance.cliente if self.instance.pk else cliente
+        self.configurar_global(solicitante, self.cliente)  # campos globais só para o administrador do sistema
 
     def clean(self):
         dados = super().clean()
@@ -36,7 +40,7 @@ class CanalForm(forms.ModelForm):
             if repetido.exists():
                 raise forms.ValidationError("Já existe um canal com este nome e esta descrição.")
         dados["nome"], dados["descricao"] = nome, descricao
-        return dados
+        return self.validar_global(dados)
 
 
 class CanalTaxaForm(forms.ModelForm):

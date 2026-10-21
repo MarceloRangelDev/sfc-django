@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from django import forms
 from django.utils import timezone
 
@@ -65,17 +67,28 @@ class CompromissoForm(forms.ModelForm):
             raise forms.ValidationError("Informe o título.")
         return titulo
 
+    def clean(self):
+        dados = super().clean()
+        inicio, fim = dados.get("inicio"), dados.get("fim")
+        if inicio is None or fim is None:
+            return dados
+        if dados.get("todo_o_dia"):
+            # Dia inteiro: só valem as DATAS. Guardamos sempre meia-noite local no início e 23:59 local no fim, assim a data nunca "anda" por
+            # causa do fuso e o evento sincroniza com o dia certo (ver Compromisso._dia_inteiro).
+            fuso = timezone.get_current_timezone()
+            primeiro, ultimo = timezone.localtime(inicio, fuso).date(), timezone.localtime(fim, fuso).date()
+            inicio = timezone.make_aware(datetime.combine(primeiro, time.min), fuso)
+            fim = timezone.make_aware(datetime.combine(ultimo, time(23, 59)), fuso)
+            dados["inicio"], dados["fim"] = inicio, fim
+        if fim < inicio:
+            self.add_error("fim", "O fim não pode ser anterior ao início.")
+        return dados
+
     def save(self, commit=True):
         # Mudou o início ou a antecedência: o lembrete volta a valer (será enviado de novo no novo horário).
         if self.instance.pk and ({"inicio", "lembrete_minutos"} & set(self.changed_data)):
             self.instance.lembrete_enviado_em = None
         return super().save(commit)
-
-    def clean(self):
-        dados = super().clean()
-        if dados.get("inicio") and dados.get("fim") and dados["fim"] < dados["inicio"]:
-            self.add_error("fim", "O fim não pode ser anterior ao início.")
-        return dados
 
 
 BOTOES_NA_TELA = 3  # a tela oferece 3 botões; a validação (e a API) aceitam até 10

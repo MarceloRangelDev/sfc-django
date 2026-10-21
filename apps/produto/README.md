@@ -37,3 +37,15 @@ URL → module_required → View (ClienteScopedMixin / ListaPorUnidadeMixin / Li
 ## Manutenção
 
 Novo campo → model + migration + form + template (+ coluna em `exportar`). Testes: `apps/produto/tests.py` (filtros, ordenação, paginação, categoria inválida, exclusão segura, permissões, tenant, matriz/filial, exportação com filtro/escopo/fórmula).
+
+## Serviço = produto do tipo serviço
+
+`Produto.tipo` (`produto` | `servico`, padrão `produto`) usa o **mesmo cadastro** para serviços (ficha técnica, precificação, PDV, orçamento e apontamento de mão de obra). Regra por segmento (`Produto.clean`, vale para tela, API e qualquer gravação): segmento **Serviço** só admite serviço; **Produto** só admite produto; **Serviço e Produto** deixa escolher (campo “Tipo” no formulário, filtro e selo “Serviço” na lista). Nos segmentos com tipo único o campo some e o tipo é imposto pelo servidor. A API aceita `tipo` (ignorado fora de Serviço e Produto) e filtra por `?tipo=`.
+
+Os serviços ganham uma tela própria em **Mão de obra → Serviços** (`/mao-de-obra/servicos`) para cadastrar, consultar, alterar e excluir sem sair do módulo (mesmo formulário, escopo de unidade e permissões `produto.*`; excluir = apagar sem uso, **só desativar** se já usado em apontamento, ficha ou precificação).
+
+| Coluna nova em `produto_produto` | Tipo | Nulo | Padrão | Finalidade |
+|---|---|---|---|---|
+| `tipo` | varchar(7) | não | `produto` (`db_default`) | `produto` ou `servico` |
+
+Migração `produto.0004_tipo_servico`: adiciona a coluna e **converte para `servico`** os produtos de clientes do segmento Serviço (única conversão; idempotente; reversível, sem apagar dados). Produtos de Produto e de Serviço-e-Produto seguem `produto`.

@@ -43,6 +43,14 @@
         <div class="col-12">
           <div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativa" %}</label></div>
         </div>
+        {% if form.eh_global %}
+        <div class="col-12" id="forma-global">
+          <div class="form-check form-switch">{{ form.eh_global }}<label class="form-check-label" for="{{ form.eh_global.id_for_label }}">{% translate "Forma global (disponível a todos os clientes dos segmentos escolhidos)" %}</label></div>
+          <label for="{{ form.segmentos.id_for_label }}" class="form-label mt-3">{% translate "Segmentos liberados" %}</label>{{ form.segmentos }}
+          <div class="form-text">{% translate "Clientes só podem usar a forma global; apenas o administrador do sistema a altera. Segure Ctrl para escolher vários." %}</div>
+          {% if form.segmentos.errors %}<div class="text-danger small mt-1">{{ form.segmentos.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
       </div>
       <div class="mt-6">
         {% url 'forma-pagamento-list' as url_lista %}{% translate "Salvar e adicionar outra" as texto_novo %}

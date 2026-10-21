@@ -86,3 +86,10 @@ Migrations `pdv.0001`/`0002` (tabelas novas; concedem permissões), `pdvconfig.0
 | `precificacao_precificacao.usar_no_pdv` | bool, padrão falso; único por produto quando `usar_no_pdv` e `ativo` |
 
 Valores em centavos (bigint). Índices em (`cliente`, `status`) de caixa e venda e em `venda.caixa`.
+
+
+## Catálogo do PDV: nada some em silêncio (atualizado)
+
+O catálogo (`services.produtos_do_pdv`) mostra precificações **marcadas para o PDV, ativas, de produto e ficha ativos e com preço > 0**, da unidade do caixa. Causas de “marquei e não aparece” investigadas: (1) a tela cortava em **80 produtos sem avisar** — agora mostra até 300 e avisa “Mostrando X de Y” (`truncado`/`total` no JSON); a API do catálogo (`/api/v1/pdv/produtos/`) passou a ser **paginada** (`?pagina=&por_pagina=`, padrão 100, máx. 200; a lista continua em `data.itens`); (2) a busca só olhava o nome — agora também a **categoria** e o código; (3) a lista de **Precificações** não mostrava o status do PDV — ganhou a coluna *PDV* (“No PDV” ou “Marcada, mas fora do PDV” + motivo: precificação/produto/ficha inativos ou preço zero; também em `motivo_fora_do_pdv` na API). Nenhuma regra de autorização foi enfraquecida (continua só a unidade do caixa).
+
+**Formas de pagamento globais** liberadas ao segmento também valem no pagamento, na devolução e na tela (ver `apps/pdvconfig/README.md`). **Serviços** (ficha só com mão de obra) vendem sem baixar estoque.

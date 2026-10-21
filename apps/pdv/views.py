@@ -10,6 +10,7 @@ from django.views import View
 from apps.consumidor.models import Consumidor
 from apps.imagens.servico import url_da_entidade
 from apps.pdvconfig.models import ConfiguracaoPdv, FormaPagamento
+from web_project.globais import disponiveis_para
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
 from web_project.regras import RegraNegocioError
@@ -20,7 +21,7 @@ from .forms import AbrirCaixaForm, CancelarForm, ComandaForm, ConferenciaForm, D
 from .models import Caixa, MovimentoCaixa, Venda, VendaItem
 from .services import (
     abrir_caixa, abrir_comanda, adicionar_item, cancelar_venda, caixa_aberto_do, conferir_caixa, devolver_item, dividir_em_partes, fechar_caixa,
-    pagar_comanda, produto_por_codigo, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
+    LIMITE_CATALOGO, pagar_comanda, produto_por_codigo, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
 )
 
 MAX_CORPO_JSON = 64 * 1024
@@ -52,7 +53,7 @@ def _erro(request, erro, destino):
 
 def _config_visual(request):
     cliente = request.user.profile.cliente
-    formas = list(FormaPagamento.objects.filter(cliente=cliente, ativo=True).order_by("nome")) if cliente else []
+    formas = list(disponiveis_para(FormaPagamento, cliente, ativo=True).order_by("nome")) if cliente else []
     return {
         "formas": formas, "formas_json": [{"id": f.pk, "nome": f.nome, "tipo": f.tipo} for f in formas],
         "pode_desconto": request.user.has_perm("pdv.conceder_desconto"),
@@ -93,11 +94,13 @@ class ProdutosJsonView(View):
         caixa = caixa_aberto_do(request.user)
         if caixa is None:
             return JsonResponse({"erro": "Abra o caixa."}, status=409)
+        consulta = produtos_do_pdv(caixa.cliente, request.GET.get("q", ""), limite=None)
+        total = consulta.count()
         itens = [
             {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
-            for p in produtos_do_pdv(caixa.cliente, request.GET.get("q", ""))
+            for p in consulta[:LIMITE_CATALOGO]
         ]
-        return JsonResponse({"itens": itens})
+        return JsonResponse({"itens": itens, "total": total, "truncado": total > len(itens)})
 
 
 def _json_do_corpo(request):

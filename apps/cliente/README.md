@@ -42,7 +42,9 @@ POST /clientes/novo
  ↓ erro em qualquer passo => nada é gravado
 ```
 
-O usuário Gestor define a senha pelo fluxo **"Esqueci minha senha"** (não há senha padrão). Se o `username` (nome do cliente) já existir, o CPF/CNPJ é acrescentado.
+**Usuário inicial (atualizado)**: o cadastro agora pede **nome do responsável, usuário (login) e e-mail** (obrigatórios; `usuario_nome`, `usuario_username`, `email_gestor` na tela e na API) e **nada é criado “por conta própria”**. O login é validado (único, sem diferenciar maiúsculas, também no serviço, contra corrida). Nenhuma senha é digitada: a senha continua inutilizável e o responsável recebe, **depois do commit**, o e-mail com o link de definição de senha (o mesmo do “Esqueci minha senha”, válido 24 h). Falha no envio do e-mail **não desfaz** o cadastro (fica registrada no log; o link pode ser pedido em “Esqueci minha senha”). Chamadas antigas de `criar_cliente(request, cliente, perfis, email_gestor)` ainda funcionam e caem no padrão anterior (nome/login derivados da razão social), mas a tela e a API exigem os novos campos. O usuário nasce no grupo **Gestor**, vinculado ao cliente.
+
+**Contato da empresa (novo)**: `endereco`, `cidade`, `uf`, `email_contato`, `whatsapp` (todos opcionais) aparecem no formulário e saem no cabeçalho dos documentos emitidos (PDF do orçamento). A logo continua sendo enviada pelo módulo de imagens (entidade `cliente`). O WhatsApp é normalizado (`+` e dígitos, 10 a 15) e a UF vira maiúscula.
 
 ## Banco de dados — tabela `cliente_cliente`
 
@@ -58,6 +60,11 @@ O usuário Gestor define a senha pelo fluxo **"Esqueci minha senha"** (não há 
 | `matriz_id` | bigint | só filial | Matriz da filial | FK `cliente_cliente` (PROTECT) |
 | `segmento_id` | bigint | não* | Segmento de trabalho | FK `modulo_segmento` (PROTECT) |
 | `sistema` | bool | sim | Marca o cliente dono do sistema (único onde o Admin pode existir). **Não editável em telas** | — |
+| `endereco` | varchar(255) | não (`''`) | Endereço da empresa (documentos emitidos) | — |
+| `cidade` | varchar(100) | não (`''`) | Cidade | — |
+| `uf` | varchar(2) | não (`''`) | UF (maiúscula) | — |
+| `email_contato` | varchar(100) | não (`''`) | E-mail de contato da empresa (≠ e-mail de login) | — |
+| `whatsapp` | varchar(20) | não (`''`) | WhatsApp da empresa (`+` e dígitos) | — |
 | `criado_em` / `atualizado_em` | datetime | sim | Controle | — |
 
 \* Sem segmento o cliente só usa módulos essenciais (Configurações).
@@ -84,3 +91,7 @@ Tabela `cliente_cliente_perfis` (M2M): `cliente_id` + `group_id`, única por par
 | mudar o que o Gestor padrão recebe | `services.criar_cliente` e `seed_acl` (permissões do grupo Gestor) |
 | campo novo no cadastro | `models.py` → `makemigrations` → `forms.py` → `cliente_form.html` → `api/serializers.py::ClienteSerializer` |
 | quem enxerga quais clientes | `web_project/acesso.py::clientes_acessiveis` |
+
+## Migração desta atualização
+
+`cliente.0010_contato_da_empresa`: acrescenta as cinco colunas acima, todas **opcionais com padrão vazio** (`db_default`), sem efeito nos dados existentes; reversível. Clientes existentes continuam como estão (sem contato preenchido até alguém editar). `python manage.py migrate cliente`.

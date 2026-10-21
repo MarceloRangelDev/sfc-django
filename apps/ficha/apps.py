@@ -14,3 +14,16 @@ class FichaConfig(AppConfig):
 
         if recalcular_fichas_dos_insumos not in GANCHOS_POS_RECALCULO:
             GANCHOS_POS_RECALCULO.append(recalcular_fichas_dos_insumos)
+
+        # Mão de obra na ficha: mudar o valor da hora de um colaborador refaz as fichas (e precificações) que o usam.
+        from django.db.models.signals import post_save
+
+        from apps.maodeobra.models import Colaborador
+
+        from .services import recalcular_fichas_do_colaborador
+
+        def ao_salvar_colaborador(sender, instance, created, **kwargs):
+            if not created:
+                recalcular_fichas_do_colaborador(instance)
+
+        post_save.connect(ao_salvar_colaborador, sender=Colaborador, dispatch_uid="ficha_recalcula_ao_salvar_colaborador")

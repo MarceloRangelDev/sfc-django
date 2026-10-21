@@ -23,6 +23,7 @@ from apps.estoque.services import registrar_entrada, registrar_saida
 from apps.financeiro.models import TIPO_DESPESA, TIPO_RECEITA, BaixaBase, CategoriaFinanceira, ContaPagar, ContaReceber
 from apps.financeiro.services import estornar_baixa, registrar_baixa
 from apps.pdvconfig.models import ConfiguracaoPdv, FormaPagamento
+from web_project.globais import disponiveis_para
 from apps.precificacao.models import Precificacao
 from web_project.regras import RegraNegocioError
 from web_project.regras.dinheiro import DinheiroService
@@ -53,16 +54,21 @@ def _nome_usuario(usuario):
 # Catálogo de venda
 # --------------------------------------------------------------------------
 
-def produtos_do_pdv(cliente, termo="", limite=80):
-    """Precificações que servem de preço/ficha do PDV (uma por produto), dentro da unidade. Só produtos e fichas ativos."""
+LIMITE_CATALOGO = 300  # itens exibidos de uma vez na tela do PDV (antes 80, cortando o catálogo em silêncio); a busca alcança todos
+
+
+def produtos_do_pdv(cliente, termo="", limite=LIMITE_CATALOGO):
+    """Precificações que servem de preço/ficha do PDV (uma por produto), dentro da unidade. Só produtos e fichas ativos.
+    `limite=None` devolve o queryset inteiro (a API pagina). A busca vale para nome, categoria e código de barras."""
     consulta = Precificacao.objects.filter(
         cliente=cliente, usar_no_pdv=True, ativo=True, produto__ativo=True, ficha__ativo=True, preco_venda__gt=0,
     ).select_related("produto", "ficha", "produto__categoria")
     termo = (termo or "").strip()
     if termo:
         # nome contém o texto OU o código de barras/QR lido é exatamente o digitado
-        consulta = consulta.filter(Q(produto__nome__icontains=termo) | Q(produto__codigo_barras=termo))
-    return consulta.order_by("produto__nome")[:limite]
+        consulta = consulta.filter(Q(produto__nome__icontains=termo) | Q(produto__categoria__nome__icontains=termo) | Q(produto__codigo_barras=termo))
+    consulta = consulta.order_by("produto__nome", "pk")
+    return consulta if limite is None else consulta[:limite]
 
 
 def produto_por_codigo(cliente, codigo):
@@ -70,7 +76,7 @@ def produto_por_codigo(cliente, codigo):
     codigo = (codigo or "").strip()
     if not codigo:
         return None
-    return next(iter(p for p in produtos_do_pdv(cliente, codigo, limite=5) if p.produto.codigo_barras == codigo), None)
+    return next(iter(p for p in produtos_do_pdv(cliente, codigo, limite=20) if p.produto.codigo_barras == codigo), None)
 
 
 def _precificacao_do_produto(cliente, produto_id):
@@ -329,7 +335,7 @@ def _validar_pagamentos(cliente, pagamentos, total):
     """Pagamentos recebidos -> linhas validadas com taxa. Soma tem de bater exatamente com o total; troco só em dinheiro."""
     if not pagamentos or len(pagamentos) > MAX_PAGAMENTOS:
         raise RegraNegocioError(f"Informe de 1 a {MAX_PAGAMENTOS} pagamentos.")
-    formas = {f.pk: f for f in FormaPagamento.objects.filter(cliente=cliente, ativo=True)}
+    formas = {f.pk: f for f in disponiveis_para(FormaPagamento, cliente, ativo=True)}  # inclui as globais liberadas ao segmento
     linhas, soma, troco = [], 0, 0
     for p in pagamentos:
         try:

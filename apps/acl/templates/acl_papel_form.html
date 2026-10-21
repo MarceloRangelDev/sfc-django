@@ -57,6 +57,12 @@
 
       {% if adicionais %}
       <h6 class="mt-6 mb-2">{% translate "Outras permissões" %}</h6>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="mostrar_outras" aria-controls="outras-permissoes" aria-expanded="false">
+        <label class="form-check-label" for="mostrar_outras">{% translate "Mostrar outras permissões" %} <span class="text-muted small" id="outras-resumo"></span></label>
+      </div>
+      {# Recolhido por padrão, mas as caixas continuam no formulário (d-none não as remove): salvar com o grupo fechado mantém exatamente as marcações atuais. #}
+      <div id="outras-permissoes" class="d-none">
       <p class="text-muted small">{% translate "Ações específicas (ex.: abrir e fechar o próprio caixa, ver caixas, sangria, cancelar venda) e módulos de apoio." %}</p>
       <div class="row g-4">
         {% for g in adicionais %}
@@ -73,6 +79,7 @@
         </div>
         {% endfor %}
       </div>
+      </div>
       {% endif %}
 
       <div class="mt-6">
@@ -83,3 +90,27 @@
   </div>
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('papel-form');</script>
+<script>
+  (function () {
+    var interruptor = document.getElementById('mostrar_outras');
+    var grupo = document.getElementById('outras-permissoes');
+    if (!interruptor || !grupo) return;
+    var resumo = document.getElementById('outras-resumo');
+    // Quantas das "outras" estão marcadas: avisa quem deixa o grupo recolhido.
+    function atualizarResumo() {
+      var marcadas = grupo.querySelectorAll('input[type="checkbox"]:checked').length;
+      resumo.textContent = marcadas ? '(' + marcadas + ' ' + (marcadas === 1 ? 'marcada' : 'marcadas') + ')' : '';
+    }
+    interruptor.addEventListener('change', function () {
+      grupo.classList.toggle('d-none', !interruptor.checked);
+      interruptor.setAttribute('aria-expanded', interruptor.checked ? 'true' : 'false');
+    });
+    grupo.addEventListener('change', atualizarResumo);
+    atualizarResumo();
+  })();
+</script>
+{% endblock page_js %}
