@@ -258,7 +258,8 @@ STATICFILES_DIRS = [
 
 # Default URL on which Django application runs for specific environment
 # Padrão de URL em que a aplicação Django é executada para um ambiente específico
-BASE_URL = os.environ.get("BASE_URL", default="http://127.0.0.1:8000")
+# Sem a barra final: os links dos e-mails fazem BASE_URL + caminho (que já começa com "/"); com "/" no .env saía "//reset_password/..." (404).
+BASE_URL = os.environ.get("BASE_URL", default="http://127.0.0.1:8000").strip().rstrip("/")
 
 
 # Default primary key field type

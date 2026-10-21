@@ -34,7 +34,7 @@ def send_email(subject, email, message, html_message=None):
 
 
 def get_absolute_url(path):
-    return settings.BASE_URL + path
+    return settings.BASE_URL.rstrip("/") + "/" + path.lstrip("/")  # tolera barra sobrando em qualquer dos dois lados
 
 
 def send_verification_email(email, token):

@@ -241,3 +241,14 @@ class MensagensEmPortuguesTests(TestCase):
     def test_campos_vazios_mostram_mensagem_em_portugues(self):
         resposta = self.client.post(reverse("login"), {"email-username": "", "password": ""}, follow=True)
         self.assertIn("Por favor, insira seu nome de usuário e senha.", [str(m) for m in resposta.context["messages"]])
+
+
+class LinkAbsolutoTests(TestCase):
+    def test_nao_duplica_a_barra_mesmo_com_base_url_com_barra_final(self):
+        from django.test import override_settings
+
+        from .helpers import get_absolute_url
+
+        for base in ("https://app.exemplo.com", "https://app.exemplo.com/"):
+            with override_settings(BASE_URL=base):
+                self.assertEqual(get_absolute_url("/reset_password/abc/"), "https://app.exemplo.com/reset_password/abc/")
