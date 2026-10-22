@@ -9,6 +9,7 @@ Idempotente. Sai com código 1 se achar divergência e não corrigir (útil em m
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.cliente.models import Cliente
+from apps.estoque.produto_estoque import verificar_consistencia_produtos
 from apps.estoque.services import verificar_consistencia
 
 
@@ -24,6 +25,11 @@ class Command(BaseCommand):
         divergencias = verificar_consistencia(clientes, corrigir=options["corrigir"])
         for lote, gravado, calculado in divergencias:
             self.stdout.write(f"Lote {lote.pk} ({lote.insumo.nome}, '{lote.codigo}'): gravado {gravado}, pelo histórico {calculado}")
+        # Saldo próprio dos produtos (mesma regra: o histórico manda).
+        divergencias_produto = verificar_consistencia_produtos(clientes, corrigir=options["corrigir"])
+        for saldo, gravado, calculado in divergencias_produto:
+            self.stdout.write(f"Produto {saldo.produto_id} ({saldo.produto.nome}): gravado {gravado}, pelo histórico {calculado}")
+        divergencias = divergencias + divergencias_produto
         if not divergencias:
             self.stdout.write(self.style.SUCCESS("Estoque consistente."))
         elif options["corrigir"]:

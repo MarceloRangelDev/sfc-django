@@ -19,6 +19,7 @@ from django.utils import timezone
 from apps.auditoria.models import ACAO_CRIAR
 from apps.auditoria.utils import _descricao_com_alteracoes, registrar, registrar_alteracoes, registrar_criacao, registrar_edicao, tirar_foto
 from apps.cliente.models import Cliente
+from apps.estoque.produto_estoque import baixar_produto_da_venda, estornar_produto_da_venda
 from apps.estoque.services import registrar_entrada, registrar_saida
 from apps.financeiro.models import TIPO_DESPESA, TIPO_RECEITA, BaixaBase, CategoriaFinanceira, ContaPagar, ContaReceber
 from apps.financeiro.services import estornar_baixa, registrar_baixa
@@ -260,6 +261,8 @@ def baixar_estoque(usuario, venda, itens=None):
     agora = timezone.now()
     if configuracao.controla_estoque:
         for item in pendentes:
+            # Produto com estoque próprio: baixa o saldo dele (uma vez por item) além dos insumos da ficha.
+            baixar_produto_da_venda(usuario, item)
             for ficha_item in item.ficha.itens.all():
                 quantidade = (ficha_item.quantidade * item.quantidade).quantize(QUATRO_CASAS, rounding=ROUND_HALF_UP)
                 if quantidade <= 0:
@@ -278,7 +281,7 @@ def baixar_estoque(usuario, venda, itens=None):
 
 def _repor_estoque(usuario, item, fracao, venda):
     """Repõe `fracao` (0..1 da quantidade do item) do que foi baixado, sem passar do baixado. Devolve se repôs algo."""
-    reposto = False
+    reposto = estornar_produto_da_venda(usuario, item, fracao)  # saldo do próprio produto (se foi baixado)
     for baixa in item.insumos_baixados.select_related("insumo", "medida"):
         quantidade = min((baixa.quantidade * fracao).quantize(QUATRO_CASAS, rounding=ROUND_HALF_UP), baixa.quantidade - baixa.quantidade_reposta)
         if quantidade <= 0:

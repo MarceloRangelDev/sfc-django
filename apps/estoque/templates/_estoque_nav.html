@@ -3,6 +3,7 @@
 <ul class="nav nav-pills mb-4 flex-wrap">
   <li class="nav-item"><a class="nav-link {% if ativa == 'estoque' %}active{% endif %}" href="{% url 'estoque' %}">{% translate "Saldos" %}</a></li>
   <li class="nav-item"><a class="nav-link {% if ativa == 'movimentos' %}active{% endif %}" href="{% url 'estoque-movimentos' %}">{% translate "Movimentações" %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if ativa == 'produtos' %}active{% endif %}" href="{% url 'estoque-produtos' %}">{% translate "Produtos" %}</a></li>
   {% if perms.estoque.view_transferenciaestoque %}
   <li class="nav-item"><a class="nav-link {% if ativa == 'transferencias' %}active{% endif %}" href="{% url 'estoque-transferencias' %}">{% translate "Transferências" %}</a></li>
   {% endif %}

@@ -49,6 +49,7 @@
 {# O script roda em page_js: os vendors (jKanban, bootstrap) só são carregados depois do bloco content. #}
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('kanban');</script>
 {% if not erro_quadro %}
 {{ quadro|json_script:"dadosQuadro" }}
 <script>

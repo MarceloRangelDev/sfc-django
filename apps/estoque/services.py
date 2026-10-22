@@ -119,7 +119,7 @@ def _lote_para_entrada(cliente_id, insumo, codigo, validade):
     return lote
 
 
-def _lancar(usuario, lote, tipo, quantidade, observacao="", data=None, transferencia=None):
+def _lancar(usuario, lote, tipo, quantidade, observacao="", data=None, transferencia=None, motivo=""):
     """Aplica o movimento ao lote (já bloqueado) e grava o histórico."""
     sinal = 1 if tipo in MovimentoEstoque.TIPOS_DE_ENTRADA else -1
     novo_saldo = lote.saldo + sinal * quantidade
@@ -130,11 +130,11 @@ def _lancar(usuario, lote, tipo, quantidade, observacao="", data=None, transfere
     return MovimentoEstoque.objects.create(
         cliente_id=lote.cliente_id, insumo=lote.insumo, lote=lote, tipo=tipo, quantidade=quantidade, saldo_lote_apos=novo_saldo,
         responsavel=usuario, responsavel_nome=_nome_do_responsavel(usuario), observacao=(observacao or "")[:255],
-        data=data or timezone.now(), transferencia=transferencia,
+        data=data or timezone.now(), transferencia=transferencia, motivo=motivo,
     )
 
 
-def _consumir_peps(usuario, insumo, quantidade, tipo, observacao="", data=None, transferencia=None):
+def _consumir_peps(usuario, insumo, quantidade, tipo, observacao="", data=None, transferencia=None, motivo=""):
     """Saída `quantidade` (unidade do insumo) dos lotes que vencem primeiro. Devolve
     a lista de movimentos (um por lote tocado). Chamar DENTRO de transaction.atomic()."""
     lotes = list(
@@ -152,7 +152,7 @@ def _consumir_peps(usuario, insumo, quantidade, tipo, observacao="", data=None, 
         if restante <= 0:
             break
         retirar = min(lote.saldo, restante)
-        movimentos.append(_lancar(usuario, lote, tipo, retirar, observacao, data, transferencia))
+        movimentos.append(_lancar(usuario, lote, tipo, retirar, observacao, data, transferencia, motivo))
         restante -= retirar
     return movimentos
 
@@ -168,14 +168,15 @@ def registrar_entrada(usuario, insumo, quantidade, medida, codigo="", validade=N
         return _lancar(usuario, lote, tipo, qtd, observacao)
 
 
-def registrar_saida(usuario, insumo, quantidade, medida, observacao="", tipo=MovimentoEstoque.SAIDA):
+def registrar_saida(usuario, insumo, quantidade, medida, observacao="", tipo=MovimentoEstoque.SAIDA, motivo=""):
     """Saída (ou ajuste de redução, `tipo=AJUSTE_SAIDA`) pelo PEPS. Devolve a lista
-    de movimentos. Depois de gravar, avisa se o saldo ficou abaixo do mínimo."""
+    de movimentos. `motivo` é o da baixa MANUAL (telas/API o exigem; a baixa do PDV não tem). Depois de gravar,
+    avisa se o saldo ficou abaixo do mínimo."""
     if tipo not in (MovimentoEstoque.SAIDA, MovimentoEstoque.AJUSTE_SAIDA):
         raise RegraNegocioError("Tipo de saída inválido.")
     qtd = para_unidade_do_insumo(insumo, quantidade, medida)
     with transaction.atomic():
-        movimentos = _consumir_peps(usuario, insumo, qtd, tipo, observacao)
+        movimentos = _consumir_peps(usuario, insumo, qtd, tipo, observacao, motivo=motivo)
         _agendar_alerta_de_baixo(insumo)
     return movimentos
 

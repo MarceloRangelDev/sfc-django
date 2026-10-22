@@ -56,3 +56,8 @@
   {% endfor %}
 </div></div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('imagens-painel');</script>
+{% endblock page_js %}

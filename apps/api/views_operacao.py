@@ -145,7 +145,8 @@ class MovimentoEstoqueViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
         # o formulário da tela valida tudo (insumo da empresa, unidade, lote/validade só em entradas...)
         form = MovimentoForm(
             {"insumo": dados["insumo"], "tipo": dados["tipo"], "quantidade": str(dados["quantidade"]), "medida": dados.get("medida") or (insumo.medida_id if insumo else ""),
-             "lote": dados.get("lote", ""), "validade": dados["validade"].isoformat() if dados.get("validade") else "", "observacao": dados.get("observacao", "")},
+             "lote": dados.get("lote", ""), "validade": dados["validade"].isoformat() if dados.get("validade") else "", "motivo": dados.get("motivo", ""),
+             "observacao": dados.get("observacao", "")},
             cliente=cliente,
         )
         if not form.is_valid():
@@ -154,7 +155,7 @@ class MovimentoEstoqueViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
         if d["tipo"] in (MovimentoEstoque.ENTRADA, MovimentoEstoque.AJUSTE_ENTRADA):
             movimentos = [registrar_entrada(request.user, d["insumo"], d["quantidade"], d["medida"], d["lote"], d["validade"], d["observacao"], tipo=d["tipo"])]
         else:
-            movimentos = registrar_saida(request.user, d["insumo"], d["quantidade"], d["medida"], d["observacao"], tipo=d["tipo"])
+            movimentos = registrar_saida(request.user, d["insumo"], d["quantidade"], d["medida"], d["observacao"], tipo=d["tipo"], motivo=d["motivo"])
         ids = [m.pk for m in movimentos]
         salvos = MovimentoEstoque.objects.select_related("insumo", "insumo__medida", "lote").filter(pk__in=ids).order_by("pk")
         return resposta(MovimentoEstoqueSerializer(salvos, many=True).data, "Movimentação registrada.", 201)

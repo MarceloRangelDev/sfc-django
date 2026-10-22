@@ -65,6 +65,9 @@ Testes: `apps/api/tests_cadastros.py`, `tests_estoque_financeiro.py` e `tests_op
 | Produtos/serviços | `/api/v1/produtos/` (ampliado) | `tipo` (`produto`/`servico`, só escolhível em Serviço e Produto) e filtro `?tipo=`. |
 | Fichas técnicas | `/api/v1/fichas-tecnicas/` (ampliado) | `mao_de_obra: [{colaborador, horas}]` (segmentos Serviço e Serviço e Produto); `itens` opcional nesses segmentos. |
 | Clientes | `/api/v1/clientes/` (ampliado) | Criação exige `usuario_nome`, `usuario_username`, `email_gestor` (o responsável recebe link de senha por e-mail); novos campos `endereco`, `cidade`, `uf`, `email_contato`, `whatsapp`. |
-| Compromissos (agenda) | `/api/v1/compromissos/` (ampliado) | `concluido` na entrada/saída; PATCH não zera campos omitidos. |
+| Compromissos (agenda) | `/api/v1/compromissos/` (ampliado) | `concluido` na entrada/saída; PATCH não zera campos omitidos. Filtros: `situacao=aberto\|atrasado\|concluido` (aberto inclui os atrasados; atrasado = aberto com fim já passado), `tipo`, `inicio_de`, `inicio_ate` (AAAA-MM-DD), além de `q` e `ativo`. |
+| Estoque de produtos (tag `estoque`) | `GET /api/v1/estoque/produtos/saldos/`, `GET/POST /api/v1/estoque/produtos/movimentos/` | Saldo próprio dos produtos com `controla_estoque`; POST exige `motivo` nas baixas manuais; saldo insuficiente = 422; histórico imutável. Mesmas permissões `estoque.*_movimentoestoque`. |
+| Movimentos de insumo | `POST /api/v1/estoque/movimentos/` (contrato alterado) | `motivo` **obrigatório** em `saida` e `ajuste_saida` (400 sem ele); devolvido também no `GET`. |
+| Produtos | `/api/v1/produtos/` (ampliado) | Campo `controla_estoque` (boolean; não vale para serviço). |
 | Catálogo do PDV | `/api/v1/pdv/produtos/` (ampliado) | Paginado (`pagina`, `por_pagina` ≤ 200, padrão 100) em `data.itens` + `data.paginacao`; busca por nome, categoria ou código. |
 | Precificações | `/api/v1/precificacoes/` (ampliado) | `motivo_fora_do_pdv` (por que uma precificação marcada para o PDV não aparece). |

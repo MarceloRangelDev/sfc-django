@@ -36,3 +36,8 @@
   </ul></div>{% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('integracao-mensagens');</script>
+{% endblock page_js %}

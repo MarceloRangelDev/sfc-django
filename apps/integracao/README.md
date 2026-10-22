@@ -43,6 +43,19 @@ Crie a classe em `adaptadores/` herdando de `Adaptador` (`base.py`), implemente 
 
 `INTEGRACAO_CRYPTO_KEYS`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `BASE_URL` (para montar o endereço de retorno OAuth e dos webhooks).
 
+## Agenda: filtro de situação
+
+A lista da Agenda (tabela), o calendário e a API (`GET /api/v1/compromissos/`) aceitam `situacao`, com o **mesmo critério** (`services.filtrar_por_situacao`), derivado dos campos existentes (nenhum estado novo no banco):
+
+| Valor | Critério |
+|---|---|
+| `aberto` | `concluido = false` (inclui os atrasados) |
+| `atrasado` | `concluido = false` e `fim` já passou |
+| `concluido` | `concluido = true` |
+| vazio/outro | sem filtro (comportamento anterior) |
+
+Combina com os filtros que já existiam (texto, tipo, status ativo/inativo, unidade). O escopo de unidades e as permissões (`view_compromisso`) são aplicados **antes** do filtro; a API também aceita `inicio_de`/`inicio_ate` (AAAA-MM-DD). No calendário, o seletor *Situação* recarrega os eventos pelo mesmo parâmetro. Testes: `tests_agenda_filtros.py`.
+
 ## Agenda: lembretes, resumo do dia e modal do calendário
 
 **Lembretes** (`lembretes.py`, comando `manage.py enviar_lembretes_agenda`): cada compromisso tem `lembrete_minutos` (nulo = sem; 0 = na hora; 15; 60; 1440). O comando envia pelo sino/push web (`apps.notificacao.enviar_para_usuarios`) aos usuários **da unidade do compromisso** que têm `integracao.view_compromisso` e o módulo `agenda`. Idempotente: antes de enviar, reserva com `UPDATE ... WHERE lembrete_enviado_em IS NULL`; reagendar (mover no calendário ou mudar início/antecedência) zera a marca. Compromissos concluídos/inativos ou que começaram há mais de 24 h são ignorados. **Agendar a cada 5 min:** cron `*/5 * * * * python manage.py enviar_lembretes_agenda` ou Agendador de Tarefas do Windows (ação: `.venv\Scripts\python.exe manage.py enviar_lembretes_agenda`, repetir a cada 5 minutos).

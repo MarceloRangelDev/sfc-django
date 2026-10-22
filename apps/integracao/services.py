@@ -550,3 +550,25 @@ def sincronizar_agenda(conexao, agora=None, limite=LIMITE_OPERACOES_AGENDA):
         resumo["erros"] += 1
         _marcar(conexao, Conexao.ERRO, "Credenciais ilegíveis.")
     return resumo
+
+
+# --------------------------------------------------------------------------
+# Agenda: filtro de situação (tela, calendário e API usam este mesmo critério)
+# --------------------------------------------------------------------------
+
+SITUACOES_DA_AGENDA = ("aberto", "atrasado", "concluido")
+
+
+def filtrar_por_situacao(queryset, situacao):
+    """Filtra compromissos pela situação, derivada dos campos que já existem (não há estado novo no banco):
+    - `concluido`: marcado como concluído;
+    - `aberto`: ainda não concluído (inclui os atrasados);
+    - `atrasado`: aberto cujo FIM já passou.
+    Valor vazio/desconhecido não filtra (comportamento anterior). O escopo de unidades é aplicado antes, por quem chama."""
+    if situacao == "concluido":
+        return queryset.filter(concluido=True)
+    if situacao == "aberto":
+        return queryset.filter(concluido=False)
+    if situacao == "atrasado":
+        return queryset.filter(concluido=False, fim__lt=timezone.now())
+    return queryset

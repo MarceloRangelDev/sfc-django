@@ -28,6 +28,9 @@ class Produto(models.Model):
     PRODUTO, SERVICO = "produto", "servico"
     TIPO_CHOICES = [(PRODUTO, "Produto"), (SERVICO, "Serviço")]
     tipo = models.CharField(max_length=7, choices=TIPO_CHOICES, default=PRODUTO, db_default=PRODUTO, verbose_name="Tipo")
+    # Estoque PRÓPRIO do produto (revenda/pronto): a venda do PDV baixa o saldo e a venda é recusada se não houver (ver apps/estoque).
+    # Independe da baixa dos insumos da ficha técnica, que continua acontecendo.
+    controla_estoque = models.BooleanField(default=False, db_default=False, verbose_name="Controla estoque do produto")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -64,6 +67,8 @@ class Produto(models.Model):
         imposto = self.tipo_imposto_pelo_segmento(self.cliente) if self.cliente_id else None
         if imposto and self.tipo != imposto:
             raise ValidationError({"tipo": f"O segmento desta empresa só admite {dict(self.TIPO_CHOICES)[imposto].lower()}s."})
+        if self.controla_estoque and self.tipo == self.SERVICO:
+            raise ValidationError({"controla_estoque": "Serviço não tem estoque."})
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

@@ -87,7 +87,7 @@
           <td>{% if m.lote.validade %}{{ m.lote.validade|date:"d/m/Y" }}{% else %}&mdash;{% endif %}</td>
           <td class="text-end">{{ m.saldo_lote_apos|floatformat:"-4" }}</td>
           <td>{{ m.responsavel_nome|default:"—" }}</td>
-          <td>{{ m.observacao }}{% if m.editado_em %} <span class="badge bg-label-info" title="{% blocktranslate with quando=m.editado_em|date:'d/m/Y H:i' %}Editada em {{ quando }}{% endblocktranslate %}">{% translate "Editada" %}</span>{% endif %}</td>
+          <td>{% if m.motivo %}<span class="badge bg-label-secondary">{{ m.get_motivo_display }}</span> {% endif %}{{ m.observacao }}{% if m.editado_em %} <span class="badge bg-label-info" title="{% blocktranslate with quando=m.editado_em|date:'d/m/Y H:i' %}Editada em {{ quando }}{% endblocktranslate %}">{% translate "Editada" %}</span>{% endif %}</td>
           <td>
             {% if m.editavel and perms.estoque.change_movimentoestoque and m.cliente_id == user.profile.cliente_id or m.editavel and perms.estoque.change_movimentoestoque and perms.cliente.change_itensfilial %}
             <a href="{% url 'estoque-movimento-editar' m.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar movimentação' %}"><i class="icon-base ti tabler-edit"></i></a>

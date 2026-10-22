@@ -69,3 +69,8 @@
 <p class="text-muted">{% translate "Nenhum cliente cadastrado até o momento." %}</p>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('modulo-cliente');</script>
+{% endblock page_js %}

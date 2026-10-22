@@ -8,6 +8,9 @@ const formAuthentication = document.querySelector('#formAuthentication');
 const btnSubmit = document.getElementById('btnSubmit');
 const btnText = document.getElementById('btnText');
 const btnLoader = document.getElementById('btnLoader');
+// A tela de login tem o campo "email-username". Nela a senha NÃO exibe regra de tamanho (não revela regras internas);
+// nas telas de cadastro/redefinição o usuário precisa ver a regra para escolher uma senha válida.
+const ehTelaDeLogin = !!(formAuthentication && formAuthentication.querySelector('[name="email-username"]'));
 
 document.addEventListener('DOMContentLoaded', function (e) {
   (function () {
@@ -40,10 +43,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
             validators: {
               notEmpty: {
                 message: 'Informe o e-mail ou o usuário'
-              },
-              stringLength: {
-                min: 4,
-                message: 'O nome de usuário deve ter pelo menos 4 caracteres'
               }
             }
           },
@@ -52,10 +51,14 @@ document.addEventListener('DOMContentLoaded', function (e) {
               notEmpty: {
                 message: 'Informe a sua senha'
               },
-              stringLength: {
-                min: 4,
-                message: 'A senha deve ter pelo menos 4 caracteres'
-              }
+              ...(ehTelaDeLogin
+                ? {}
+                : {
+                    stringLength: {
+                      min: 4,
+                      message: 'A senha deve ter pelo menos 4 caracteres'
+                    }
+                  })
             }
           },
           'confirm-password': {

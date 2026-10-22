@@ -29,3 +29,8 @@
   </table></div>
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('pdv-comandas');</script>
+{% endblock page_js %}

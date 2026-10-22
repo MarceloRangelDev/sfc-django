@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, estoque_produtos, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -55,6 +55,8 @@ router.register("processados", cadastros.ProcessadoViewSet, basename="api-proces
 router.register("fichas-tecnicas", cadastros.FichaViewSet, basename="api-ficha")
 router.register("precificacoes", cadastros.PrecificacaoViewSet, basename="api-precificacao")
 router.register("estoque/movimentos", views_operacao.MovimentoEstoqueViewSet, basename="api-estoque-movimento")
+router.register("estoque/produtos/saldos", estoque_produtos.EstoqueProdutoSaldoViewSet, basename="api-estoque-produto-saldo")
+router.register("estoque/produtos/movimentos", estoque_produtos.MovimentoProdutoViewSet, basename="api-estoque-produto-movimento")
 router.register("custo-operacional/categorias", views_operacao.CustoCategoriaViewSet, basename="api-custo-categoria")
 
 

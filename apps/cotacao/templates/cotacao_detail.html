@@ -151,3 +151,8 @@
 </div>
 {% endwith %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('cotacao-detalhe');</script>
+{% endblock page_js %}

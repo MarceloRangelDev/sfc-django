@@ -1,0 +1,71 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Nova movimentação de produto" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% translate "Nova movimentação de estoque de produto" %}</h4>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" id="formMovimento" data-form-salvar novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="{{ form.produto.id_for_label }}" class="form-label">{% translate "Produto" %}</label>
+          {{ form.produto }}
+          {% if form.produto.errors %}<div class="text-danger small mt-1">{{ form.produto.errors|striptags }}</div>{% endif %}
+          {% if not form.fields.produto.queryset.exists %}
+          <div class="form-text text-warning">{% translate "Nenhum produto controla estoque. Ative “Controlar estoque” no cadastro do produto." %}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.tipo.id_for_label }}" class="form-label">{% translate "Tipo" %}</label>
+          {{ form.tipo }}
+          {% if form.tipo.errors %}<div class="text-danger small mt-1">{{ form.tipo.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade" %}</label>
+          {{ form.quantidade }}
+          {% if form.quantidade.errors %}<div class="text-danger small mt-1">{{ form.quantidade.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-3" data-so-saida>
+          <label for="{{ form.motivo.id_for_label }}" class="form-label">{% translate "Motivo da baixa" %}</label>
+          {{ form.motivo }}
+          {% if form.motivo.errors %}<div class="text-danger small mt-1">{{ form.motivo.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
+          {{ form.observacao }}
+          {% if form.observacao.errors %}<div class="text-danger small mt-1">{{ form.observacao.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="form-text mt-3">{% translate "A venda no PDV baixa o saldo automaticamente. Aqui você lança entradas, baixas manuais (perda, quebra, consumo interno...) e ajustes de inventário. O histórico não pode ser apagado: corrija com um ajuste." %}</div>
+      <div class="mt-6">
+        {% url 'estoque-produtos' as url_lista %}{% translate "Salvar e registrar outra" as texto_novo %}
+        {% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-produto-movimentar');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+  (function () {
+    var tipo = document.getElementById('{{ form.tipo.id_for_label }}');
+    // O motivo só vale nas BAIXAS (saída e ajuste de redução); só mostra/oculta, o servidor valida.
+    function ajustar() {
+      var baixa = tipo.value === 'saida' || tipo.value === 'ajuste_saida';
+      document.querySelectorAll('[data-so-saida]').forEach(function (el) { el.classList.toggle('d-none', !baixa); });
+    }
+    tipo.addEventListener('change', ajustar);
+    ajustar();
+  })();
+</script>
+{% endblock %}

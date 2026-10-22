@@ -85,16 +85,16 @@ class MovimentosCriacaoAPITests(Base):
     def test_saida_consome_o_lote_que_vence_primeiro_e_pode_gerar_varios_movimentos(self):
         registrar_entrada(self.usuario_a, self.farinha, D("3"), medida("kg"), "CEDO", HOJE + timedelta(days=5))
         registrar_entrada(self.usuario_a, self.farinha, D("3"), medida("kg"), "TARDE", HOJE + timedelta(days=60))
-        dados = self.post("estoque/movimentos", {"insumo": self.farinha.pk, "tipo": "saida", "quantidade": "4"})
+        dados = self.post("estoque/movimentos", {"insumo": self.farinha.pk, "tipo": "saida", "quantidade": "4", "motivo": "consumo_interno"})
         self.assertEqual([(m["lote"], m["quantidade"]) for m in dados], [("CEDO", "3.0000"), ("TARDE", "1.0000")])
 
     def test_unidade_diferente_e_convertida_e_erros(self):
         self.post("estoque/movimentos", {"insumo": self.farinha.pk, "tipo": "entrada", "quantidade": "500", "medida": medida("g").pk})
         self.assertEqual(saldo_do_insumo(self.farinha), D("0.5"))
-        self.erro(self.api_a.post(f"{V1}/estoque/movimentos/", {"insumo": self.farinha.pk, "tipo": "saida", "quantidade": "9"}, format="json"), 422)  # saldo insuficiente
+        self.erro(self.api_a.post(f"{V1}/estoque/movimentos/", {"insumo": self.farinha.pk, "tipo": "saida", "quantidade": "9", "motivo": "perda"}, format="json"), 422)  # saldo insuficiente
         corpo_litro = {"insumo": self.farinha.pk, "tipo": "entrada", "quantidade": "1", "medida": medida("L").pk}
         self.erro(self.api_a.post(f"{V1}/estoque/movimentos/", corpo_litro, format="json"), 422)  # dimensão incompatível
-        for ruim in ({"quantidade": "0"}, {"quantidade": "-2"}, {"tipo": "transferencia_entrada"}, {"tipo": "saida", "lote": "X"}):
+        for ruim in ({"quantidade": "0"}, {"quantidade": "-2"}, {"tipo": "transferencia_entrada"}, {"tipo": "saida", "lote": "X", "motivo": "perda"}, {"tipo": "saida"}):
             corpo = {"insumo": self.farinha.pk, "tipo": "entrada", "quantidade": "1", **ruim}
             self.erro(self.api_a.post(f"{V1}/estoque/movimentos/", corpo, format="json"), 400)
         self.assertEqual(MovimentoEstoque.objects.count(), 1)

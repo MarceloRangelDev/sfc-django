@@ -69,3 +69,8 @@
   </div>
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('modulo-form');</script>
+{% endblock page_js %}

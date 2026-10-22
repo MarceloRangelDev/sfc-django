@@ -48,3 +48,8 @@
 </nav>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('notificacao-minhas');</script>
+{% endblock page_js %}

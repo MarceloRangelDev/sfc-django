@@ -82,6 +82,7 @@
 
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('insumo-form');</script>
 {{ form.marcas_por_padrao|json_script:"marcas-por-padrao" }}
 <script>
   // Insumo padrão escolhido -> dropdown com as marcas (fabricantes) dele + "Personalizar"; sem padrão (nome personalizado) -> marca em texto livre.

@@ -27,6 +27,10 @@
   #agendaCalendario .fc-event.tipo-reserva { background-color: #7367f0; border-color: #7367f0; }
 </style>
 <div class="card"><div class="card-body">
+  <div class="row g-3 align-items-end mb-3" data-tour="situacao">
+    <div class="col-md-auto"><label class="form-label" for="filtroSituacao">{% translate "Situação" %}</label>
+      <select id="filtroSituacao" class="form-select"><option value="">{% translate "Todas" %}</option><option value="aberto">{% translate "Em aberto" %}</option><option value="atrasado">{% translate "Atrasados" %}</option><option value="concluido">{% translate "Concluídos" %}</option></select></div>
+  </div>
   <p class="text-muted small mb-3">{% translate "Arraste um compromisso para outro dia para reagendá-lo (a duração é mantida). Clique para editar." %}</p>
   <div id="agendaCalendario" data-url-eventos="{% url 'compromisso-eventos' %}" data-pode-mover="{% if perms.integracao.change_compromisso %}1{% endif %}" data-pode-criar="{% if perms.integracao.add_compromisso %}1{% endif %}"
        data-url-salvar="{% url 'compromisso-salvar' %}" data-url-salvar-edit="{% url 'compromisso-salvar-edit' 0 %}" data-url-concluir="{% url 'compromisso-concluir' 0 %}" data-url-excluir="{% url 'compromisso-excluir' 0 %}"></div>
@@ -63,6 +67,7 @@
     <form method="get" class="row g-3 align-items-end">
       <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
       <div class="col-md-auto"><label class="form-label" for="tipo">{% translate "Tipo" %}</label><select id="tipo" name="tipo" class="form-select"><option value="">{% translate "Todos" %}</option>{% for v, r in tipos %}<option value="{{ v }}" {% if tipo == v %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+      <div class="col-md-auto"><label class="form-label" for="situacao">{% translate "Situação" %}</label><select id="situacao" name="situacao" class="form-select"><option value="">{% translate "Todas" %}</option><option value="aberto" {% if situacao == "aberto" %}selected{% endif %}>{% translate "Em aberto" %}</option><option value="atrasado" {% if situacao == "atrasado" %}selected{% endif %}>{% translate "Atrasados" %}</option><option value="concluido" {% if situacao == "concluido" %}selected{% endif %}>{% translate "Concluídos" %}</option></select></div>
       <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label><select id="status" name="status" class="form-select"><option value="">{% translate "Ativos" %}</option><option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativos" %}</option><option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todos" %}</option></select></div>
       {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
       <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
@@ -114,7 +119,8 @@
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
       buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', list: 'Lista' }, noEventsText: 'Nenhum compromisso',
       events: function (info, ok, falha) {
-        fetch(alvo.dataset.urlEventos + '?start=' + encodeURIComponent(info.startStr) + '&end=' + encodeURIComponent(info.endStr), { credentials: 'same-origin' })
+        var situacao = document.getElementById('filtroSituacao').value;
+        fetch(alvo.dataset.urlEventos + '?start=' + encodeURIComponent(info.startStr) + '&end=' + encodeURIComponent(info.endStr) + '&situacao=' + encodeURIComponent(situacao), { credentials: 'same-origin' })
           .then(function (r) { return r.json(); }).then(ok).catch(falha);
       },
       // Clicar no dia cria; clicar no evento edita — tudo no modal, sem sair do calendário.
@@ -173,6 +179,7 @@
       if (!window.confirm('Excluir este registro da agenda?')) return;
       postar(urlCom(alvo.dataset.urlExcluir, idAtual)).then(function () { modal.hide(); calendario.refetchEvents(); });
     });
+    document.getElementById('filtroSituacao').addEventListener('change', function () { calendario.refetchEvents(); });
     calendario.render();
   })();
 </script>

@@ -61,3 +61,8 @@
   </div>
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-etiquetas');</script>
+{% endblock page_js %}

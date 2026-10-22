@@ -313,6 +313,8 @@ class CompromissoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         tipo = self.request.GET.get("tipo")
         if tipo in dict(Compromisso.TIPO_CHOICES):
             queryset = queryset.filter(tipo=tipo)
+        # Situação: em aberto / atrasados / concluídos (convive com o filtro de status ativo/inativo).
+        queryset = s.filtrar_por_situacao(queryset, self.request.GET.get("situacao"))
         return self.ordenar(self.filtrar_status(queryset))
 
     def get(self, request, *args, **kwargs):
@@ -327,6 +329,7 @@ class CompromissoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         context["tipos"] = Compromisso.TIPO_CHOICES
         context["visao"] = "calendario" if self.request.GET.get("visao") == "calendario" else "tabela"
         context["tipo"] = self.request.GET.get("tipo", "")
+        context["situacao"] = self.request.GET.get("situacao", "") if self.request.GET.get("situacao") in s.SITUACOES_DA_AGENDA else ""
         # Quem gere integrações vê, na Agenda, as conexões de calendário com problema (mensagem já sem segredos); os demais não.
         if self.request.user.has_perm("integracao.view_conexao"):
             context["conexoes_com_erro"] = [
@@ -348,6 +351,7 @@ class CompromissoEventosView(View):
         queryset = _compromissos_do_usuario(request.user, "view").filter(ativo=True)
         if inicio and fim:
             queryset = queryset.filter(inicio__lt=fim, fim__gte=inicio)
+        queryset = s.filtrar_por_situacao(queryset, request.GET.get("situacao"))
         pode_mover = request.user.has_perm("integracao.change_compromisso")
         editaveis = set(_compromissos_do_usuario(request.user, "change").values_list("pk", flat=True)) if pode_mover else set()
         eventos = []

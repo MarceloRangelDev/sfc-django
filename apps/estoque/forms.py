@@ -7,7 +7,9 @@ from apps.insumo.models import Insumo
 from apps.medida.models import Medida
 from web_project.forms import DecimalBRField
 
-from .models import MovimentoEstoque
+from apps.produto.models import Produto
+
+from .models import MOTIVO_CHOICES, MOTIVOS, MovimentoEstoque
 
 CONTROLE = {"class": "form-control"}
 SELECT = {"class": "form-select"}
@@ -20,6 +22,24 @@ TIPOS_MANUAIS = [
     (MovimentoEstoque.AJUSTE_SAIDA, "Ajuste de inventário (redução)"),
 ]
 LIMITE_QUANTIDADE = Decimal("100000000000")  # 10^11: cabe em Decimal(15,4)
+TIPOS_DE_SAIDA = (MovimentoEstoque.SAIDA, MovimentoEstoque.AJUSTE_SAIDA)
+
+
+def _motivo():
+    """Motivo da BAIXA manual (obrigatório só nas saídas/reduções; a validação fica no clean de cada formulário)."""
+    return forms.ChoiceField(choices=[("", "Selecione...")] + MOTIVO_CHOICES, required=False, label="Motivo da baixa", widget=forms.Select(attrs=SELECT))
+
+
+def _validar_motivo(form, dados, tipo_saida):
+    """Baixa manual exige motivo da lista; "outro" exige a observação. Entradas ignoram o motivo."""
+    if not tipo_saida:
+        dados["motivo"] = ""
+        return
+    motivo = dados.get("motivo") or ""
+    if motivo not in MOTIVOS:
+        form.add_error("motivo", "Informe o motivo da baixa.")
+    elif motivo == "outro" and not (dados.get("observacao") or "").strip():
+        form.add_error("observacao", 'No motivo "Outro", descreva na observação.')
 
 
 def _quantidade(label="Quantidade"):
@@ -40,6 +60,7 @@ class MovimentoForm(forms.Form):
     medida = forms.ModelChoiceField(queryset=Medida.objects.none(), label="Unidade", widget=forms.Select(attrs=SELECT))
     lote = forms.CharField(max_length=60, required=False, label="Lote", widget=forms.TextInput(attrs=CONTROLE))
     validade = forms.DateField(required=False, label="Validade", widget=forms.DateInput(attrs={**CONTROLE, "type": "date"}))
+    motivo = _motivo()
     observacao = forms.CharField(max_length=255, required=False, label="Observação", widget=forms.TextInput(attrs=CONTROLE))
 
     def __init__(self, *args, cliente=None, **kwargs):
@@ -60,6 +81,33 @@ class MovimentoForm(forms.Form):
             raise forms.ValidationError("Saídas e reduções consomem automaticamente o lote que vence primeiro; deixe lote e validade em branco.")
         # Validade sem lote é válida: o serviço usa um lote automático pela validade.
         dados["lote"] = lote
+        _validar_motivo(self, dados, tipo in TIPOS_DE_SAIDA)
+        return dados
+
+
+class MovimentoProdutoForm(forms.Form):
+    """Entrada, baixa manual ou ajuste do saldo de UM produto (da unidade do usuário) que controla estoque."""
+
+    produto = forms.ModelChoiceField(queryset=Produto.objects.none(), label="Produto", widget=forms.Select(attrs=SELECT))
+    tipo = forms.ChoiceField(choices=TIPOS_MANUAIS, label="Tipo", widget=forms.Select(attrs=SELECT))
+    quantidade = DecimalBRField(
+        max_digits=15, decimal_places=3, min_value=Decimal("0.001"), max_value=LIMITE_QUANTIDADE, label="Quantidade",
+        widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}),
+        error_messages={"invalid": "Informe uma quantidade válida.", "min_value": "A quantidade deve ser maior que zero.",
+                        "max_value": "Quantidade acima do limite permitido."},
+    )
+    motivo = _motivo()
+    observacao = forms.CharField(max_length=255, required=False, label="Observação", widget=forms.TextInput(attrs=CONTROLE))
+
+    def __init__(self, *args, cliente=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Só produtos ATIVOS da unidade do usuário que controlam estoque (o campo rejeita ids de fora = isolamento entre empresas).
+        self.fields["produto"].queryset = Produto.objects.filter(cliente=cliente, ativo=True, controla_estoque=True).order_by("nome")
+        self.fields["produto"].empty_label = "Selecione..."
+
+    def clean(self):
+        dados = super().clean()
+        _validar_motivo(self, dados, dados.get("tipo") in TIPOS_DE_SAIDA)
         return dados
 
 

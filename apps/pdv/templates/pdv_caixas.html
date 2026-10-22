@@ -33,3 +33,8 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('pdv-caixas');</script>
+{% endblock page_js %}

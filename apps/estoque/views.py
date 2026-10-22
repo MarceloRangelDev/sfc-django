@@ -10,6 +10,7 @@ from django.views.generic import FormView, ListView, TemplateView
 from apps.auditoria.utils import registrar as registrar_auditoria
 from apps.cliente.models import Cliente
 from apps.insumo.models import Insumo
+from apps.produto.models import Produto
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
 from web_project.exportacao import exportar_excel, exportar_pdf, sanitizar_texto_excel
@@ -17,8 +18,9 @@ from web_project.mixins import ListaPaginadaMixin, ListaPorUnidadeMixin
 from web_project.regras import RegraNegocioError
 
 from .etiquetas import EtiquetaForm, resposta_etiquetas
-from .forms import ItensTransferenciaFormSet, MinimoForm, MovimentoEdicaoForm, MovimentoForm, TransferenciaForm
-from .models import EstoqueMinimo, Lote, MovimentoEstoque, TransferenciaEstoque
+from .forms import ItensTransferenciaFormSet, MinimoForm, MovimentoEdicaoForm, MovimentoForm, MovimentoProdutoForm, TransferenciaForm
+from .models import EstoqueMinimo, Lote, MovimentoEstoque, MovimentoProduto, TransferenciaEstoque
+from .produto_estoque import TIPOS_MANUAIS_DE_ENTRADA, anotar_saldo_produto, registrar_baixa_manual_produto, registrar_entrada_produto
 from .services import (
     alertas_de_estoque_baixo,
     alertas_de_vencimento,
@@ -160,7 +162,7 @@ class MovimentarView(FormView):
                     dados["observacao"], tipo=dados["tipo"],
                 )
             else:
-                registrar_saida(self.request.user, dados["insumo"], dados["quantidade"], dados["medida"], dados["observacao"], tipo=dados["tipo"])
+                registrar_saida(self.request.user, dados["insumo"], dados["quantidade"], dados["medida"], dados["observacao"], tipo=dados["tipo"], motivo=dados["motivo"])
         except RegraNegocioError as erro:
             form.add_error(None, str(erro))
             return self.form_invalid(form)
@@ -439,3 +441,98 @@ class EtiquetaView(FormView):
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
         return resposta_etiquetas(request, form.cleaned_data["insumo"], form.cleaned_data)
+
+
+# --------------------------------------------------------------------------
+# Estoque de PRODUTOS (saldo próprio; regras em produto_estoque.py). Usa as mesmas permissões do estoque de insumos.
+# --------------------------------------------------------------------------
+
+class ProdutosEstoqueListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
+    """Saldos dos produtos que controlam estoque, dentro do escopo de unidades do usuário (matriz vê filiais como nos insumos)."""
+
+    model = Produto
+    template_name = "estoque_produtos.html"
+    context_object_name = "produtos"
+    colunas_ordenaveis = {"nome": "nome", "saldo": "saldo"}
+
+    def get_queryset(self):
+        queryset = anotar_saldo_produto(super().get_queryset().select_related("categoria", "cliente"))
+        termo = self.request.GET.get("q", "").strip()
+        if termo:
+            queryset = queryset.filter(nome__icontains=termo)
+        if self.request.GET.get("situacao") == "zerado":
+            queryset = queryset.filter(saldo=0)
+        return self.ordenar(queryset)
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        context["situacao_selecionada"] = self.request.GET.get("situacao", "")
+        return context
+
+
+class MovimentarProdutoView(FormView):
+    """Registra entrada, baixa manual (com motivo) ou ajuste de um produto da unidade do usuário."""
+
+    form_class = MovimentoProdutoForm
+    template_name = "estoque_produto_movimentar.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["cliente"] = self.request.user.profile.cliente  # a movimentação é sempre da unidade do próprio usuário
+        return kwargs
+
+    def get_initial(self):
+        inicial = super().get_initial()
+        if self.request.GET.get("produto", "").isdigit():
+            inicial["produto"] = self.request.GET["produto"]
+        return inicial
+
+    def get_context_data(self, **kwargs):
+        return TemplateLayout.init(self, super().get_context_data(**kwargs))
+
+    def form_valid(self, form):
+        dados = form.cleaned_data
+        try:
+            if dados["tipo"] in TIPOS_MANUAIS_DE_ENTRADA:
+                registrar_entrada_produto(self.request.user, dados["produto"], dados["quantidade"], dados["observacao"], tipo=dados["tipo"])
+            else:
+                registrar_baixa_manual_produto(self.request.user, dados["produto"], dados["quantidade"], dados["motivo"], dados["observacao"], tipo=dados["tipo"])
+        except RegraNegocioError as erro:
+            form.add_error(None, str(erro))
+            return self.form_invalid(form)
+        messages.success(self.request, "Movimentação registrada.")
+        return redirect("estoque-produto-movimentar" if "salvar_e_novo" in self.request.POST else "estoque-produtos")
+
+
+class MovimentosProdutoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
+    """Histórico (somente leitura) do estoque dos produtos: filtros por texto, tipo, período e unidade."""
+
+    model = MovimentoProduto
+    template_name = "estoque_produto_movimentos.html"
+    context_object_name = "movimentos"
+    colunas_ordenaveis = {"data": "data", "produto": "produto__nome", "quantidade": "quantidade"}
+    ordenacao_padrao = "data"
+    direcao_padrao = "desc"
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("produto", "cliente", "venda_item")
+        params = self.request.GET
+        termo = params.get("q", "").strip()
+        if termo:
+            queryset = queryset.filter(Q(produto__nome__icontains=termo) | Q(responsavel_nome__icontains=termo) | Q(observacao__icontains=termo))
+        if params.get("tipo") in dict(MovimentoProduto.TIPO_CHOICES):
+            queryset = queryset.filter(tipo=params["tipo"])
+        de, ate = parse_date(params.get("data_de", "")), parse_date(params.get("data_ate", ""))
+        if de:
+            queryset = queryset.filter(data__date__gte=de)
+        if ate:
+            queryset = queryset.filter(data__date__lte=ate)
+        return self.ordenar(queryset)
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        context.update(
+            tipos=MovimentoProduto.TIPO_CHOICES, tipo_selecionado=self.request.GET.get("tipo", ""),
+            data_de=self.request.GET.get("data_de", ""), data_ate=self.request.GET.get("data_ate", ""),
+        )
+        return context

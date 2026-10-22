@@ -66,3 +66,8 @@
 </div>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('pdv-caixa');</script>
+{% endblock page_js %}

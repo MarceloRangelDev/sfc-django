@@ -159,6 +159,23 @@
       { element: '[data-so-entrada]', title: 'Lote e validade', text: 'Nas entradas, o lote é opcional e a validade pode ser informada mesmo sem lote, para acompanhar vencimentos.', position: 'top' },
       SALVAR
     ],
+    'estoque-produtos': [
+      { element: '.py-4 a.btn-primary', title: 'Nova movimentação', text: 'Lance entradas, baixas manuais (com motivo) e ajustes do saldo de um produto.', position: 'bottom' },
+      { element: '.nav-pills', title: 'Abas', text: 'Saldos de insumos, movimentações, saldos dos produtos, transferências e alertas.', position: 'bottom' },
+      FILTROS('Pesquise por nome, filtre por zerados e, na matriz, por unidade.'),
+      TABELA('Saldo de cada produto que controla estoque. A venda no PDV baixa o saldo sozinha; produtos entram aqui ao ativar “Controlar estoque” no cadastro.')
+    ],
+    'estoque-produto-movimentar': [
+      { element: '#id_produto', title: 'Produto', text: 'Só aparecem produtos ativos da sua unidade que controlam estoque.', position: 'bottom' },
+      { element: '#id_tipo', title: 'Tipo', text: 'Entrada, saída (baixa manual) ou ajuste de inventário.', position: 'bottom' },
+      { element: '#id_quantidade', title: 'Quantidade', text: 'Quantidade do movimento. Uma baixa nunca deixa o saldo negativo.', position: 'bottom' },
+      { element: '[data-so-saida]', title: 'Motivo da baixa', text: 'Obrigatório nas baixas: perda, vencimento, quebra, consumo interno, acerto de inventário ou outro (descreva na observação).', position: 'top' },
+      SALVAR
+    ],
+    'estoque-produto-movimentos': [
+      FILTROS('Filtre por texto, tipo, período e unidade.'),
+      TABELA('Histórico imutável: entradas, baixas manuais, baixas e estornos de venda do PDV, com o saldo após cada movimento. Para corrigir, registre um ajuste.')
+    ],
     'estoque-movimentos': [
       FILTROS('Filtre por texto, tipo, período e unidade.'),
       EXPORTAR,
@@ -387,6 +404,249 @@
       { element: '#id_nome', title: 'Nome', text: 'Quem presta o serviço (funcionário, autônomo, prestador).', position: 'bottom' },
       { element: '#id_valor_hora', title: 'Valor da hora', text: 'Base do custo de mão de obra nos apontamentos e nas fichas de serviço. Se informar o valor por mês, hora e dia são derivados dele.', position: 'bottom' },
       SALVAR
+    ],
+    // ------------------------------------------------------------------ Telas de formulário, detalhe e apoio
+    'permissoes': [
+      { element: '.table-responsive', title: 'Permissões por módulo', text: 'Lista o que cada módulo permite fazer (ver, criar, alterar, excluir). Use-a como referência ao montar os papéis.', position: 'top' },
+      { element: 'h6', title: 'Outras permissões', text: 'Ações específicas que não cabem na matriz, como enviar orçamento ou abrir caixa.', position: 'top' }
+    ],
+    'assinatura': [
+      { element: '[name="plano"]', title: 'Plano', text: 'Escolha o plano da assinatura. O valor e a recorrência vêm do cadastro de planos.', position: 'bottom' },
+      { element: '[name="forma"]', title: 'Forma de pagamento', text: 'Boleto ou cartão. Os dados do cartão são enviados direto ao provedor de pagamento, nunca ficam no sistema.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Cobranças', text: 'Histórico de cobranças da assinatura, com vencimento, valor e situação.', position: 'top' }
+    ],
+    'auditoria-detalhe': [
+      { element: 'h4', title: 'Registro de auditoria', text: 'Quem fez a ação, quando e em qual módulo. Este registro não pode ser alterado nem apagado.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Alterações', text: 'Cada campo alterado, com o valor antes e depois.', position: 'top' }
+    ],
+    'compras-form': [
+      { element: '#id_insumo', title: 'Insumo', text: 'Escolha um insumo cadastrado para a lista de compras usar a unidade e o estoque dele.', position: 'bottom' },
+      { element: '#id_descricao', title: 'Descrição', text: 'Para um item que não é insumo, descreva-o aqui.', position: 'bottom' },
+      { element: '#id_quantidade', title: 'Quantidade', text: 'Quanto precisa comprar, na unidade escolhida ao lado.', position: 'bottom' },
+      SALVAR
+    ],
+    'consumidor-form': [
+      { element: '#id_tipo_pessoa', title: 'Tipo de pessoa', text: 'Pessoa física ou jurídica: muda o documento pedido (CPF ou CNPJ).', position: 'bottom' },
+      { element: '#id_documento', title: 'Documento', text: 'CPF ou CNPJ, validado pelos dígitos verificadores. Fica protegido: só quem tem permissão o vê completo.', position: 'bottom' },
+      { element: '#id_consentimento_lgpd', title: 'Consentimento (LGPD)', text: 'Registre se o consumidor autorizou o uso dos dados para contato.', position: 'top' },
+      SALVAR
+    ],
+    'cotacao-form': [
+      { element: '#id_titulo', title: 'Título', text: 'Nome da cotação, por exemplo "Compras da semana".', position: 'bottom' },
+      { element: '#importar_lista', title: 'Lista de compras', text: 'Marque para já trazer os itens da lista de compras para a cotação.', position: 'bottom' },
+      SALVAR
+    ],
+    'cotacao-detalhe': [
+      { element: 'a[href*="formato=pdf"]', title: 'Exportar', text: 'Gere o PDF ou o Excel do comparativo para imprimir ou enviar.', position: 'bottom' },
+      { element: 'h5', title: 'Lojas', text: 'As lojas pesquisadas. Adicione cada loja e depois o preço de cada item nela.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Comparativo', text: 'Compare os preços por item, escolha o vencedor e feche a cotação para gerar as contas a pagar.', position: 'top' }
+    ],
+    'cotacao-filho-form': [
+      { element: '.card form', title: 'Dados', text: 'Preencha os campos pedidos para a loja, o item ou o preço da cotação.', position: 'bottom' },
+      SALVAR
+    ],
+    'cotacao-importar': [
+      { element: '.card form', title: 'Itens da lista de compras', text: 'Marque os itens que quer copiar para a cotação.', position: 'bottom' },
+      { element: '.card form .btn-primary', title: 'Copiar', text: 'Copia os itens marcados. Os que já estão na cotação não duplicam.', position: 'top' }
+    ],
+    'cotacao-contas': [
+      { element: '#id_categoria', title: 'Categoria', text: 'Categoria financeira das contas a pagar que serão geradas, uma por loja vencedora.', position: 'bottom' },
+      { element: '#id_vencimento', title: 'Vencimento', text: 'Data de vencimento das contas geradas.', position: 'bottom' }
+    ],
+    'custo-comum-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Nome do custo comum, como "Energia elétrica".', position: 'bottom' },
+      { element: '#id_tipo', title: 'Fixo ou variável', text: 'Fixo não muda com as vendas (aluguel); variável acompanha o movimento.', position: 'bottom' },
+      { element: '#id_descricao', title: 'Descrição', text: 'Ajuda quem for escolher este custo no Custo operacional.', position: 'bottom' },
+      SALVAR
+    ],
+    'estoque-etiquetas': [
+      { element: '#id_insumo', title: 'Insumo', text: 'O insumo que vai na etiqueta, com QR Code.', position: 'bottom' },
+      { element: '#id_formato', title: 'Formato', text: 'Folha A4 ou impressora térmica.', position: 'bottom' },
+      { element: '#id_copias', title: 'Cópias', text: 'Quantas etiquetas imprimir (1 a 200).', position: 'bottom' },
+      { element: '#id_validade', title: 'Validade', text: 'Informe a validade impressa na etiqueta (ou deixe o sistema calcular pelo cadastro do insumo).', position: 'top' }
+    ],
+    'estoque-insumo': [
+      { element: 'h4', title: 'Insumo', text: 'Saldo atual, mínimo e unidade deste insumo na sua unidade.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Lotes e movimentações', text: 'Cada lote com saldo e validade; abaixo, as últimas movimentações. Saídas consomem primeiro o lote que vence antes.', position: 'top' }
+    ],
+    'estoque-minimo': [
+      { element: '#id_minimo', title: 'Estoque mínimo', text: 'Abaixo desta quantidade o sistema avisa. Zero desliga o alerta.', position: 'bottom' },
+      { element: '#id_fator_reposicao', title: 'Fator de reposição', text: 'A lista de compras sugere repor até mínimo × fator (2 = o dobro do mínimo).', position: 'bottom' },
+      { element: '#id_multiplo_compra', title: 'Múltiplo de compra', text: 'Opcional: arredonda a sugestão para cima ao tamanho da embalagem.', position: 'bottom' },
+      SALVAR
+    ],
+    'estoque-movimento-editar': [
+      { element: '#id_quantidade', title: 'Quantidade', text: 'Corrija a quantidade: os saldos do lote e do histórico posterior são recalculados. Não pode deixar o saldo negativo.', position: 'bottom' },
+      { element: '#id_data', title: 'Data', text: 'Data e hora da movimentação (não pode ser futura).', position: 'bottom' },
+      { element: '#id_observacao', title: 'Observação', text: 'Registre o motivo da correção; ela fica na auditoria.', position: 'bottom' },
+      SALVAR
+    ],
+    'estoque-transferencia': [
+      { element: 'h4', title: 'Transferência', text: 'Origem, destino, responsável e data da transferência entre unidades.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Itens movimentados', text: 'Cada lote que saiu da origem e entrou no destino. Para desfazer, registre uma nova transferência no sentido contrário.', position: 'top' }
+    ],
+    'fiscal-config': [
+      { element: '#id_ambiente', title: 'Ambiente', text: 'Homologação para testes ou produção. Esta versão ainda não emite documento fiscal real.', position: 'bottom' },
+      { element: '#id_provedor', title: 'Provedor', text: 'Serviço que emitirá os documentos fiscais.', position: 'bottom' },
+      { element: '#id_serie', title: 'Série', text: 'Série dos documentos emitidos.', position: 'bottom' },
+      { element: '#id_habilita_nfce', title: 'Tipos de documento', text: 'Habilite só os tipos que a empresa emite.', position: 'top' }
+    ],
+    'fiscal-documento': [
+      { element: 'h4', title: 'Documento fiscal', text: 'Situação e dados do documento ligado à venda do PDV.', position: 'bottom' },
+      { element: 'form[action*="cancelar"]', title: 'Cancelar documento', text: 'Informe o motivo (mínimo de 15 caracteres) para cancelar. Fica registrado na auditoria.', position: 'top' }
+    ],
+    'imagens-painel': [
+      { element: '#mes', title: 'Mês', text: 'Escolha o mês (AAAA-MM) para ver o uso e o custo estimado do armazenamento.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Uso e custo', text: 'Uso, franquia gratuita e unidades cobradas de cada item. O valor é estimado, não é fatura.', position: 'top' }
+    ],
+    'insumo-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Nome do insumo. Pode vir de um insumo padrão do seu segmento.', position: 'bottom' },
+      { element: '#id_medida', title: 'Unidade de medida', text: 'Unidade em que o insumo é comprado e controlado no estoque.', position: 'bottom' },
+      { element: '#id_quantidade', title: 'Quantidade comprada', text: 'Quanto veio na embalagem comprada.', position: 'bottom' },
+      { element: '#id_preco_pago', title: 'Preço pago', text: 'Quanto pagou pela quantidade acima; o custo unitário é calculado.', position: 'bottom' },
+      SALVAR
+    ],
+    'insumo-historico': [
+      { element: '#campo', title: 'Campo', text: 'Veja a evolução de um campo específico (preço, quantidade...).', position: 'bottom' },
+      { element: '#de', title: 'Período', text: 'Limite o histórico por data inicial e final.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Linha do tempo', text: 'Cada alteração do insumo, com quem alterou e o valor antes e depois.', position: 'top' }
+    ],
+    'insumo-global-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Nome do insumo padrão que ficará disponível para os segmentos escolhidos.', position: 'bottom' },
+      { element: '#id_medida', title: 'Unidade', text: 'Unidade de medida padrão.', position: 'bottom' },
+      { element: '#id_marca', title: 'Marca', text: 'Marca de referência (opcional).', position: 'bottom' },
+      { element: '#id_descricao', title: 'Descrição', text: 'Texto de apoio para quem for escolher este insumo.', position: 'bottom' }
+    ],
+    'insumo-nao-conformes': [
+      FILTROS('Filtre os insumos que se afastam do padrão do segmento.'),
+      TABELA('Insumos cujo nome, marca ou unidade fogem do insumo padrão. Corrija-os para manter os custos comparáveis.')
+    ],
+    'compromisso-form': [
+      { element: '#id_tipo', title: 'Tipo', text: 'Reserva, entrega, compromisso, evento ou tarefa.', position: 'bottom' },
+      { element: '#id_titulo', title: 'Título', text: 'O que aparece na agenda e no calendário conectado.', position: 'bottom' },
+      { element: '#id_inicio', title: 'Início e fim', text: 'Dia e hora. Marque "Dia inteiro" para eventos sem horário.', position: 'bottom' },
+      { element: '#id_lembrete_minutos', title: 'Lembrete', text: 'Aviso enviado antes do início, uma única vez.', position: 'bottom' },
+      SALVAR
+    ],
+    'integracao-detalhe': [
+      { element: 'form[action*="testar"]', title: 'Testar conexão', text: 'Confere se as credenciais ainda funcionam, sem alterar nada.', position: 'bottom' },
+      { element: 'form[action*="sincronizar"]', title: 'Sincronizar', text: 'Traz e envia a agenda agora, sem esperar a sincronização automática.', position: 'bottom' },
+      { element: 'form[action*="desconectar"]', title: 'Desconectar', text: 'Revoga o acesso e apaga as credenciais guardadas.', position: 'top' }
+    ],
+    'integracao-form': [
+      { element: 'form[autocomplete="off"]', title: 'Credenciais', text: 'Informe os dados do provedor. Eles são guardados criptografados e nunca aparecem de novo na tela.', position: 'bottom' },
+      { element: 'form[autocomplete="off"] button[type="submit"]', title: 'Salvar e testar', text: 'Grava as credenciais e já testa a conexão.', position: 'top' }
+    ],
+    'integracao-mensagens': [
+      { element: '#id_contato', title: 'Contato', text: 'Número ou identificador do destinatário.', position: 'bottom' },
+      { element: '#id_texto', title: 'Mensagem', text: 'Texto enviado pela conexão. Fora da janela de 24 h do WhatsApp só templates aprovados são aceitos.', position: 'bottom' },
+      { element: '.table-responsive', title: 'Histórico', text: 'Mensagens enviadas e recebidas, com o estado de entrega.', position: 'top' }
+    ],
+    'kanban': [
+      { element: '#btnColuna', title: 'Nova coluna', text: 'Crie as etapas do seu fluxo (a fazer, em andamento, concluído...).', position: 'bottom' },
+      { element: '#btnCartao', title: 'Novo cartão', text: 'Crie uma tarefa; clique nela para editar ou excluir.', position: 'bottom' },
+      { element: '#kanban', title: 'Quadro', text: 'Arraste os cartões entre as colunas para atualizar o andamento.', position: 'top' }
+    ],
+    'mao-obra-config': [
+      { element: '#id_jornada_horas', title: 'Jornada', text: 'Horas de trabalho por dia, base do cálculo da hora extra.', position: 'bottom' },
+      { element: '#id_horas_mes', title: 'Horas e dias por mês', text: 'Usados para transformar um valor mensal em valor por hora e por dia.', position: 'bottom' },
+      { element: '#id_extra_percentual', title: 'Hora extra', text: 'Percentual adicional pago sobre a hora normal.', position: 'bottom' },
+      SALVAR
+    ],
+    'mao-obra-relatorio': [
+      FILTROS('Escolha o período e o colaborador do relatório.'),
+      TABELA('Horas, dias e custo de mão de obra apurados dos apontamentos do período.')
+    ],
+    'medida-form': [
+      { element: '.card form', title: 'Medida', text: 'Nome, sigla e dimensão (massa, volume, unidade...). A conversão entre medidas só vale dentro da mesma dimensão.', position: 'bottom' },
+      { element: '.card form .btn-primary', title: 'Salvar', text: 'Grava a medida; ela passa a valer nos insumos e fichas.', position: 'top' }
+    ],
+    'modulo-cliente': [
+      { element: '#cliente', title: 'Cliente', text: 'Escolha o cliente cujos módulos quer habilitar.', position: 'bottom' },
+      { element: 'input[name="modulos"]', title: 'Módulos', text: 'Marque os módulos que o cliente pode usar. O menu dele passa a mostrar só esses.', position: 'top' }
+    ],
+    'modulo-form': [
+      { element: '.card form', title: 'Dados do módulo', text: 'Nome, identificador, rota e posição no menu do módulo.', position: 'bottom' },
+      { element: '#instrucoes-de-uso', title: 'Instruções de uso', text: 'Como usar o módulo, para consulta rápida.', position: 'top' }
+    ],
+    'modulo-lista': [
+      NOVO('Novo módulo', 'Cadastre um módulo no catálogo do sistema.'),
+      TABELA('Os módulos disponíveis, com a ordem no menu, a rota e o status. Abra um módulo para editar e ver as instruções de uso.')
+    ],
+    'segmento-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Nome do segmento de trabalho (por exemplo, Padaria).', position: 'bottom' },
+      { element: '#id_tipo_precificacao', title: 'Precificação', text: 'Define se o segmento precifica produtos, serviços ou ambos.', position: 'bottom' },
+      { element: '#filtroInsumosGlobais', title: 'Insumos padrão', text: 'Escolha quais insumos padrão ficam disponíveis para os clientes do segmento.', position: 'top' }
+    ],
+    'segmento-lista': [
+      NOVO('Novo segmento', 'Cadastre um segmento de trabalho e escolha os módulos que ele libera.'),
+      TABELA('Cada segmento, seu tipo de precificação e os módulos habilitados.')
+    ],
+    'notificacao-form': [
+      { element: '#id_tipo_destinatario', title: 'Destinatários', text: 'Todos os usuários, um segmento ou usuários específicos.', position: 'bottom' },
+      { element: '#id_titulo', title: 'Título', text: 'Texto curto que aparece na notificação.', position: 'bottom' },
+      { element: '#id_mensagem', title: 'Mensagem', text: 'O conteúdo completo.', position: 'bottom' },
+      { element: '#id_link', title: 'Link', text: 'Opcional: página do sistema aberta ao clicar.', position: 'top' }
+    ],
+    'notificacao-minhas': [
+      { element: '.nav-pills', title: 'Filtro', text: 'Veja todas, só as não lidas ou só as lidas.', position: 'bottom' },
+      { element: '.card', title: 'Notificações', text: 'Clique numa notificação para abri-la e marcá-la como lida. As lidas são removidas depois de 48 horas.', position: 'top' }
+    ],
+    'pdv-caixas': [
+      TABELA('Caixas abertos e fechados, com operador, horários e diferença na conferência.'),
+      { element: '.table-responsive tbody tr:first-child a', title: 'Detalhe', text: 'Abra o caixa para conferir o dinheiro, as sangrias e as vendas.', position: 'left' }
+    ],
+    'pdv-caixa': [
+      { element: 'form[action*="sangria"]', title: 'Sangria', text: 'Retire dinheiro do caixa informando o motivo. Entra na conferência.', position: 'bottom' },
+      { element: 'form[action*="suprimento"]', title: 'Suprimento', text: 'Coloque dinheiro no caixa (troco, por exemplo).', position: 'bottom' },
+      { element: 'form[action*="fechar"]', title: 'Fechar caixa', text: 'Informe o dinheiro contado; a diferença para o esperado fica registrada.', position: 'top' }
+    ],
+    'pdv-caixa-detalhe': [
+      { element: 'form[action*="conferir"]', title: 'Conferência', text: 'Quem gere o caixa confere o fechamento e registra uma observação.', position: 'bottom' },
+      TABELA('Sangrias, suprimentos e vendas do caixa.')
+    ],
+    'pdv-comandas': [
+      { element: 'form[action*="abrir"]', title: 'Abrir comanda', text: 'Escolha a mesa e abra a comanda; os itens são lançados e pagos depois.', position: 'bottom' },
+      TABELA('Comandas abertas, com mesa, itens e total. Abra uma para lançar itens ou receber.')
+    ],
+    'pdv-comanda': [
+      { element: '#formLeitor', title: 'Leitor', text: 'Leia o código de barras ou QR do produto para lançá-lo na comanda.', position: 'bottom' },
+      { element: '#pdvComanda', title: 'Itens', text: 'Itens lançados e total, calculados pelo servidor.', position: 'top' },
+      { element: '#pdvDesconto', title: 'Desconto', text: 'Só aparece para quem tem permissão; descontos acima do limite pedem autorização.', position: 'left' },
+      { element: '#pdvAddPagamento', title: 'Pagamento', text: 'Uma ou mais formas de pagamento (conta dividida).', position: 'left' },
+      { element: '#pdvFinalizar', title: 'Finalizar', text: 'Fecha a comanda, baixa o estoque e gera o recebimento.', position: 'left' }
+    ],
+    'pdv-venda-detalhe': [
+      { element: 'a[href*="comprovante"]', title: 'Comprovante', text: 'Comprovante não fiscal em tela, PDF ou arquivo para impressora térmica.', position: 'bottom' },
+      { element: '[data-bs-toggle="collapse"]', title: 'Devolução', text: 'Devolva itens de uma venda paga; o estoque só é reposto se o item não foi preparado.', position: 'left' },
+      { element: 'form[action*="cancelar"]', title: 'Cancelar venda', text: 'Informe o motivo. Venda paga só pode ser cancelada com o caixa ainda aberto.', position: 'top' }
+    ],
+    'forma-pagamento-form': [
+      { element: '#id_nome', title: 'Nome', text: 'Como a forma aparece no PDV.', position: 'bottom' },
+      { element: '#id_tipo', title: 'Tipo', text: 'Dinheiro, cartão, Pix... O dinheiro entra na conferência do caixa.', position: 'bottom' },
+      { element: '#id_taxa_percentual', title: 'Taxa', text: 'Percentual e/ou valor fixo descontado do que a empresa recebe.', position: 'bottom' },
+      { element: '#forma-global', title: 'Forma global', text: 'Só o administrador: libera esta forma para os segmentos escolhidos.', position: 'top' },
+      SALVAR
+    ],
+    'mesa-form': [
+      { element: '#id_nome', title: 'Nome da mesa', text: 'Como a mesa aparece ao abrir a comanda (ex.: Mesa 4).', position: 'bottom' },
+      SALVAR
+    ],
+    'pdv-config': [
+      { element: '#id_controla_estoque', title: 'Controle de estoque', text: 'Quando ligado, a venda baixa o estoque dos insumos da ficha e dos produtos que controlam estoque.', position: 'bottom' },
+      { element: '#id_confirmacao_pedido', title: 'Confirmação de pedido', text: 'Define se o pedido precisa ser confirmado antes de ir para a cozinha.', position: 'bottom' },
+      { element: '#id_formato_comprovante', title: 'Comprovante', text: 'Formato e rodapé do comprovante não fiscal.', position: 'bottom' },
+      SALVAR
+    ],
+    'pedido-detalhe': [
+      { element: 'h5', title: 'Pedido', text: 'Número, situação e itens. Confirme, avance as etapas da cozinha ou volte uma etapa.', position: 'bottom' },
+      { element: 'input[name="motivo"]', title: 'Cancelar pedido', text: 'O motivo é obrigatório para cancelar.', position: 'top' },
+      { element: '.card-header h6', title: 'Histórico', text: 'Cada mudança de situação, com quem fez e quando.', position: 'top' }
+    ],
+    'usuario-form': [
+      { element: '#formUsuario', title: 'Dados do usuário', text: 'Nome, e-mail, papel e unidade. O papel define o que a pessoa vê e faz.', position: 'bottom' },
+      { element: '#verPermissoesEspeciais', title: 'Permissões especiais', text: 'Libere ou bloqueie ações específicas só para este usuário, além do papel.', position: 'top' },
+      { element: '#formUsuario button.btn-primary[type="submit"]', title: 'Salvar', text: 'Grava o usuário. Novas senhas são definidas pelo próprio usuário por e-mail.', position: 'top' }
     ],
     'pdv-venda': [
       { element: '#pdvBusca', title: 'Buscar produto', text: 'Digite o nome ou a categoria, ou leia o código de barras/QR. Catálogos grandes mostram um aviso: use a busca para achar o resto.', position: 'bottom' },

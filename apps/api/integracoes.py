@@ -190,7 +190,12 @@ class CompromissoEntrada(serializers.Serializer):
     ativo = serializers.BooleanField(required=False)
 
 
-@documentar("agenda", CompromissoSerializer, CompromissoEntrada)
+@documentar("agenda", CompromissoSerializer, CompromissoEntrada, [
+    OpenApiParameter("situacao", str, enum=["aberto", "atrasado", "concluido"], description="aberto = não concluídos (inclui atrasados); atrasado = abertos cujo fim já passou; concluido = marcados como concluídos. Sem o parâmetro: todos."),
+    OpenApiParameter("tipo", str, enum=[t for t, _ in Compromisso.TIPO_CHOICES]),
+    OpenApiParameter("inicio_de", str, description="AAAA-MM-DD: compromissos que terminam a partir desta data."),
+    OpenApiParameter("inicio_ate", str, description="AAAA-MM-DD: compromissos que começam até esta data."),
+])
 class CompromissoViewSet(RecursoViewSet):
     """Compromissos/reservas/entregas da agenda (sincronizam com Google/iCloud). DELETE desativa (a sincronização remove o evento externo)."""
 
@@ -201,6 +206,20 @@ class CompromissoViewSet(RecursoViewSet):
     ordenacao_padrao = ["inicio", "pk"]
     rotulo = "Compromisso"
     padroes = {"tipo": "compromisso", "ativo": True}
+
+    def filtrar(self, queryset, params):
+        """Além de texto/status: situação (aberto/atrasado/concluido), tipo e janela de datas. O escopo da empresa já vem do get_queryset."""
+        from django.utils.dateparse import parse_date
+
+        queryset = s.filtrar_por_situacao(super().filtrar(queryset, params), params.get("situacao"))
+        if params.get("tipo") in dict(Compromisso.TIPO_CHOICES):
+            queryset = queryset.filter(tipo=params["tipo"])
+        de, ate = parse_date(params.get("inicio_de", "")), parse_date(params.get("inicio_ate", ""))
+        if de:
+            queryset = queryset.filter(fim__date__gte=de)
+        if ate:
+            queryset = queryset.filter(inicio__date__lte=ate)
+        return queryset
 
     def dados_atuais(self, c):
         return {"tipo": c.tipo, "titulo": c.titulo, "descricao": c.descricao, "inicio": c.inicio, "fim": c.fim, "todo_o_dia": c.todo_o_dia, "lembrete_minutos": c.lembrete_minutos, "concluido": c.concluido, "ativo": c.ativo}

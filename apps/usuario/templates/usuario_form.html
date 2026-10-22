@@ -89,6 +89,7 @@
 
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('usuario-form');</script>
 <script>
   // O select de perfil só mostra os perfis liberados para o cliente escolhido.
   // É só conveniência: o servidor revalida (UsuarioForm.clean).

@@ -45,3 +45,8 @@
 </div></div>
 {% endif %}
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('insumo-global-form');</script>
+{% endblock page_js %}

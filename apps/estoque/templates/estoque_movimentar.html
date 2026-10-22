@@ -48,9 +48,15 @@
           {{ form.validade }}
           {% if form.validade.errors %}<div class="text-danger small mt-1">{{ form.validade.errors|striptags }}</div>{% endif %}
         </div>
-        <div class="col-md-12">
+        <div class="col-md-4" data-so-saida>
+          <label for="{{ form.motivo.id_for_label }}" class="form-label">{% translate "Motivo da baixa" %}</label>
+          {{ form.motivo }}
+          {% if form.motivo.errors %}<div class="text-danger small mt-1">{{ form.motivo.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-8">
           <label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observação" %}</label>
           {{ form.observacao }}
+          {% if form.observacao.errors %}<div class="text-danger small mt-1">{{ form.observacao.errors|striptags }}</div>{% endif %}
         </div>
       </div>
       <div class="form-text mt-3">{% translate "Saídas e reduções consomem primeiro o lote que vence antes. Movimentações não podem ser apagadas; para corrigir um lançamento, edite-o na lista de movimentações. A validade pode ser informada sem lote." %}</div>
@@ -79,6 +85,8 @@
     function ajustar() {
       var entrada = tipo.value === 'entrada' || tipo.value === 'ajuste_entrada';
       document.querySelectorAll('[data-so-entrada]').forEach(function (el) { el.classList.toggle('d-none', !entrada); });
+      // O motivo é exigido só nas baixas (saída e ajuste de redução).
+      document.querySelectorAll('[data-so-saida]').forEach(function (el) { el.classList.toggle('d-none', entrada); });
     }
     tipo.addEventListener('change', ajustar);
     ajustar();

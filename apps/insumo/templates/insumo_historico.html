@@ -75,3 +75,8 @@
   {% if limitado %}<div class="card-body text-muted small">{% translate "Mostrando os 500 registros mais recentes; use o filtro de período para ver os anteriores." %}</div>{% endif %}
 </div>
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('insumo-historico');</script>
+{% endblock page_js %}

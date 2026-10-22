@@ -15,13 +15,14 @@ class ProdutoForm(forms.ModelForm):
 
     class Meta:
         model = Produto
-        fields = ["nome", "categoria", "descricao", "codigo_barras", "tipo", "ativo"]
+        fields = ["nome", "categoria", "descricao", "codigo_barras", "tipo", "controla_estoque", "ativo"]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}),
             "nome": forms.TextInput(attrs=CONTROLE),
             "categoria": forms.Select(attrs={"class": "form-select"}),
             "descricao": forms.TextInput(attrs=CONTROLE),
             "codigo_barras": forms.TextInput(attrs={**CONTROLE, "maxlength": 32, "autocomplete": "off", "placeholder": "Em branco = gerar automaticamente"}),
+            "controla_estoque": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "ativo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -41,6 +42,8 @@ class ProdutoForm(forms.ModelForm):
         if fixo:
             del self.fields["tipo"]
             self.instance.tipo = fixo
+            if fixo == Produto.SERVICO:  # serviço não tem estoque: o campo some (e Produto.clean também recusa)
+                del self.fields["controla_estoque"]
         else:
             self.fields["tipo"].choices = Produto.TIPO_CHOICES
 

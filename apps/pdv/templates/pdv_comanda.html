@@ -96,7 +96,8 @@
 {% endblock %}
 
 {% block page_js %}
-<script src="{% static_v 'js/pdv-autorizacao.js' %}"></script>
+
+<script>initTourModulo('pdv-comanda');</script><script src="{% static_v 'js/pdv-autorizacao.js' %}"></script>
 {{ block.super }}
 {% if venda.status == "aberta" %}<script src="{% static_v 'js/pdv.js' %}"></script>{% endif %}
 {% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<script src="{% static_v 'js/leitor-codigo.js' %}"></script>{% endif %}

@@ -1,0 +1,112 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Movimentações de produtos" %} - {% translate "Estoque" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Estoque" %}</h4>
+  {% if perms.estoque.add_movimentoestoque %}
+  <a href="{% url 'estoque-produto-movimentar' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova movimentação" %}</a>
+  {% endif %}
+</div>
+
+{% include "_estoque_nav.html" with ativa="produtos" %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end" data-tour="filtros">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-3">
+        <label class="form-label" for="q">{% translate "Pesquisar" %}</label>
+        <input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Produto, responsável ou observação...' %}" value="{{ termo_pesquisa }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="tipo">{% translate "Tipo" %}</label>
+        <select id="tipo" name="tipo" class="form-select">
+          <option value="">{% translate "Todos" %}</option>
+          {% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if tipo_selecionado == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="data_de">{% translate "De" %}</label>
+        <input type="date" id="data_de" name="data_de" class="form-control" value="{{ data_de }}">
+      </div>
+      <div class="col-md-auto">
+        <label class="form-label" for="data_ate">{% translate "Até" %}</label>
+        <input type="date" id="data_ate" name="data_ate" class="form-control" value="{{ data_ate }}">
+      </div>
+      {% if mostrar_unidade %}
+      <div class="col-md-auto">
+        <label class="form-label">{% translate "Unidade" %}</label>
+        <div>{% include "partials/unidade_filtro.html" %}</div>
+      </div>
+      {% endif %}
+      <div class="col-md-auto">
+        <label class="form-label" for="per_page">{% translate "Registros por página" %}</label>
+        <select name="per_page" id="per_page" class="form-select">
+          {% for opcao in opcoes_por_pagina %}<option value="{{ opcao }}" {% if opcao == per_page %}selected{% endif %}>{{ opcao }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive text-nowrap" data-tour="tabela">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Data" as label %}{% include "_th_ordenavel.html" with campo="data" label=label %}</th>
+          {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+          <th>{% translate "Produto" as label %}{% include "_th_ordenavel.html" with campo="produto" label=label %}</th>
+          <th>{% translate "Tipo" %}</th>
+          <th class="text-end">{% translate "Quantidade" as label %}{% include "_th_ordenavel.html" with campo="quantidade" label=label %}</th>
+          <th class="text-end">{% translate "Saldo após" %}</th>
+          <th>{% translate "Motivo" %}</th>
+          <th>{% translate "Responsável" %}</th>
+          <th>{% translate "Observação" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movimentos %}
+        <tr>
+          <td>{{ m.data|date:"d/m/Y H:i" }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=m %}</td>{% endif %}
+          <td>{{ m.produto.nome }}</td>
+          <td>{{ m.get_tipo_display }}</td>
+          <td class="text-end {% if m.sinal > 0 %}text-success{% else %}text-danger{% endif %}">{% if m.sinal > 0 %}+{% else %}-{% endif %}{{ m.quantidade|floatformat:"-3" }}</td>
+          <td class="text-end">{{ m.saldo_apos|floatformat:"-3" }}</td>
+          <td>{{ m.get_motivo_display|default:"—" }}</td>
+          <td>{{ m.responsavel_nome|default:"—" }}</td>
+          <td>{{ m.observacao }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhuma movimentação encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj %}
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="text-muted">{% blocktranslate with inicio=page_obj.start_index fim=page_obj.end_index total=page_obj.paginator.count %}Mostrando {{ inicio }}–{{ fim }} de {{ total }} registros{% endblocktranslate %}</div>
+    {% if is_paginated %}
+    <ul class="pagination mb-0">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('estoque-produto-movimentos');</script>
+{% endblock page_js %}

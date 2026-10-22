@@ -30,6 +30,7 @@ URL → module_required → View (ClienteScopedMixin / ListaPorUnidadeMixin / Li
 | `descricao` | varchar(255) | não | — | — |
 | `categoria_id` | FK | sim | — | `categoria_categoria` (PROTECT) |
 | `ativo` | boolean | sim | Desativado some dos seletores novos | — |
+| `controla_estoque` | boolean | sim (padrão `false`) | Liga o **saldo próprio** do produto: a venda no PDV baixa e é recusada sem saldo (ver `apps/estoque/README.md`). Serviço não controla estoque. Migration `0005`. | — |
 | `criado_em` / `atualizado_em` | datetime | sim | Controle | — |
 
 Índice `(cliente, ativo)`. Migration `0002_cadastro_de_produtos`: a tabela antiga era só âncora de permissão; se existirem linhas antigas (sem cliente/categoria) a migration **para com mensagem** em vez de inventar dados.

@@ -54,6 +54,16 @@
           </div>
         </div>
         {% endif %}
+        {% if form.controla_estoque %}
+        <div class="col-md-12">
+          <div class="form-check form-switch" data-tour="controla-estoque">
+            {{ form.controla_estoque }}
+            <label class="form-check-label" for="{{ form.controla_estoque.id_for_label }}">{% translate "Controlar estoque deste produto" %}</label>
+          </div>
+          <div class="form-text">{% translate "A venda no PDV baixa o saldo do produto e é recusada se não houver saldo. Lance as entradas em Estoque > Produtos." %}</div>
+          {% if form.controla_estoque.errors %}<div class="text-danger small mt-1">{{ form.controla_estoque.errors|striptags }}</div>{% endif %}
+        </div>
+        {% endif %}
         <div class="col-md-12">
           <div class="form-check form-switch">
             {{ form.ativo }}

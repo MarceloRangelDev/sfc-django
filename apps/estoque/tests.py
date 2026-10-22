@@ -374,7 +374,7 @@ class TelasTests(TestCase):
         resp = self.client.post(reverse("estoque-movimentar"), dados)
         self.assertRedirects(resp, reverse("estoque"), fetch_redirect_response=False)
         self.assertEqual(saldo_do_insumo(self.ovo), D("24"))
-        resp = self.client.post(reverse("estoque-movimentar"), {**dados, "tipo": "saida", "quantidade": "4", "lote": "", "validade": "", "salvar_e_novo": "1"})
+        resp = self.client.post(reverse("estoque-movimentar"), {**dados, "tipo": "saida", "quantidade": "4", "lote": "", "validade": "", "motivo": "perda", "salvar_e_novo": "1"})
         self.assertRedirects(resp, reverse("estoque-movimentar"), fetch_redirect_response=False)
         self.assertEqual(saldo_do_insumo(self.ovo), D("20"))
         self.assertContains(self.client.get(reverse("estoque-insumo", args=[self.ovo.pk])), "OVO1")
@@ -385,8 +385,9 @@ class TelasTests(TestCase):
         casos = [
             {**base, "quantidade": "0"}, {**base, "quantidade": "-2"}, {**base, "quantidade": "abc"},
             {**base, "insumo": alheio.pk}, {**base, "insumo": self.f_filial.pk},  # outra unidade
-            {**base, "tipo": "saida", "quantidade": "5"},  # sem saldo
-            {**base, "tipo": "saida", "quantidade": "1", "lote": "X"},  # saída não escolhe lote
+            {**base, "tipo": "saida", "quantidade": "5", "motivo": "perda"},  # sem saldo
+            {**base, "tipo": "saida", "quantidade": "1"},  # baixa sem motivo
+            {**base, "tipo": "saida", "quantidade": "1", "lote": "X", "motivo": "perda"},  # saída não escolhe lote
             {**base, "medida": medida("kg").pk},  # dimensão incompatível
             {**base, "tipo": "transferencia_entrada"},  # tipo que não é manual
         ]

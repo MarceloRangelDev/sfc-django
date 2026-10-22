@@ -12,6 +12,10 @@ urlpatterns = [
     path("estoque/movimentar", module_required("estoque", "estoque.add_movimentoestoque")(views.MovimentarView.as_view()), name="estoque-movimentar"),
     path("estoque/movimentos", ver(views.MovimentosListView.as_view()), name="estoque-movimentos"),
     path("estoque/movimentos/<int:pk>/editar", module_required("estoque", "estoque.change_movimentoestoque")(views.MovimentoEditarView.as_view()), name="estoque-movimento-editar"),
+    # Estoque de produtos (saldo próprio): mesmas permissões do estoque de insumos.
+    path("estoque/produtos", ver(views.ProdutosEstoqueListView.as_view()), name="estoque-produtos"),
+    path("estoque/produtos/movimentar", module_required("estoque", "estoque.add_movimentoestoque")(views.MovimentarProdutoView.as_view()), name="estoque-produto-movimentar"),
+    path("estoque/produtos/movimentos", ver(views.MovimentosProdutoListView.as_view()), name="estoque-produto-movimentos"),
     path("estoque/etiquetas", ver(views.EtiquetaView.as_view()), name="estoque-etiquetas"),
     path("estoque/alertas", ver(views.AlertasView.as_view()), name="estoque-alertas"),
     path("estoque/insumo/<int:pk>", ver(views.EstoqueInsumoView.as_view()), name="estoque-insumo"),

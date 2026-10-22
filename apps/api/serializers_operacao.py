@@ -11,7 +11,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.custo.models import CustoModelo
-from apps.estoque.models import MovimentoEstoque
+from apps.estoque.models import MOTIVO_CHOICES, MovimentoEstoque
 from apps.medida.models import Medida
 from web_project.regras.dinheiro import DinheiroService
 
@@ -60,7 +60,7 @@ class MovimentoEstoqueSerializer(serializers.ModelSerializer):
         model = MovimentoEstoque
         fields = [
             "id", "insumo", "insumo_nome", "tipo", "tipo_rotulo", "quantidade", "unidade", "lote", "validade",
-            "saldo_lote_apos", "responsavel_nome", "transferencia", "observacao", "data", "editado_em", "editavel",
+            "saldo_lote_apos", "responsavel_nome", "transferencia", "motivo", "observacao", "data", "editado_em", "editavel",
         ]
         read_only_fields = fields
 
@@ -78,6 +78,10 @@ class MovimentoEstoqueCriacaoSerializer(serializers.Serializer):
     medida = serializers.IntegerField(required=False, help_text="Unidade da quantidade (padrão: a do insumo; precisa ser da mesma dimensão).")
     lote = serializers.CharField(max_length=60, required=False, allow_blank=True, help_text="Só em entradas; opcional.")
     validade = serializers.DateField(required=False, allow_null=True, help_text="Só em entradas; pode ser informada sem lote.")
+    motivo = serializers.ChoiceField(
+        choices=[m for m, _ in MOTIVO_CHOICES], required=False, allow_blank=True,
+        help_text='OBRIGATÓRIO nas baixas manuais (tipo "saida" e "ajuste_saida"); ignorado nas entradas. "outro" exige `observacao`.',
+    )
     observacao = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 

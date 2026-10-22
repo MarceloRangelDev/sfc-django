@@ -55,7 +55,7 @@ class ProdutoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Produto
-        fields = ["id", "nome", "descricao", "categoria", "categoria_nome", "tipo", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "descricao", "categoria", "categoria_nome", "tipo", "controla_estoque", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
 
 
@@ -65,6 +65,7 @@ class ProdutoEntrada(serializers.Serializer):
     descricao = serializers.CharField(max_length=255, required=False, allow_blank=True)
     tipo = serializers.ChoiceField(choices=[c for c, _ in Produto.TIPO_CHOICES], required=False,
                                    help_text="produto (padrão) ou servico. Só vale no segmento Serviço e Produto: nos demais o tipo é o do segmento e este campo é ignorado.")
+    controla_estoque = serializers.BooleanField(required=False, help_text="Ativa o estoque próprio do produto (saldo baixado pelo PDV). Não vale para serviço. Padrão: false.")
     ativo = serializers.BooleanField(required=False)
 
 
@@ -76,7 +77,7 @@ class ProdutoViewSet(RecursoViewSet):
     permissao_app, permissao_model, modulo_slug = "produto", "produto", "produto"
     campos_busca = ("nome", "descricao")
     rotulo = "Produto"
-    padroes = {"ativo": True, "tipo": "produto"}
+    padroes = {"ativo": True, "tipo": "produto", "controla_estoque": False}
 
     def consulta_base(self):
         return Produto.objects.select_related("categoria")
@@ -88,7 +89,7 @@ class ProdutoViewSet(RecursoViewSet):
         return queryset.filter(categoria_id=params["categoria"]) if params.get("categoria", "").isdigit() else queryset
 
     def dados_atuais(self, p):
-        return {"nome": p.nome, "categoria": p.categoria_id, "descricao": p.descricao, "tipo": p.tipo, "ativo": p.ativo}
+        return {"nome": p.nome, "categoria": p.categoria_id, "descricao": p.descricao, "tipo": p.tipo, "controla_estoque": p.controla_estoque, "ativo": p.ativo}
 
 
 # ===================================================================================================
