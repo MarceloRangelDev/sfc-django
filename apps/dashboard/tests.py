@@ -28,9 +28,9 @@ D = Decimal
 PERMISSOES = [
     ("financeiro", "view_relatoriofinanceiro"), ("financeiro", "view_contapagar"), ("financeiro", "view_contareceber"),
     ("estoque", "view_movimentoestoque"), ("insumo", "view_insumo"), ("produto", "view_produto"),
-    ("precificacao", "view_precificacao"), ("categoria", "view_categoria"), ("auth", "view_user"),
+    ("precificacao", "view_precificacao"), ("categoria", "view_categoria"), ("auth", "view_user"), ("dashboard", "view_painel"),
 ]
-MODULOS = ("financeiro-pagar", "financeiro-receber", "financeiro-relatorios", "estoque", "insumo", "produto", "precificacao", "categoria")
+MODULOS = ("financeiro-pagar", "financeiro-receber", "financeiro-relatorios", "estoque", "insumo", "produto", "precificacao", "categoria", "painel")
 
 
 def dia(n):
@@ -205,6 +205,17 @@ class PainelTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "não está vinculado")
 
+    def test_sem_permissao_do_painel_abre_a_primeira_tela_do_menu(self):
+        from web_project.menu import montar_menu
+        from web_project.testing import habilitar_modulo
+
+        habilitar_modulo(self.matriz, "insumo")
+        u = usuario("sp", self.matriz, permissoes=[("insumo", "view_insumo")])
+        self.client.force_login(u)
+        esperado = next(i["url"] for i in montar_menu(u) if i["slug"] != "painel")
+        resp = self.client.get(reverse("index"))
+        self.assertRedirects(resp, reverse(esperado), fetch_redirect_response=False)
+
     def test_menu_tem_o_painel(self):
         self.assertContains(self.client.get(reverse("index")), 'href="/"')
 
@@ -288,7 +299,7 @@ class PresencaTests(TestCase):
     def test_contador_do_painel_so_para_quem_pode_ver(self):
         self.client.force_login(self.user)
         self.assertContains(self.client.get(reverse("index")), 'id="btnOnline"')
-        self.client.force_login(usuario("s", self.matriz, permissoes=[("insumo", "view_insumo")]))
+        self.client.force_login(usuario("s", self.matriz, permissoes=[("insumo", "view_insumo"), ("dashboard", "view_painel")]))
         self.assertNotContains(self.client.get(reverse("index")), 'id="btnOnline"')
 
     def test_logout_remove_da_lista_na_hora(self):

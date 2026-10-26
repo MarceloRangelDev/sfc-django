@@ -16,6 +16,7 @@ from apps.integracao.models import Conexao
 from apps.integracao.services import sincronizar_automatico
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens, modulos_habilitados
+from web_project.menu import montar_menu
 
 from .presenca import MINUTOS_ONLINE, usuarios_online
 from .services import PRESETS, indicadores, periodo
@@ -37,8 +38,22 @@ class DashboardView(TemplateView):
             for permissao, rota in (("pdv.view_telavender", "pdv"), ("pdv.view_telameucaixa", "pdv-caixa"), ("pdv.view_telacomandas", "pdv-comandas")):
                 if request.user.has_perm(permissao):
                     return redirect(rota)
+        # Sem acesso ao painel (permissão ou módulo): a tela inicial é a primeira tela do menu que o usuário pode abrir.
+        if not (request.user.has_perm("dashboard.view_painel") and "painel" in modulos_habilitados(request.user)):
+            destino = self._primeira_tela_do_menu(request.user)
+            if destino:
+                return redirect(destino)
         self._sincronizar_agenda_em_segundo_plano(request.user)
         return super().get(request, *args, **kwargs)
+
+    @staticmethod
+    def _primeira_tela_do_menu(usuario):
+        """Rota da primeira tela do menu (na ordem do cliente), exceto o painel; None se não houver nenhuma."""
+        for item in montar_menu(usuario):
+            for folha in item.get("submenu") or [item]:
+                if folha.get("slug") != "painel" and folha.get("url") and folha["url"] != "index":
+                    return folha["url"]
+        return None
 
     @staticmethod
     def _sincronizar_agenda_em_segundo_plano(usuario):
