@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group, Permission, User
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -118,3 +118,37 @@ class OutrasPermissoesRecolhidasTests(TestCase):
         self.client.post(reverse("acl-papel-edit", args=[gestor.pk]), {"nome": "Gestor", "permissoes": sorted(marcadas)})
         # Tudo o que a tela mostrava marcado (matriz + outras permissões, visíveis ou não) continua, e nada a mais aparece.
         self.assertEqual(set(Group.objects.get(name="Gestor").permissions.values_list("pk", flat=True)), marcadas)
+
+
+class TelaDoPdvImplicaLeituraTests(TestCase):
+    """Papel só com "Visualizar" da tela Comandas: o menu mostra e a tela abre (antes: item no menu e 403)."""
+
+    def setUp(self):
+        from apps.cliente.models import Cliente
+        from web_project.testing import habilitar_modulo
+
+        self.cliente = Cliente.objects.create(tipo_pessoa=Cliente.TIPO_PJ, cpf_cnpj="11222333000181", nome_razao_social="A")
+        habilitar_modulo(self.cliente, "pdv")
+        grupo = Group.objects.create(name="operador-caixa")
+        grupo.permissions.set(Permission.objects.filter(content_type__app_label="pdv", codename="view_telacomandas"))
+        self.user = User.objects.create_user(username="oc", email="oc@t.local", password="SenhaForte123!")
+        self.user.profile.cliente = self.cliente
+        self.user.profile.save()
+        self.user.groups.add(grupo)
+        self.client.force_login(self.user)
+
+    def test_tela_abre_e_aparece_no_menu(self):
+        from web_project.menu import montar_menu
+
+        self.assertEqual(self.client.get(reverse("pdv-comandas")).status_code, 200)
+        self.assertEqual([s["slug"] for i in montar_menu(self.user) for s in i.get("submenu", [])], ["pdv-comandas"])
+
+    def test_leitura_implicita_nao_concede_criar_e_negar_prevalece(self):
+        from .models import PermissaoUsuario
+
+        self.assertFalse(self.user.has_perm("pdv.add_venda"))
+        PermissaoUsuario.objects.create(
+            usuario=self.user, permissao=Permission.objects.get(content_type__app_label="pdv", codename="view_venda"), efeito=PermissaoUsuario.EFEITO_NEGAR
+        )
+        user = User.objects.get(pk=self.user.pk)
+        self.assertFalse(user.has_perm("pdv.view_venda"))
