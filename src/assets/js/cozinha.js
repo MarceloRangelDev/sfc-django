@@ -1,11 +1,13 @@
 /**
- * Quadro da cozinha: fila de pedidos em três colunas (Confirmado, Em preparo, Pronto), atualizada a cada poucos segundos.
+ * Quadro da cozinha: fila de pedidos em quatro colunas (Novo, Confirmado, Em preparo, Pronto). Atualiza sozinho por push (SSE:
+ * `cozinha-api-eventos` avisa que algo mudou e a tela busca a fila); uma consulta lenta de segurança cobre falha do stream.
  *
  * Atalhos (não substituem os botões, que continuam acessíveis por teclado/leitor de tela):
  *   ↑ / ↓ (ou K / J)  seleciona o pedido anterior / seguinte     → ou Enter  avança o pedido selecionado
  *   ←                 volta um passo                              C            abre o pedido (cancelar exige confirmação lá)
  *   ?                 mostra/oculta a ajuda
- * Operações críticas pedem confirmação: entregar (não tem "desfazer") e cancelar (motivo obrigatório na tela do pedido).
+ * Operações críticas pedem confirmação: finalizar (entrega; não tem "desfazer") e cancelar (motivo obrigatório na tela do pedido).
+ * O retorno de Finalizar (sucesso ou erro) aparece num SweetAlert.
  * O servidor valida TODA transição e permissão; a tela só pede e mostra o resultado.
  */
 (function () {
@@ -13,9 +15,9 @@
 
   var app = document.getElementById('cozinhaApp');
   if (!app) return;
-  var urlFila = app.dataset.urlFila, urlMover = app.dataset.urlMover, urlPedido = app.dataset.urlPedido;
+  var urlFila = app.dataset.urlFila, urlMover = app.dataset.urlMover, urlPedido = app.dataset.urlPedido, urlEventos = app.dataset.urlEventos;
   var podeMover = app.dataset.podeMover === '1';
-  var colunas = { confirmado: document.getElementById('colConfirmado'), em_preparo: document.getElementById('colPreparo'), pronto: document.getElementById('colPronto') };
+  var colunas = { novo: document.getElementById('colNovo'), confirmado: document.getElementById('colConfirmado'), em_preparo: document.getElementById('colPreparo'), pronto: document.getElementById('colPronto') };
   var aviso = document.getElementById('cozinhaAviso'), vivo = document.getElementById('cozinhaVivo');
   var pedidos = [], selecionado = null, ocupado = false;
 
@@ -31,19 +33,42 @@
   }
   function anunciar(texto) { vivo.textContent = texto; }
 
+  function swalDisponivel() { return typeof window.Swal !== 'undefined'; }
+  function alerta(icone, titulo, texto) {
+    if (!swalDisponivel()) { mostrarAviso(titulo + ' ' + texto, icone === 'error'); return Promise.resolve(); }
+    return window.Swal.fire({ icon: icone, title: titulo, text: texto, confirmButtonText: 'OK', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
+  }
+  // Finalizar (pronto -> entregue) não tem "desfazer": confirma antes, e o retorno do servidor aparece no SweetAlert.
+  function confirmarFinalizar(pedido) {
+    if (!swalDisponivel()) return Promise.resolve(window.confirm('Finalizar o pedido #' + pedido.numero + ' (entregue)? Não há como desfazer.'));
+    return window.Swal.fire({ icon: 'question', title: 'Finalizar o pedido #' + pedido.numero + '?', text: 'Marca como entregue. Não há como desfazer.', showCancelButton: true, confirmButtonText: 'Finalizar', cancelButtonText: 'Cancelar', reverseButtons: true,
+      customClass: { confirmButton: 'btn btn-primary me-4', cancelButton: 'btn btn-label-secondary' }, buttonsStyling: false }).then(function (r) { return r.isConfirmed; });
+  }
+
   function mover(pedido, acao) {
     if (!podeMover || ocupado) return;
-    if (acao === 'avancar' && pedido.status === 'pronto' && !window.confirm('Marcar o pedido #' + pedido.numero + ' como ENTREGUE? Não há como desfazer.')) return;
-    ocupado = true;
-    fetch(urlMover.replace('/0/', '/' + pedido.id + '/'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf(), 'Accept': 'application/json' }, body: JSON.stringify({ acao: acao }), credentials: 'same-origin',
-    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-      .then(function (r) {
-        ocupado = false;
-        if (!r.ok) { mostrarAviso(r.d.erro || 'Não foi possível mover o pedido.', true); return; }
-        anunciar('Pedido ' + r.d.pedido.numero + ' agora ' + r.d.pedido.status_rotulo.toLowerCase());
-        carregar();
-      }).catch(function () { ocupado = false; mostrarAviso('Sem conexão com o servidor.', true); });
+    var finalizar = acao === 'avancar' && pedido.status === 'pronto';
+    (finalizar ? confirmarFinalizar(pedido) : Promise.resolve(true)).then(function (seguir) {
+      if (!seguir) return;
+      ocupado = true;
+      fetch(urlMover.replace('/0/', '/' + pedido.id + '/'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf(), 'Accept': 'application/json' }, body: JSON.stringify({ acao: acao }), credentials: 'same-origin',
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (r) {
+          ocupado = false;
+          if (!r.ok) {
+            var msg = r.d.erro || 'Não foi possível mover o pedido.';
+            if (finalizar) alerta('error', 'Não foi possível finalizar', msg); else mostrarAviso(msg, true);
+            carregar(); return;
+          }
+          anunciar(r.d.mensagem || ('Pedido ' + r.d.pedido.numero + ' agora ' + r.d.pedido.status_rotulo.toLowerCase()));
+          if (finalizar) alerta('success', 'Pedido finalizado', r.d.mensagem || 'Pedido entregue.');
+          carregar();
+        }).catch(function () {
+          ocupado = false;
+          if (finalizar) alerta('error', 'Sem conexão', 'Não foi possível falar com o servidor. Tente de novo.'); else mostrarAviso('Sem conexão com o servidor.', true);
+        });
+    });
   }
 
   function mostrarAviso(texto, erro) {
@@ -71,7 +96,7 @@
       botoes.appendChild(v);
     }
     if (podeMover && p.pode_avancar) {
-      var rot = { confirmado: 'Iniciar preparo ▸', em_preparo: 'Pronto ▸', pronto: 'Entregar ▸' }[p.status];
+      var rot = { novo: 'Confirmar ▸', confirmado: 'Iniciar preparo ▸', em_preparo: 'Pronto ▸', pronto: 'Finalizar ▸' }[p.status];
       var a = el('button', { type: 'button', 'class': 'btn btn-sm btn-primary', 'aria-label': rot.replace(' ▸', '') + ' — pedido ' + p.numero, text: rot });
       a.addEventListener('click', function (e) { e.stopPropagation(); mover(p, 'avancar'); });
       botoes.appendChild(a);
@@ -86,7 +111,7 @@
 
   function desenhar() {
     Object.keys(colunas).forEach(function (k) { colunas[k].innerHTML = ''; });
-    var contagem = { confirmado: 0, em_preparo: 0, pronto: 0 };
+    var contagem = { novo: 0, confirmado: 0, em_preparo: 0, pronto: 0 };
     pedidos.forEach(function (p) {
       if (!colunas[p.status]) return;
       colunas[p.status].appendChild(cartao(p)); contagem[p.status]++;
@@ -121,6 +146,20 @@
     else if (e.key === '?') { var aj = document.getElementById('cozinhaAjuda'); aj.style.display = aj.style.display === 'none' ? '' : 'none'; }
   });
 
+  // Push: o servidor avisa quando a fila muda (pedido novo, enviado da comanda, movido por outra tela...). O EventSource reconecta sozinho
+  // ao fim de cada conexão; o 1º evento de cada conexão é só o estado atual (a tela já carregou), então só recarrega quando a marca muda.
+  var ultimaVersao = null;
+  function ouvirEventos() {
+    if (!urlEventos || typeof window.EventSource === 'undefined') return;
+    var fonte = new window.EventSource(urlEventos);
+    fonte.addEventListener('fila', function (e) {
+      var v = (JSON.parse(e.data) || {}).v;
+      if (ultimaVersao !== null && v !== ultimaVersao) carregar();
+      ultimaVersao = v;
+    });
+  }
+
   carregar();
-  setInterval(function () { if (!document.hidden) carregar(); }, 8000);
+  ouvirEventos();
+  setInterval(function () { if (!document.hidden) carregar(); }, 30000);  // rede de segurança: o push é o caminho normal
 })();

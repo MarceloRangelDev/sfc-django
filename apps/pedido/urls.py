@@ -10,6 +10,8 @@ ver = module_required(M, "pedido.view_pedido")
 urlpatterns = [
     path("cozinha", ver(views.CozinhaView.as_view()), name="cozinha"),
     path("cozinha/api/fila", ver(views.FilaJsonView.as_view()), name="cozinha-api-fila"),
+    # Push da tela (SSE): avisa que a fila mudou; a tela então busca a fila acima
+    path("cozinha/api/eventos", ver(views.EventosFilaView.as_view()), name="cozinha-api-eventos"),
     # Mover a fila: qualquer perfil com `mover_pedido` (Operador, Gestor e Administrador por padrão).
     path("cozinha/api/pedidos/<int:pk>/mover", module_required(M, "pedido.mover_pedido")(views.MoverJsonView.as_view()), name="cozinha-api-mover"),
     path("pedidos", ver(views.PedidosView.as_view()), name="pedidos"),

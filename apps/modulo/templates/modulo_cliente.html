@@ -65,12 +65,42 @@
     </form>
   </div>
 </div>
+
+{% if modulos_ordem %}
+<div class="card mt-6" id="cartaoOrdem" data-url="{% url 'modulo-ordem' %}" data-cliente="{{ cliente_selecionado.pk }}" data-tour="ordem-menu">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0">{% translate "Ordem dos módulos no menu" %}</h5>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="restaurarOrdem">{% translate "Restaurar ordem padrão" %}</button>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small">{% translate "Arraste os módulos para mudar a ordem em que aparecem no menu dos usuários deste cliente, ou use as setas (teclado: foque o botão e pressione Enter). A ordem é salva na hora." %}</p>
+    <ul class="list-group" id="listaOrdem" aria-label="{% translate 'Módulos do menu, na ordem atual' %}">
+      {% for modulo in modulos_ordem %}
+      <li class="list-group-item d-flex align-items-center gap-2" data-id="{{ modulo.pk }}">
+        <i class="icon-base ti tabler-grip-vertical text-muted drag-handle" style="cursor:grab" aria-hidden="true"></i>
+        <i class="icon-base {{ modulo.icone }}" aria-hidden="true"></i>
+        <span class="flex-grow-1">{{ modulo.nome }}</span>
+        <button type="button" class="btn btn-sm btn-icon btn-text-secondary" data-mover="-1" aria-label="{% translate 'Mover para cima' %}: {{ modulo.nome }}"><i class="icon-base ti tabler-chevron-up"></i></button>
+        <button type="button" class="btn btn-sm btn-icon btn-text-secondary" data-mover="1" aria-label="{% translate 'Mover para baixo' %}: {{ modulo.nome }}"><i class="icon-base ti tabler-chevron-down"></i></button>
+      </li>
+      {% endfor %}
+    </ul>
+    <div id="ordemVivo" class="visually-hidden" aria-live="polite"></div>
+  </div>
+</div>
+{% endif %}
 {% else %}
 <p class="text-muted">{% translate "Nenhum cliente cadastrado até o momento." %}</p>
 {% endif %}
 {% endblock %}
 
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/sortablejs/sortable.js' %}"></script>
+{% endblock vendor_js %}
+
 {% block page_js %}
 {{ block.super }}
 <script>initTourModulo('modulo-cliente');</script>
+<script src="{% static_v 'js/modulo-ordem.js' %}"></script>
 {% endblock page_js %}

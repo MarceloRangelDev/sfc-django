@@ -13,7 +13,7 @@ TRANSIÇÕES válidas e quem pode: qualquer perfil com `mover_pedido` move a fil
 views/API). Cada mudança grava um PedidoEvento imutável e auditoria.
 """
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Count, Max
 from django.utils import timezone
 
 from apps.auditoria.utils import registrar_alteracoes, registrar_criacao
@@ -246,8 +246,16 @@ def cancelar_por_venda(request, venda, motivo="Venda cancelada"):
 # --------------------------------------------------------------------------
 
 def fila(clientes):
-    """Pedidos na fila de produção (confirmado, em preparo, pronto) das unidades, do mais antigo para o mais novo."""
+    """Pedidos ATIVOS das unidades (novo, confirmado, em preparo, pronto), do mais antigo para o mais novo. Os NOVOS (aguardando confirmação
+    manual ou o pagamento) entram na fila: antes ficavam invisíveis na cozinha e só apareciam em "Todos os pedidos"."""
     return (
-        Pedido.objects.filter(cliente__in=clientes, status__in=[Pedido.CONFIRMADO, Pedido.EM_PREPARO, Pedido.PRONTO])
-        .select_related("venda", "venda__mesa", "venda__consumidor").prefetch_related("itens").order_by("confirmado_em", "pk")
+        Pedido.objects.filter(cliente__in=clientes, status__in=Pedido.ATIVOS)
+        .select_related("venda", "venda__mesa", "venda__consumidor").prefetch_related("itens").order_by("confirmado_em", "criado_em", "pk")
     )
+
+
+def versao_da_fila(clientes):
+    """Marca barata do estado dos pedidos das unidades (quantidade + última alteração): muda sempre que um pedido nasce ou muda de estado.
+    O stream de eventos da tela compara esta marca; ela não carrega dado de pedido (a tela busca a fila pela rota autenticada)."""
+    dados = Pedido.objects.filter(cliente__in=clientes).aggregate(n=Count("pk"), m=Max("atualizado_em"))
+    return f"{dados['n']}:{dados['m'].isoformat() if dados['m'] else ''}"

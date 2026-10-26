@@ -45,3 +45,12 @@ A baixa dos insumos dos itens acontece **na confirmação** e **uma única vez p
 ## Limites
 
 Sem impressão de comanda na cozinha (a tela é a fila) e sem integração com iFood/99Food (estrutura prevista na Fase 8).
+
+## Atualização 6 (cozinha em tempo real, Finalizar, entrega em Vendas)
+
+- A fila (`/cozinha`, `GET /api/v1/pedidos/fila/`) passou a incluir pedidos **novos** (antes ocultos até alguém confirmar): coluna **Novos** com a ação “Confirmar”.
+- **Finalizar** (pronto → entregue) pede confirmação e mostra o retorno do servidor (sucesso ou erro) num SweetAlert; o JSON de mover traz `mensagem`.
+- **Push:** `GET /cozinha/api/eventos` (SSE) avisa quando a fila muda; a tela recarrega sozinha (inclusive após “Enviar à cozinha” na comanda). Ver a seção “Eventos / push” em `apps/pdv/README.md` (unidades da sessão, payload só com a marca, `gthread` no gunicorn).
+- O envio da comanda explica o motivo quando não há item novo (comanda vazia × tudo enviado) e a comanda marca cada item como Novo/Enviado.
+- Vendas mostra “Entregue” quando todos os pedidos não cancelados da venda foram finalizados (`Venda.entrega`, derivado; sem coluna nova).
+- Sem alteração de esquema neste app. Testes: `apps/pedido/tests_push.py`.

@@ -3,7 +3,9 @@ from django.db import transaction
 from apps.acl.padroes import aplicar_padrao_aos_modulos
 from apps.auditoria.utils import registrar_alteracoes
 
-from .models import ClienteModulo, Modulo
+from web_project.regras import RegraNegocioError
+
+from .models import ClienteModulo, Modulo, OrdemMenuCliente
 
 
 def modulos_do_cliente(cliente):
@@ -48,3 +50,58 @@ def atualizar_modulos_do_cliente(request, cliente, ids_marcados):
             # completa o que faltou. É idempotente e só acrescenta (ver apps/acl/padroes.py).
             aplicar_padrao_aos_modulos(habilitados)
     return alteracoes
+
+
+def modulos_ordenaveis(cliente):
+    """Módulos do menu principal do cliente que o administrador pode reordenar (habilitados para ele), na ordem EFETIVA (personalizada ou padrão).
+
+    Ficam de fora os que não têm item próprio no menu (sem rota), os de Configurações e as telas do PDV (o PDV é um grupo único no menu)."""
+    from web_project.menu import TELAS_PDV
+
+    modulos = list(
+        modulos_do_cliente(cliente)
+        .filter(secao=Modulo.SECAO_PRINCIPAL, ativo=True, clientes_habilitados__cliente=cliente, clientes_habilitados__ativo=True)
+        .exclude(rota="").exclude(slug__in=TELAS_PDV)
+    )
+    personalizada = dict(OrdemMenuCliente.objects.filter(cliente=cliente, modulo__in=modulos).values_list("modulo_id", "ordem"))
+    return sorted(modulos, key=lambda m: (personalizada.get(m.pk, m.ordem), m.nome))
+
+
+def salvar_ordem_do_menu(request, cliente, ids_em_ordem):
+    """Grava a nova ordem do menu do cliente. `ids_em_ordem` precisa conter EXATAMENTE os módulos reordenáveis dele (sem faltar, repetir
+    nem trazer de fora): ids de outro cliente/segmento são recusados. A nova sequência reaproveita os valores de ordem já usados por esses
+    módulos; se coincide com a padrão, as linhas personalizadas são removidas. Tudo numa transação, com auditoria."""
+    atuais = modulos_ordenaveis(cliente)
+    try:
+        ids = [int(i) for i in ids_em_ordem]
+    except (TypeError, ValueError):
+        raise RegraNegocioError("Ordem inválida.") from None
+    if len(set(ids)) != len(ids) or set(ids) != {m.pk for m in atuais}:
+        raise RegraNegocioError("A lista de módulos mudou. Recarregue a página e tente de novo.")
+    por_id = {m.pk: m for m in atuais}
+    lugares = sorted(m.ordem for m in atuais)  # os "lugares" ocupados no menu, em ordem crescente
+    # a ordem dos lugares precisa ser estrita para a sequência sobreviver ao desempate por nome: força valores distintos
+    lugares = [max(lugares[i], (lugares[i - 1] + 1) if i else 0) for i in range(len(lugares))]
+    with transaction.atomic():
+        antes = ", ".join(m.nome for m in atuais)
+        padrao = [m.pk for m in sorted(atuais, key=lambda m: (m.ordem, m.nome))]
+        if ids == padrao:
+            OrdemMenuCliente.objects.filter(cliente=cliente).delete()
+        else:
+            for ordem, modulo_id in zip(lugares, ids):
+                OrdemMenuCliente.objects.update_or_create(cliente=cliente, modulo_id=modulo_id, defaults={"ordem": ordem})
+        depois = ", ".join(por_id[i].nome for i in ids)
+        if antes != depois:
+            registrar_alteracoes(request, cliente, [{"campo": "ordem_menu", "rotulo": "Ordem dos módulos no menu", "antes": antes, "depois": depois}], modulo="modulo")
+    return modulos_ordenaveis(cliente)
+
+
+def restaurar_ordem_do_menu(request, cliente):
+    """Volta ao padrão do sistema (apaga a ordem personalizada do cliente)."""
+    with transaction.atomic():
+        antes = ", ".join(m.nome for m in modulos_ordenaveis(cliente))
+        OrdemMenuCliente.objects.filter(cliente=cliente).delete()
+        depois = ", ".join(m.nome for m in modulos_ordenaveis(cliente))
+        if antes != depois:
+            registrar_alteracoes(request, cliente, [{"campo": "ordem_menu", "rotulo": "Ordem dos módulos no menu", "antes": antes, "depois": depois}], modulo="modulo")
+    return modulos_ordenaveis(cliente)

@@ -165,6 +165,22 @@ class Venda(models.Model):
     def troco_formatado(self):
         return DinheiroService.formatar(self.troco)
 
+    ENTREGA_ROTULOS = {"": "", "em_andamento": "Em andamento na cozinha", "entregue": "Entregue"}
+
+    @property
+    def entrega(self):
+        """Estado de entrega derivado dos pedidos (cozinha) da venda, sem coluna própria (fica sempre coerente com a fila):
+        "" = sem pedido ativo; "em_andamento" = há pedido ainda não entregue; "entregue" = todos os pedidos não cancelados foram entregues.
+        Usa `self.pedidos.all()`: com `prefetch_related("pedidos")` não gera consulta por venda."""
+        ativos = [p.status for p in self.pedidos.all() if p.status != "cancelado"]  # literais: o app de pedidos depende deste
+        if not ativos:
+            return ""
+        return "entregue" if all(st == "entregue" for st in ativos) else "em_andamento"
+
+    @property
+    def entrega_rotulo(self):
+        return self.ENTREGA_ROTULOS[self.entrega]
+
 
 class VendaItem(models.Model):
     """Linha da venda. `ficha` e `precificacao` são o SNAPSHOT de qual receita e qual preço foram usados (a baixa do estoque
@@ -270,3 +286,19 @@ class VendaItemInsumo(models.Model):
         verbose_name_plural = "Insumos baixados na venda"
         ordering = ["pk"]
         constraints = [models.CheckConstraint(condition=Q(quantidade_reposta__lte=F("quantidade")), name="venda_insumo_reposto_ate_o_baixado")]
+
+
+class CodigoAutorizacao(models.Model):
+    """Código de crachá (barras/QR) de quem autoriza operações sensíveis no PDV (desconto, cancelar, limpar, excluir item).
+
+    Só o HMAC do código é guardado (nunca o texto): o código é gerado pelo sistema com alta entropia, aparece UMA vez para o dono
+    e gerar outro invalida o anterior. O hash é determinístico (HMAC com a SECRET_KEY) para permitir a busca direta pela leitura.
+    Não tem unidade: o escopo é validado no uso (o autorizador precisa alcançar a unidade da venda; ver autorizacao.py)."""
+
+    usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="codigo_autorizacao")
+    codigo_hash = models.CharField(max_length=64, unique=True, editable=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Código de autorização"
+        verbose_name_plural = "Códigos de autorização"

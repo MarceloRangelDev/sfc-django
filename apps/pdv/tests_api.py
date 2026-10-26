@@ -100,14 +100,19 @@ class VendaAPITests(APIPdvBase):
     def test_preco_do_cliente_e_ignorado_e_gestor_da_desconto(self):
         self.abrir(self.api_g, 0)
         corpo = {"itens": [{"produto": self.bolo.pk, "quantidade": 2, "preco": 1}], "pagamentos": [{"forma": self.pix.pk, "valor": 900}], "desconto": 100}
-        d = self.ok(self.api_g.post(f"{V1}/pdv/vendas/", corpo, format="json"), 201)
+        # Mesmo o gestor (que tem a permissão) precisa informar a credencial: sem `autorizacao`, 422 e nada é gravado.
+        self.assertEqual(self.api_g.post(f"{V1}/pdv/vendas/", corpo, format="json").status_code, 422)
+        self.assertFalse(Venda.objects.exists())
+        d = self.ok(self.api_g.post(f"{V1}/pdv/vendas/", {**corpo, "autorizacao": {"senha": "SenhaForte123!"}}, format="json"), 201)
         self.assertEqual((d["subtotal"], d["desconto"], d["total"]), (1000, 100, 900))
 
     def test_visibilidade_cancelamento_e_devolucao(self):
         self.abrir()
         venda = self.ok(self.api_o.post(f"{V1}/pdv/vendas/", self.corpo(), format="json"), 201)
         item = venda["itens"][0]
-        self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "x"}, format="json").status_code, 403)
+        # Cancelar exige a credencial de quem tem pdv.cancelar_venda (o operador sozinho não basta, nem com a própria senha).
+        self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "x"}, format="json").status_code, 422)
+        self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "x", "autorizacao": {"senha": "SenhaForte123!"}}, format="json").status_code, 422)
         self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/itens/{item['id']}/devolver/", {}, format="json").status_code, 403)
         self.assertEqual(self.api_b.get(f"{V1}/pdv/vendas/{venda['id']}/").status_code, 404)
         self.assertEqual(self.api_b.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "x"}, format="json").status_code, 404)
@@ -123,11 +128,11 @@ class VendaAPITests(APIPdvBase):
     def test_cancelar_pelo_gestor_e_lista_filtrada(self):
         self.abrir()
         venda = self.ok(self.api_o.post(f"{V1}/pdv/vendas/", self.corpo(), format="json"), 201)
-        self.ok(self.api_g.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "teste"}, format="json"))
+        self.ok(self.api_g.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "teste", "autorizacao": {"senha": "SenhaForte123!"}}, format="json"))
         self.assertEqual(saldo_do_insumo(self.farinha), D("10"))
         self.assertEqual(len(self.ok(self.api_g.get(f"{V1}/pdv/vendas/", {"status": "cancelada"}))["itens"]), 1)
         self.assertEqual(len(self.ok(self.api_o.get(f"{V1}/pdv/vendas/", {"q": str(venda["numero"])}))["itens"]), 1)
-        self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "de novo"}, format="json").status_code, 403)
+        self.assertEqual(self.api_o.post(f"{V1}/pdv/vendas/{venda['id']}/cancelar/", {"motivo": "de novo"}, format="json").status_code, 422)
 
     def test_comprovante_em_json_pdf_e_escpos(self):
         self.abrir()
@@ -185,5 +190,5 @@ class CaixaEComandaAPITests(APIPdvBase):
         self.ok(self.api_o.delete(f"{V1}/pdv/comandas/{cid}/itens/{d['itens'][0]['id']}/"))
         self.assertEqual(self.ok(self.api_o.get(f"{V1}/pdv/comandas/{cid}/"))["subtotal"], 0)
         self.assertEqual(len(self.ok(self.api_o.get(f"{V1}/pdv/comandas/"))), 1)
-        self.ok(self.api_g.post(f"{V1}/pdv/vendas/{cid}/cancelar/", {"motivo": "saiu"}, format="json"))
+        self.ok(self.api_g.post(f"{V1}/pdv/vendas/{cid}/cancelar/", {"motivo": "saiu", "autorizacao": {"senha": "SenhaForte123!"}}, format="json"))
         self.assertEqual(self.ok(self.api_o.get(f"{V1}/pdv/comandas/")), [])

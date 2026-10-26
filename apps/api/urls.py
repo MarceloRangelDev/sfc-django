@@ -77,6 +77,8 @@ def somente_administrador(view):
 urlpatterns = [
     # Autenticação
     path("api/v1/pdv/configuracao/", pdv.ConfiguracaoPdvView.as_view(), name="api-pdv-config"),
+    path("api/v1/pdv/autorizacoes/validar/", pdv.AutorizacaoPdvView.as_view(), name="api-pdv-autorizar"),
+    path("api/v1/pdv/autorizacoes/codigo/", pdv.CodigoAutorizacaoView.as_view(), name="api-pdv-codigo"),
     path("api/v1/fiscal/configuracao/", fiscal.FiscalConfiguracaoViewSet.as_view({"get": "list"}), name="api-fiscal-config"),
     path("api/v1/assinatura/", assinatura_api.AssinaturaView.as_view(), name="api-assinatura"),
     path("api/v1/assinatura/assinar/", assinatura_api.AssinarView.as_view(), name="api-assinatura-assinar"),

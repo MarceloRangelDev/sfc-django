@@ -65,9 +65,35 @@
   </table></div>
 </div>
 {% endif %}
+
+{% if pode_autorizar %}
+<div class="card mt-4" id="cartaoCracha" data-url="{% url 'pdv-api-codigo-autorizacao' %}" data-tour="cracha">
+  <div class="card-body">
+    <h6>{% translate "Código de autorização (crachá)" %}</h6>
+    <p class="text-muted small mb-3">{% translate "Gera um código que você imprime como código de barras/QR Code. Lido no PDV, ele autoriza desconto, cancelamento e limpeza no lugar da senha. Gerar outro invalida o anterior; o código aparece só uma vez." %}</p>
+    <button type="button" class="btn btn-outline-primary btn-sm" id="gerarCracha">{% translate "Gerar novo código" %}</button>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block page_js %}
 {{ block.super }}
 <script>initTourModulo('pdv-caixa');</script>
+<script>
+(function () {
+  var b = document.getElementById('gerarCracha');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    fetch(document.getElementById('cartaoCracha').dataset.url, { method: 'POST', headers: { 'X-CSRFToken': m ? decodeURIComponent(m[1]) : '', 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var texto = d.codigo || d.erro || '';
+        if (window.Swal) window.Swal.fire({ icon: d.codigo ? 'success' : 'error', title: d.codigo ? 'Seu código de autorização' : 'Não foi possível gerar', html: d.codigo ? '<p class="small text-muted">Anote ou imprima agora: ele não será mostrado de novo.</p><code class="fs-4 user-select-all"></code>' : '', text: d.codigo ? undefined : texto, confirmButtonText: 'Entendi', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false, didOpen: function (el) { var c = el.querySelector('code'); if (c) c.textContent = d.codigo; } });
+        else window.alert(texto);
+      });
+  });
+})();
+</script>
 {% endblock page_js %}

@@ -45,4 +45,17 @@
 {% block page_js %}
 {{ block.super }}
 <script>initTourModulo('pedidos');</script>
+<script>
+// Push (SSE): recarrega a lista quando a marca dos pedidos muda (a 1ª mensagem de cada conexão é só o estado atual).
+(function () {
+  if (typeof window.EventSource === 'undefined') return;
+  var ultima = null;
+  new window.EventSource("{% url 'cozinha-api-eventos' %}").addEventListener('fila', function (e) {
+    var v = (JSON.parse(e.data) || {}).v;
+    var digitando = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (ultima !== null && v !== ultima && !digitando) window.location.reload();
+    ultima = v;
+  });
+})();
+</script>
 {% endblock page_js %}

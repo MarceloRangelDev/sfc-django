@@ -8,9 +8,9 @@ item aqui é só conveniência.
 """
 from django.urls import NoReverseMatch, reverse
 
-from apps.modulo.models import Modulo
+from apps.modulo.models import Modulo, OrdemMenuCliente
 
-from .acesso import modulos_habilitados
+from .acesso import cliente_do_usuario, modulos_habilitados
 
 ICONE_PADRAO = "ti tabler-app-window"
 # Telas do PDV: módulos-filhos do módulo "pdv", mostrados juntos num submenu "PDV" (na ordem abaixo).
@@ -30,7 +30,13 @@ def montar_menu(user):
     """Lista de itens no formato esperado por menu_item_template.html."""
     if not user.is_authenticated:
         return []
-    modulos = Modulo.objects.filter(slug__in=modulos_habilitados(user)).exclude(rota="")  # já ordenados (ordem, nome)
+    modulos = list(Modulo.objects.filter(slug__in=modulos_habilitados(user)).exclude(rota=""))  # já ordenados (ordem, nome)
+    # Ordem personalizada do cliente do usuário (Configurações > Módulos do cliente); módulo sem linha mantém a ordem padrão.
+    cliente = cliente_do_usuario(user)
+    if cliente is not None:
+        personalizada = dict(OrdemMenuCliente.objects.filter(cliente=cliente).values_list("modulo_id", "ordem"))
+        if personalizada:
+            modulos.sort(key=lambda m: (personalizada.get(m.pk, m.ordem), m.nome))
     principal, configuracoes, grupo_pdv = [], [], None
     for modulo in modulos:
         if modulo.permissao and not user.has_perm(modulo.permissao):

@@ -7,6 +7,7 @@ from .views import (
     ModuloCreateView,
     ModuloExcluirView,
     ModuloListView,
+    ModuloOrdemView,
     ModuloUpdateView,
     SegmentoCreateView,
     SegmentoExcluirView,
@@ -16,6 +17,7 @@ from .views import (
 
 urlpatterns = [
     path("modulos", module_required("modulo-cliente", "modulo.change_clientemodulo")(ModuloClienteView.as_view()), name="modulo-list"),
+    path("modulos/ordem", module_required("modulo-cliente", "modulo.change_clientemodulo")(ModuloOrdemView.as_view()), name="modulo-ordem"),
     path("modulos/catalogo", module_required("modulo", "modulo.view_modulo")(ModuloListView.as_view()), name="modulo-catalogo"),
     path("modulos/catalogo/novo", module_required("modulo", "modulo.add_modulo")(ModuloCreateView.as_view()), name="modulo-create"),
     path("modulos/catalogo/<int:pk>/editar", module_required("modulo", "modulo.change_modulo")(ModuloUpdateView.as_view()), name="modulo-edit"),

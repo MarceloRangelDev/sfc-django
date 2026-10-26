@@ -1,8 +1,9 @@
 import json
+import time
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -16,6 +17,9 @@ from . import services as s
 from .models import Pedido
 
 MAX_CORPO_JSON = 16 * 1024
+# Stream de eventos (SSE): cada conexão vive DURACAO_SSE s e o navegador reconecta sozinho (EventSource); o servidor confere a marca do banco
+# a cada INTERVALO_SSE s. Funciona com vários workers (o "push" é derivado do banco, não de memória do processo).
+DURACAO_SSE, INTERVALO_SSE = 45, 2
 
 
 def pedidos_visiveis(user):
@@ -42,6 +46,35 @@ def pedido_dict(pedido):
 class CozinhaView(View):
     def get(self, request):
         return render(request, "cozinha.html", TemplateLayout.init(self, {"ativa": "cozinha", "pode_mover": request.user.has_perm("pedido.mover_pedido")}))
+
+
+class EventosFilaView(View):
+    """GET (text/event-stream): avisa a tela quando QUALQUER pedido das unidades do usuário nasce ou muda de estado.
+
+    SEGURANÇA/TENANT: as unidades são resolvidas UMA vez, da sessão autenticada (`clientes_dos_itens`), nunca de parâmetro do cliente; o
+    evento só leva a marca de versão (sem dado de pedido) e a tela busca a fila por `cozinha-api-fila`, que aplica a mesma autorização."""
+
+    def get(self, request):
+        clientes = list(clientes_dos_itens(request.user, "view").values_list("pk", flat=True))
+
+        def fluxo():
+            yield "retry: 3000\n\n"
+            inicio, ultima = time.monotonic(), None
+            while True:
+                versao = s.versao_da_fila(clientes)
+                if versao != ultima:
+                    ultima = versao
+                    yield f"event: fila\ndata: {json.dumps({'v': versao})}\n\n"
+                else:
+                    yield ": ping\n\n"  # mantém a conexão viva atrás de proxies
+                if time.monotonic() - inicio >= DURACAO_SSE:
+                    return
+                time.sleep(INTERVALO_SSE)
+
+        resposta = StreamingHttpResponse(fluxo(), content_type="text/event-stream")
+        resposta["Cache-Control"] = "no-cache"
+        resposta["X-Accel-Buffering"] = "no"  # nginx: não bufferizar o stream
+        return resposta
 
 
 class FilaJsonView(View):
@@ -72,7 +105,8 @@ class MoverJsonView(View):
         except RegraNegocioError as erro:
             return JsonResponse({"erro": str(erro)}, status=422)
         pedido.refresh_from_db()
-        return JsonResponse({"ok": True, "pedido": pedido_dict(pedido)})
+        mensagem = f"Pedido #{pedido.numero} finalizado: entregue ao cliente." if pedido.status == Pedido.ENTREGUE else f"Pedido #{pedido.numero} agora {pedido.get_status_display().lower()}."
+        return JsonResponse({"ok": True, "mensagem": mensagem, "pedido": pedido_dict(pedido)})
 
 
 class PedidosView(View):
@@ -138,7 +172,14 @@ class EnviarCozinhaView(View):
             messages.error(request, str(erro))
             return redirect("pdv-comanda", pk=venda.pk)
         if pedido is None:
-            messages.info(request, "Nenhum item novo para enviar à cozinha.")
+            # Explica o motivo real (a tela agora marca cada item como "Enviado"/"Novo"): comanda vazia x tudo já enviado.
+            total = venda.itens.count()
+            if not total:
+                messages.warning(request, "A comanda não tem itens para enviar à cozinha.")
+            else:
+                ultimo = Pedido.objects.filter(venda=venda).exclude(status=Pedido.CANCELADO).order_by("-numero").first()
+                referencia = f" (último: pedido #{ultimo.numero})" if ultimo else ""
+                messages.info(request, f"Nenhum item novo: os {total} item(ns) da comanda já foram enviados à cozinha{referencia}. Lance um item novo para enviar outro pedido.")
         else:
             messages.success(request, f"Pedido #{pedido.numero} enviado à cozinha.")
         return redirect("pdv-comanda", pk=venda.pk)

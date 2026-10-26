@@ -25,7 +25,7 @@
           <td><a href="{% url 'pdv-venda' v.pk %}">#{{ v.numero }}</a></td><td>{{ v.criado_em|date:"d/m/Y H:i" }}</td>
           <td>{{ v.consumidor.nome|default:"—" }}</td><td>{{ v.get_origem_display }}{% if v.mesa %} · {{ v.mesa.nome }}{% endif %}</td><td>{{ v.caixa.operador.get_username }}</td>
           <td class="text-end">{{ v.total|moeda }}</td>
-          <td>{% if v.status == "paga" %}<span class="badge bg-label-success">{{ v.get_status_display }}</span>{% elif v.status == "cancelada" %}<span class="badge bg-label-secondary">{{ v.get_status_display }}</span>{% else %}<span class="badge bg-label-warning">{{ v.get_status_display }}</span>{% endif %}</td>
+          <td>{% if v.status == "paga" %}<span class="badge bg-label-success">{{ v.get_status_display }}</span>{% elif v.status == "cancelada" %}<span class="badge bg-label-secondary">{{ v.get_status_display }}</span>{% else %}<span class="badge bg-label-warning">{{ v.get_status_display }}</span>{% endif %}{% if v.entrega == "entregue" %} <span class="badge bg-label-info" title="{% translate 'Todos os pedidos foram entregues' %}">{% translate "Entregue" %}</span>{% elif v.entrega == "em_andamento" %} <span class="badge bg-label-secondary" title="{% translate 'Há pedido ainda na cozinha' %}">{% translate "Em andamento" %}</span>{% endif %}</td>
           <td><a href="{% url 'pdv-venda' v.pk %}" class="btn btn-icon btn-text-secondary rounded-pill"><i class="icon-base ti tabler-eye"></i></a></td>
         </tr>
         {% empty %}<tr><td colspan="8" class="text-center py-6">{% translate "Nenhuma venda." %}</td></tr>{% endfor %}

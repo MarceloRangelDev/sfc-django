@@ -10,7 +10,7 @@
 
 <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
-    <h5 class="mb-1">{% translate "Venda" %} #{{ venda.numero }} <span class="badge bg-label-{% if venda.status == 'paga' %}success{% elif venda.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ venda.get_status_display }}</span></h5>
+    <h5 class="mb-1">{% translate "Venda" %} #{{ venda.numero }} <span class="badge bg-label-{% if venda.status == 'paga' %}success{% elif venda.status == 'cancelada' %}secondary{% else %}warning{% endif %}">{{ venda.get_status_display }}</span>{% if venda.entrega == "entregue" %} <span class="badge bg-label-info" title="{% translate 'Todos os pedidos foram entregues' %}">{% translate "Entregue" %}</span>{% elif venda.entrega == "em_andamento" %} <span class="badge bg-label-secondary" title="{% translate 'Há pedido ainda na cozinha' %}">{% translate "Em andamento" %}</span>{% endif %}</h5>
     <small class="text-muted">{{ venda.criado_em|date:"d/m/Y H:i" }} · {% translate "caixa" %} #{{ venda.caixa_id }} · {{ venda.get_origem_display }}{% if venda.mesa %} · {{ venda.mesa.nome }}{% endif %}{% if venda.consumidor %} · {{ venda.consumidor.nome }}{% endif %}</small>
   </div>
   <div class="btn-group">

@@ -62,6 +62,7 @@ TELAS = {
     "formas-pagamento": "apps/pdvconfig/templates/forma_pagamento.html",
     "insumos-globais": "apps/insumoglobal/templates/insumo_global.html",
     "notificacoes-historico": "apps/notificacao/templates/notificacao_historico.html",
+    "cozinha": "apps/pedido/templates/cozinha.html",
     "pedidos": "apps/pedido/templates/pedidos.html",
     "pdv-vendas": "apps/pdv/templates/pdv_vendas.html",
     "auditoria": "apps/auditoria/templates/auditoria_list.html",

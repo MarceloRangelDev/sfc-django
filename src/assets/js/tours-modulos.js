@@ -303,13 +303,19 @@
       FILTROS('Filtre o histórico por usuário, unidade, entrega, leitura e período.'),
       TABELA('Uma linha por destinatário, com o resultado da entrega e se já leu. Notificações lidas somem depois de 48 horas.')
     ],
+    'cozinha': [
+      { element: '[data-tour="coluna-novos"]', title: 'Pedidos novos', text: 'Pedidos que ainda aguardam confirmação (manual ou pelo pagamento). Confirme para mandá-los à fila.', position: 'bottom' },
+      { element: '#colPreparo', title: 'Em preparo', text: 'Inicie o preparo de um pedido confirmado e marque como pronto. Os atalhos de teclado estão em "Atalhos (?)".', position: 'bottom' },
+      { element: '#colPronto', title: 'Prontos', text: 'Use "Finalizar" quando o pedido for entregue. O resultado aparece num aviso; finalizar não tem como desfazer.', position: 'left' },
+      { element: '#cozinhaApp', title: 'Atualização automática', text: 'A tela se atualiza sozinha quando chega um pedido (por exemplo, enviado de uma comanda). Não precisa recarregar.', position: 'top' }
+    ],
     'pedidos': [
       FILTROS('Filtre os pedidos por status, tipo e período.'),
       TABELA('Cada pedido com mesa ou cliente, status e a venda gerada. Abra um pedido para acompanhá-lo.')
     ],
     'pdv-vendas': [
       FILTROS('Filtre as vendas por período, operador, origem e status.'),
-      TABELA('Todas as vendas do PDV. Abra uma venda para ver itens, pagamentos e o comprovante.')
+      TABELA('Todas as vendas do PDV, com o selo "Entregue" quando todos os pedidos da cozinha foram finalizados. Abra uma venda para ver itens, pagamentos e o comprovante.')
     ],
     'auditoria': [
       FILTROS('Filtre o registro por usuário, módulo, ação, resultado e período.'),
@@ -563,7 +569,8 @@
     ],
     'modulo-cliente': [
       { element: '#cliente', title: 'Cliente', text: 'Escolha o cliente cujos módulos quer habilitar.', position: 'bottom' },
-      { element: 'input[name="modulos"]', title: 'Módulos', text: 'Marque os módulos que o cliente pode usar. O menu dele passa a mostrar só esses.', position: 'top' }
+      { element: 'input[name="modulos"]', title: 'Módulos', text: 'Marque os módulos que o cliente pode usar. O menu dele passa a mostrar só esses.', position: 'top' },
+      { element: '[data-tour="ordem-menu"]', title: 'Ordem no menu', text: 'Arraste os módulos (ou use as setas) para escolher a ordem do menu dos usuários deste cliente. A ordem é salva na hora; "Restaurar" volta ao padrão.', position: 'top' }
     ],
     'modulo-form': [
       { element: '.card form', title: 'Dados do módulo', text: 'Nome, identificador, rota e posição no menu do módulo.', position: 'bottom' },
@@ -599,7 +606,8 @@
     'pdv-caixa': [
       { element: 'form[action*="sangria"]', title: 'Sangria', text: 'Retire dinheiro do caixa informando o motivo. Entra na conferência.', position: 'bottom' },
       { element: 'form[action*="suprimento"]', title: 'Suprimento', text: 'Coloque dinheiro no caixa (troco, por exemplo).', position: 'bottom' },
-      { element: 'form[action*="fechar"]', title: 'Fechar caixa', text: 'Informe o dinheiro contado; a diferença para o esperado fica registrada.', position: 'top' }
+      { element: 'form[action*="fechar"]', title: 'Fechar caixa', text: 'Informe o dinheiro contado; a diferença para o esperado fica registrada.', position: 'top' },
+      { element: '[data-tour="cracha"]', title: 'Código de autorização', text: 'Quem autoriza descontos, cancelamentos e limpeza gera aqui o código do crachá (barras/QR) para autorizar no PDV sem digitar a senha.', position: 'top' }
     ],
     'pdv-caixa-detalhe': [
       { element: 'form[action*="conferir"]', title: 'Conferência', text: 'Quem gere o caixa confere o fechamento e registra uma observação.', position: 'bottom' },
@@ -611,15 +619,16 @@
     ],
     'pdv-comanda': [
       { element: '#formLeitor', title: 'Leitor', text: 'Leia o código de barras ou QR do produto para lançá-lo na comanda.', position: 'bottom' },
-      { element: '#pdvComanda', title: 'Itens', text: 'Itens lançados e total, calculados pelo servidor.', position: 'top' },
-      { element: '#pdvDesconto', title: 'Desconto', text: 'Só aparece para quem tem permissão; descontos acima do limite pedem autorização.', position: 'left' },
+      { element: '[data-tour="estoque-produto"]', title: 'Estoque', text: 'Cada produto mostra o saldo em estoque ou "Estoque não controlado".', position: 'top' },
+      { element: '#pdvComanda', title: 'Itens', text: 'Itens lançados e total, calculados pelo servidor. Cada item mostra se é Novo ou já foi Enviado à cozinha.', position: 'top' },
+      { element: '#pdvDesconto', title: 'Desconto', text: 'Qualquer desconto exige a senha ou o código do crachá de quem tem permissão; o servidor confere e registra quem autorizou.', position: 'left' },
       { element: '#pdvAddPagamento', title: 'Pagamento', text: 'Uma ou mais formas de pagamento (conta dividida).', position: 'left' },
       { element: '#pdvFinalizar', title: 'Finalizar', text: 'Fecha a comanda, baixa o estoque e gera o recebimento.', position: 'left' }
     ],
     'pdv-venda-detalhe': [
       { element: 'a[href*="comprovante"]', title: 'Comprovante', text: 'Comprovante não fiscal em tela, PDF ou arquivo para impressora térmica.', position: 'bottom' },
       { element: '[data-bs-toggle="collapse"]', title: 'Devolução', text: 'Devolva itens de uma venda paga; o estoque só é reposto se o item não foi preparado.', position: 'left' },
-      { element: 'form[action*="cancelar"]', title: 'Cancelar venda', text: 'Informe o motivo. Venda paga só pode ser cancelada com o caixa ainda aberto.', position: 'top' }
+      { element: 'form[action*="cancelar"]', title: 'Cancelar venda', text: 'Informe o motivo e a autorização (senha ou crachá) de quem pode cancelar. Venda paga só pode ser cancelada com o caixa ainda aberto.', position: 'top' }
     ],
     'forma-pagamento-form': [
       { element: '#id_nome', title: 'Nome', text: 'Como a forma aparece no PDV.', position: 'bottom' },
@@ -651,7 +660,9 @@
     'pdv-venda': [
       { element: '#pdvBusca', title: 'Buscar produto', text: 'Digite o nome ou a categoria, ou leia o código de barras/QR. Catálogos grandes mostram um aviso: use a busca para achar o resto.', position: 'bottom' },
       { element: '#pdvProdutos', title: 'Produtos do PDV', text: 'Só aparecem produtos com precificação marcada para o PDV, ativos e com preço. Na lista de Precificação, a coluna PDV explica quando algum não aparece.', position: 'top' },
-      { element: '#pdvCarrinho', title: 'Venda', text: 'Itens, quantidades e totais calculados pelo servidor.', position: 'left' },
+      { element: '#pdvCarrinho', title: 'Venda', text: 'Itens, quantidades e totais calculados pelo servidor. Cada produto da lista mostra o estoque disponível.', position: 'left' },
+      { element: '#pdvDesconto', title: 'Desconto', text: 'Descontos exigem a senha ou o código do crachá de quem tem permissão; a autorização é pedida ao finalizar.', position: 'left' },
+      { element: '#pdvLimpar', title: 'Limpar', text: 'Descarta a venda em andamento. Mostra o que será apagado e exige a autorização de quem pode.', position: 'top' },
       { element: '#pdvPagamentos', title: 'Pagamento', text: 'Uma ou mais formas de pagamento; formas globais liberadas ao seu segmento também aparecem.', position: 'left' }
     ]
   };

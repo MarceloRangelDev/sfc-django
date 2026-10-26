@@ -120,3 +120,12 @@ Configurações              ← criado automaticamente quando há submenus vis�
 | liberar módulo só a um cliente | *Módulos do cliente* |
 | criar segmento novo | tela *Segmentos* |
 | mudar a regra de liberação | `web_project/acesso.py::modulos_habilitados` |
+
+## Ordem do menu por cliente (atualização 6)
+
+Em **Configurações > Módulos do cliente**, abaixo da habilitação, o administrador reordena os módulos do menu principal do cliente arrastando (SortableJS) ou pelas setas de cada linha (alternativa por teclado). Cada mudança é salva na hora por `POST /modulos/ordem` (`change_clientemodulo`; cliente resolvido em `clientes_acessiveis`); se falhar, a tela volta à última ordem confirmada e mostra o erro. “Restaurar ordem padrão” apaga a personalização.
+
+- Tabela `modulo_ordemmenucliente` (cliente, módulo, ordem; único por par; migração `modulo.0025`). Sem linha vale `Modulo.ordem`.
+- `services.modulos_ordenaveis` define o que pode ser reordenado (módulos do segmento, habilitados e ativos, com rota, do menu principal, exceto telas do PDV); `salvar_ordem_do_menu` exige que a lista seja exatamente esse conjunto e reaproveita os valores de ordem já usados (intercala com os não reordenáveis).
+- `web_project/menu.py::montar_menu` aplica a ordem do cliente do usuário. Auditado (`modulo`). Testes: `apps/modulo/tests_ordem.py`.
+- Limite: Configurações e o grupo PDV mantêm a ordem padrão.

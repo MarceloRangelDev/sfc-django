@@ -140,3 +140,20 @@ class ClienteModulo(models.Model):
 
     def __str__(self):
         return f"{self.modulo.nome} - {self.cliente.nome_razao_social}"
+
+
+class OrdemMenuCliente(models.Model):
+    """Ordem PERSONALIZADA de um módulo no menu de um cliente (tenant). Sem linha, vale `Modulo.ordem` (padrão do sistema).
+
+    O valor guardado ocupa um dos "lugares" (valores de `Modulo.ordem`) dos módulos reordenáveis do cliente, de modo que a nova ordem
+    se intercala corretamente com módulos que não são reordenáveis (ex.: Configurações). Ver apps/modulo/services.py."""
+
+    cliente = models.ForeignKey("cliente.Cliente", on_delete=models.CASCADE, related_name="ordem_menu")
+    modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE, related_name="ordens_por_cliente")
+    ordem = models.PositiveSmallIntegerField(verbose_name="Ordem no menu do cliente")
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Ordem do menu do cliente"
+        verbose_name_plural = "Ordens do menu dos clientes"
+        constraints = [models.UniqueConstraint(fields=["cliente", "modulo"], name="ordem_menu_unica_por_cliente_modulo")]

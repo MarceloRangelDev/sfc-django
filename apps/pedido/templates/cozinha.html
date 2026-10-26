@@ -12,21 +12,23 @@
 {% include "_pedido_nav.html" %}
 
 <div id="cozinhaAjuda" class="alert alert-info" style="display:none" role="note">
-  <strong>{% translate "Atalhos de teclado" %}</strong>: ↑/↓ ({% translate "ou" %} K/J) {% translate "selecionam o pedido" %} · → {% translate "ou" %} Enter {% translate "avança" %} · ← {% translate "volta um passo" %} · C {% translate "abre o pedido (cancelar pede confirmação)" %} · ? {% translate "mostra/oculta esta ajuda" %}. {% translate "Entregar pede confirmação." %}
+  <strong>{% translate "Atalhos de teclado" %}</strong>: ↑/↓ ({% translate "ou" %} K/J) {% translate "selecionam o pedido" %} · → {% translate "ou" %} Enter {% translate "avança" %} · ← {% translate "volta um passo" %} · C {% translate "abre o pedido (cancelar pede confirmação)" %} · ? {% translate "mostra/oculta esta ajuda" %}. {% translate "Finalizar pede confirmação e mostra o resultado." %} {% translate "A tela atualiza sozinha quando chega pedido novo." %}
 </div>
 <div id="cozinhaAviso" class="alert py-2" style="display:none" role="alert"></div>
 <div id="cozinhaVivo" class="visually-hidden" aria-live="polite"></div>
 
-<div id="cozinhaApp" data-url-fila="{% url 'cozinha-api-fila' %}" data-url-mover="{% url 'cozinha-api-mover' 0 %}" data-url-pedido="/pedidos/0" data-pode-mover="{% if pode_mover %}1{% else %}0{% endif %}">
+<div id="cozinhaApp" data-url-fila="{% url 'cozinha-api-fila' %}" data-url-mover="{% url 'cozinha-api-mover' 0 %}" data-url-eventos="{% url 'cozinha-api-eventos' %}" data-url-pedido="/pedidos/0" data-pode-mover="{% if pode_mover %}1{% else %}0{% endif %}">
   <div class="row g-3">
-    <div class="col-lg-4"><h5>{% translate "Confirmados" %} <span class="badge bg-label-primary" id="cont-confirmado">0</span></h5><div id="colConfirmado" role="list" aria-label="{% translate 'Pedidos confirmados' %}"></div></div>
-    <div class="col-lg-4"><h5>{% translate "Em preparo" %} <span class="badge bg-label-warning" id="cont-em_preparo">0</span></h5><div id="colPreparo" role="list" aria-label="{% translate 'Pedidos em preparo' %}"></div></div>
-    <div class="col-lg-4"><h5>{% translate "Prontos" %} <span class="badge bg-label-success" id="cont-pronto">0</span></h5><div id="colPronto" role="list" aria-label="{% translate 'Pedidos prontos' %}"></div></div>
+    <div class="col-lg-3" data-tour="coluna-novos"><h5>{% translate "Novos" %} <span class="badge bg-label-secondary" id="cont-novo">0</span></h5><div id="colNovo" role="list" aria-label="{% translate 'Pedidos novos, aguardando confirmação' %}"></div></div>
+    <div class="col-lg-3"><h5>{% translate "Confirmados" %} <span class="badge bg-label-primary" id="cont-confirmado">0</span></h5><div id="colConfirmado" role="list" aria-label="{% translate 'Pedidos confirmados' %}"></div></div>
+    <div class="col-lg-3"><h5>{% translate "Em preparo" %} <span class="badge bg-label-warning" id="cont-em_preparo">0</span></h5><div id="colPreparo" role="list" aria-label="{% translate 'Pedidos em preparo' %}"></div></div>
+    <div class="col-lg-3"><h5>{% translate "Prontos" %} <span class="badge bg-label-success" id="cont-pronto">0</span></h5><div id="colPronto" role="list" aria-label="{% translate 'Pedidos prontos' %}"></div></div>
   </div>
 </div>
 {% endblock %}
 
 {% block page_js %}
 {{ block.super }}
+<script>initTourModulo('cozinha');</script>
 <script src="{% static_v 'js/cozinha.js' %}"></script>
 {% endblock %}

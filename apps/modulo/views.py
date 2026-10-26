@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, ProtectedError
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -13,7 +14,9 @@ from web_project.acesso import clientes_acessiveis
 
 from .forms import ModuloForm, SegmentoForm
 from .models import ClienteModulo, Modulo, Segmento
-from .services import atualizar_modulos_do_cliente, modulos_do_cliente
+from web_project.regras import RegraNegocioError
+
+from .services import atualizar_modulos_do_cliente, modulos_do_cliente, modulos_ordenaveis, restaurar_ordem_do_menu, salvar_ordem_do_menu
 
 
 class ModuloClienteView(TemplateView):
@@ -40,6 +43,7 @@ class ModuloClienteView(TemplateView):
         context["cliente_selecionado"] = cliente_selecionado
         context["modulos"] = modulos_do_cliente(cliente_selecionado) if cliente_selecionado else []
         context["modulos_habilitados_ids"] = habilitados
+        context["modulos_ordem"] = modulos_ordenaveis(cliente_selecionado) if cliente_selecionado else []
         return context
 
     def post(self, request, *args, **kwargs):
@@ -49,6 +53,29 @@ class ModuloClienteView(TemplateView):
         atualizar_modulos_do_cliente(request, cliente, set(request.POST.getlist("modulos")))
         messages.success(request, f"Módulos atualizados para {cliente.nome_razao_social}.")
         return redirect(f"{request.path}?cliente={cliente.pk}")
+
+
+class ModuloOrdemView(View):
+    """POST JSON {cliente_id, modulos:[ids na nova ordem]} ou {cliente_id, restaurar:true}: grava/limpa a ordem do menu do cliente.
+
+    Mesma permissão da tela (`change_clientemodulo`); o cliente é resolvido SEMPRE dentro da estrutura do usuário (outro cliente = 404) e o
+    serviço recusa ids que não sejam exatamente os módulos reordenáveis dele. Responde a ordem vigente para a tela se realinhar."""
+
+    def post(self, request):
+        import json
+
+        try:
+            dados = json.loads(request.body or b"{}") if len(request.body) <= 8192 else None
+            if not isinstance(dados, dict):
+                raise RegraNegocioError("Requisição inválida.")
+            cliente = get_object_or_404(clientes_acessiveis(request.user), pk=dados.get("cliente_id"))
+            if dados.get("restaurar"):
+                ordem = restaurar_ordem_do_menu(request, cliente)
+            else:
+                ordem = salvar_ordem_do_menu(request, cliente, dados.get("modulos"))
+        except (ValueError, RegraNegocioError) as erro:
+            return JsonResponse({"erro": str(erro) if isinstance(erro, RegraNegocioError) else "Requisição inválida."}, status=422)
+        return JsonResponse({"ok": True, "modulos": [{"id": m.pk, "nome": m.nome} for m in ordem]})
 
 
 # --------------------------------------------------------------------------

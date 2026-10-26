@@ -13,7 +13,7 @@
   <div class="d-flex gap-2">
     <a href="{% url 'pdv-comprovante' venda.pk %}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">{% translate "Pré-conta / comprovante" %}</a>
     {% if venda.status == "aberta" and perms.pedido.add_pedido %}
-    <form method="post" action="{% url 'pedido-enviar' venda.pk %}">{% csrf_token %}<input type="hidden" name="tipo" value="mesa"><button class="btn btn-primary btn-sm">{% translate "Enviar à cozinha" %}</button></form>
+    <form method="post" action="{% url 'pedido-enviar' venda.pk %}">{% csrf_token %}<input type="hidden" name="tipo" value="mesa"><button class="btn btn-primary btn-sm" {% if not novos %}disabled title="{% translate 'Todos os itens já foram enviados' %}"{% endif %}>{% translate "Enviar à cozinha" %}{% if novos %} ({{ novos }}){% endif %}</button></form>
     {% endif %}
     {% if venda.status == "aberta" %}
     <form method="post" action="{% url 'pdv-venda-cancelar' venda.pk %}" data-autorizar="{% translate 'Cancelar esta comanda' %}">{% csrf_token %}<input type="hidden" name="motivo" value="Comanda cancelada"><button class="btn btn-outline-danger btn-sm">{% translate "Cancelar comanda" %}</button></form>
@@ -28,7 +28,7 @@
         <thead><tr><th>{% translate "Item" %}</th><th class="text-end">{% translate "Qtd." %}</th><th class="text-end">{% translate "Preço" %}</th><th class="text-end">{% translate "Total" %}</th><th></th></tr></thead>
         <tbody>
           {% for i in itens %}
-          <tr><td>{{ i.descricao }}{% if i.observacao %}<div class="small text-muted">{{ i.observacao }}</div>{% endif %}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.preco_unitario|moeda }}</td><td class="text-end">{{ i.total|moeda }}</td>
+          <tr><td>{{ i.descricao }} {% if i.enviado %}<span class="badge bg-label-success" title="{% translate 'Já enviado à cozinha' %}">{% translate "Enviado" %} #{{ i.pedido_item.pedido.numero }}</span>{% else %}<span class="badge bg-label-warning">{% translate "Novo" %}</span>{% endif %}{% if i.observacao %}<div class="small text-muted">{{ i.observacao }}</div>{% endif %}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }}</td><td class="text-end">{{ i.preco_unitario|moeda }}</td><td class="text-end">{{ i.total|moeda }}</td>
             <td class="text-end">{% if venda.status == "aberta" and caixa and caixa.pk == venda.caixa_id %}<form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}" class="d-inline" data-autorizar="{% translate 'Excluir item lançado' %}">{% csrf_token %}<input type="hidden" name="remover" value="{{ i.pk }}"><button class="btn btn-sm btn-text-danger" aria-label="{% translate 'Remover' %}">✕</button></form>{% endif %}</td></tr>
           {% empty %}<tr><td colspan="5" class="text-center py-4">{% translate "Nenhum item ainda." %}</td></tr>{% endfor %}
         </tbody>
@@ -50,7 +50,7 @@
         <div class="col-6 col-lg-4">
           <form method="post" action="{% url 'pdv-comanda-itens' venda.pk %}">{% csrf_token %}
             <input type="hidden" name="produto" value="{{ p.produto_id }}"><input type="hidden" name="quantidade" value="1">
-            <button class="btn btn-outline-primary w-100 text-start">{% imagem_url "produto" p.produto_id "miniatura" as foto %}{% if foto %}<img src="{{ foto }}" alt="" width="48" height="48" class="rounded mb-1 d-block" style="object-fit:cover">{% endif %}<div class="fw-medium">{{ p.produto.nome }}</div><small class="text-muted">{{ p.preco_venda|moeda }}</small></button>
+            <button class="btn btn-outline-primary w-100 text-start">{% imagem_url "produto" p.produto_id "miniatura" as foto %}{% if foto %}<img src="{{ foto }}" alt="" width="48" height="48" class="rounded mb-1 d-block" style="object-fit:cover">{% endif %}<div class="fw-medium">{{ p.produto.nome }}</div><small class="text-muted d-block">{{ p.preco_venda|moeda }}</small><small class="{% if p.estoque.controlado and p.estoque.saldo == '0' %}text-danger{% else %}text-muted{% endif %}" data-tour="estoque-produto">{{ p.estoque.rotulo }}</small></button>
           </form>
         </div>
         {% empty %}<div class="col-12 text-muted">{% translate "Nenhum produto com preço do PDV." %}</div>{% endfor %}

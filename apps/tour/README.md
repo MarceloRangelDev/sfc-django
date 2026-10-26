@@ -69,3 +69,5 @@ Os endpoints exigem login e só leem/gravam a preferência do **próprio** usuá
 | tour de uma tela nova | só o template da tela (acima) |
 | tour dos módulos (processados, canais, categorias, produtos, fichas, precificação, custos, estoque, financeiro, painel) | registro `src/assets/js/tours-modulos.js` (`TOURS`) + `<script>initTourModulo('chave');</script>` no `page_js` da tela; `apps/tour/tests_modulos.py` confere chaves, seletores e telas |
 | "reativar" o tour de alguém | apagar a linha em `TourPreferencia` |
+
+**Atualização 6:** adicionado o tour da tela **Pedidos e cozinha** (`cozinha`, a única tela de módulo que ainda não tinha) e atualizados os passos de `pdv-venda`, `pdv-comanda`, `pdv-caixa`, `pdv-vendas`, `pdv-venda-detalhe` e `modulo-cliente` para as novas funções (estoque, desconto/limpar com autorização, crachá, selo Entregue, ordem do menu). Continuam sem tour só as páginas que não são fluxo (impressão de comprovante, erro/manutenção, login/registro, `sample`). `tests_modulos.py::TELAS` lista cada chave com a sua tela.

@@ -12,6 +12,7 @@ PRINCÍPIOS
 """
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
 from django.db.models import Max, Q, Sum
 from django.utils import timezone
@@ -63,13 +64,27 @@ def produtos_do_pdv(cliente, termo="", limite=LIMITE_CATALOGO):
     `limite=None` devolve o queryset inteiro (a API pagina). A busca vale para nome, categoria e código de barras."""
     consulta = Precificacao.objects.filter(
         cliente=cliente, usar_no_pdv=True, ativo=True, produto__ativo=True, ficha__ativo=True, preco_venda__gt=0,
-    ).select_related("produto", "ficha", "produto__categoria")
+    ).select_related("produto", "ficha", "produto__categoria", "produto__saldo_estoque")  # saldo junto: sem N+1 ao mostrar o estoque
     termo = (termo or "").strip()
     if termo:
         # nome contém o texto OU o código de barras/QR lido é exatamente o digitado
         consulta = consulta.filter(Q(produto__nome__icontains=termo) | Q(produto__categoria__nome__icontains=termo) | Q(produto__codigo_barras=termo))
     consulta = consulta.order_by("produto__nome", "pk")
     return consulta if limite is None else consulta[:limite]
+
+
+def estoque_do_produto(produto):
+    """Estoque exibido ao vender: {"controlado", "saldo" (string decimal ou None), "rotulo"}. Só produtos com `controla_estoque` têm saldo
+    próprio (o consumo de insumos da ficha técnica não vira "quantidade de produto"); os demais mostram "não controlado". Espera o produto
+    vindo de `produtos_do_pdv` (saldo já carregado) e é da unidade do caixa/venda — nunca de outra."""
+    if not produto.controla_estoque:
+        return {"controlado": False, "saldo": None, "rotulo": "Estoque não controlado"}
+    try:
+        saldo = produto.saldo_estoque.saldo
+    except ObjectDoesNotExist:  # controla, mas ainda sem movimento
+        saldo = Decimal("0")
+    texto = f"{saldo.normalize():f}"
+    return {"controlado": True, "saldo": texto, "rotulo": f"{texto} em estoque"}
 
 
 def produto_por_codigo(cliente, codigo):

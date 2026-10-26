@@ -20,6 +20,7 @@ from apps.consumidor.models import Consumidor
 from apps.imagens.servico import url_da_entidade
 from apps.pdv import comprovante as comp
 from apps.pdv import services as s
+from apps.pdv.autorizacao import PERMISSOES_DE_AUTORIZACAO, auditar, autorizar, credenciais_de, exigir_desconto, gerar_codigo
 from apps.pdv.forms import DevolucaoForm
 from apps.pdv.models import Caixa, MovimentoCaixa, Venda, VendaItem
 from apps.pdv.views import _caixas_visiveis, _vendas_visiveis
@@ -76,6 +77,8 @@ def _venda_dict(venda, detalhe=False):
         "id": venda.pk, "numero": venda.numero, "status": venda.status, "origem": venda.origem, "mesa": venda.mesa.nome if venda.mesa_id else None,
         "consumidor": venda.consumidor_id, "caixa": venda.caixa_id, "subtotal": venda.subtotal, "desconto": venda.desconto, "total": venda.total, "total_formatado": _reais(venda.total),
         "troco": venda.troco, "criado_em": venda.criado_em, "finalizada_em": venda.finalizada_em, "cancelada_em": venda.cancelada_em,
+        # Entrega derivada dos pedidos da cozinha: "" (sem pedido) | "em_andamento" | "entregue"
+        "entrega": venda.entrega,
     }
     if detalhe:
         dados["itens"] = [
@@ -105,10 +108,20 @@ class PdvPagamentoEntrada(serializers.Serializer):
     pagador = serializers.CharField(required=False)
 
 
+class AutorizacaoEntrada(serializers.Serializer):
+    """Credencial de quem autoriza: senha (com `usuario`; vazio = o próprio usuário autenticado) OU `codigo` do crachá (barras/QR).
+    Nunca é gravada nem registrada em log; erro de credencial responde 422 com mensagem genérica."""
+
+    usuario = serializers.CharField(required=False, allow_blank=True)
+    senha = serializers.CharField(required=False, allow_blank=True)
+    codigo = serializers.CharField(required=False, allow_blank=True)
+
+
 class PdvVendaEntrada(serializers.Serializer):
     itens = PdvItemEntrada(many=True)
     pagamentos = PdvPagamentoEntrada(many=True)
-    desconto = serializers.IntegerField(required=False, help_text="Centavos; exige a permissão conceder_desconto.")
+    desconto = serializers.IntegerField(required=False, help_text="Centavos. Exige `autorizacao` de quem tem a permissão conceder_desconto (inclusive de quem já a tem).")
+    autorizacao = AutorizacaoEntrada(required=False, help_text="Obrigatória quando há desconto.")
     consumidor = serializers.IntegerField(required=False, allow_null=True)
     observacao = serializers.CharField(required=False)
     chave = serializers.CharField(required=False, help_text="Chave de idempotência (ou cabeçalho Idempotency-Key).")
@@ -116,7 +129,8 @@ class PdvVendaEntrada(serializers.Serializer):
 
 class PdvPagarComandaEntrada(serializers.Serializer):
     pagamentos = PdvPagamentoEntrada(many=True)
-    desconto = serializers.IntegerField(required=False)
+    desconto = serializers.IntegerField(required=False, help_text="Centavos. Exige `autorizacao` de quem tem conceder_desconto.")
+    autorizacao = AutorizacaoEntrada(required=False, help_text="Obrigatória quando há desconto.")
     chave = serializers.CharField(required=False)
 
 
@@ -295,7 +309,9 @@ class ProdutoPdvViewSet(viewsets.ViewSet):
         caixa = _caixa_do_usuario(request)
         paginador = PaginacaoCatalogoPdv()
         pagina = paginador.paginate_queryset(s.produtos_do_pdv(caixa.cliente, request.query_params.get("q", ""), limite=None), request)
-        itens = [{"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
+        itens = [{"produto": p.produto_id, "nome": p.produto.nome, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura"),
+                  # {controlado, saldo, rotulo}: saldo próprio do produto; "controlado": false = estoque não controlado (saldo nulo)
+                  "estoque": s.estoque_do_produto(p.produto)}
                  for p in pagina]
         return paginador.get_paginated_response(itens)
 
@@ -379,7 +395,7 @@ class VendaViewSet(viewsets.ViewSet):
     modulo_slug = "pdv"
     permissoes = {
         "list": "pdv.view_venda", "retrieve": "pdv.view_venda", "comprovante": "pdv.view_venda", "create": "pdv.add_venda",
-        "cancelar": "pdv.cancelar_venda", "devolver": "pdv.devolver_item",
+        "cancelar": "pdv.view_venda", "devolver": "pdv.devolver_item",  # cancelar: a permissão é a do AUTORIZADOR (corpo `autorizacao`)
     }
 
     def _venda(self, request, pk):
@@ -392,7 +408,7 @@ class VendaViewSet(viewsets.ViewSet):
     def list(self, request):
         from django.db.models import Q
 
-        consulta = _vendas_visiveis(request.user).select_related("mesa").order_by("-criado_em", "-pk")
+        consulta = _vendas_visiveis(request.user).select_related("mesa").prefetch_related("pedidos").order_by("-criado_em", "-pk")
         if request.query_params.get("status") in dict(Venda.STATUS_CHOICES):
             consulta = consulta.filter(status=request.query_params["status"])
         termo = request.query_params.get("q", "").strip()
@@ -413,17 +429,25 @@ class VendaViewSet(viewsets.ViewSet):
         caixa = _caixa_do_usuario(request)
         dados = request.data if isinstance(request.data, dict) else {}
         desconto = dados.get("desconto") or 0
+        autorizador = exigir_desconto(request, caixa.cliente, desconto, dados.get("autorizacao"))  # sem credencial de quem pode: 422
         venda, criada = s.registrar_venda(
             request, caixa, dados.get("itens"), dados.get("pagamentos"), consumidor=_consumidor(caixa, dados.get("consumidor")), desconto=desconto,
-            observacao=str(dados.get("observacao") or ""), chave=_chave(request), pode_desconto=request.user.has_perm("pdv.conceder_desconto"),
+            observacao=str(dados.get("observacao") or ""), chave=_chave(request), pode_desconto=autorizador is not None,
         )
         saida = {**_venda_dict(venda, detalhe=True), "criada": criada}
         return resposta(saida, "Venda registrada." if criada else "Venda já registrada (chave repetida).", 201 if criada else 200)
 
-    @extend_schema(request=inline_serializer("CancelarVenda", {"motivo": serializers.CharField()}), responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(request=inline_serializer("CancelarVenda", {"motivo": serializers.CharField(), "autorizacao": AutorizacaoEntrada()}), responses={200: OpenApiTypes.OBJECT},
+                   summary="Cancela a venda (exige credencial de quem tem pdv.cancelar_venda)")
     @action(detail=True, methods=["post"], url_path="cancelar")
     def cancelar(self, request, pk=None):
-        venda = s.cancelar_venda(request, self._venda(request, pk), str(request.data.get("motivo", "")))
+        """Igual à tela: quem cancela informa a senha (ou o código do crachá) de alguém com `pdv.cancelar_venda`; o servidor valida o
+        escopo da unidade e audita QUEM autorizou. Mudança em relação à versão anterior, que só exigia a permissão de quem chamava."""
+        venda = self._venda(request, pk)
+        c = credenciais_de(request.data.get("autorizacao") if isinstance(request.data, dict) else None)
+        autorizador = autorizar(request, "pdv.cancelar_venda", venda.cliente, c["usuario"], c["senha"], c["codigo"])
+        auditar(request, autorizador, "cancelar venda", venda)
+        venda = s.cancelar_venda(request, venda, str(request.data.get("motivo", "")))
         return resposta(_venda_dict(venda, detalhe=True), "Venda cancelada.")
 
     @extend_schema(request=inline_serializer("DevolverItem", {"quantidade": serializers.DecimalField(max_digits=12, decimal_places=3), "forma_estorno": serializers.IntegerField(), "motivo": serializers.CharField(), "repor_estoque": serializers.BooleanField(required=False)}),
@@ -508,5 +532,49 @@ class ComandaViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["post"], url_path="pagar")
     def pagar(self, request, pk=None):
         dados = request.data if isinstance(request.data, dict) else {}
-        venda, criada = s.pagar_comanda(request, self._comanda(request, pk), dados.get("pagamentos"), dados.get("desconto") or 0, request.user.has_perm("pdv.conceder_desconto"), chave=_chave(request))
+        comanda = self._comanda(request, pk)
+        autorizador = exigir_desconto(request, comanda.cliente, dados.get("desconto"), dados.get("autorizacao"), comanda)
+        venda, criada = s.pagar_comanda(request, comanda, dados.get("pagamentos"), dados.get("desconto") or 0, autorizador is not None, chave=_chave(request))
         return resposta({**_venda_dict(venda, detalhe=True), "criada": criada}, "Comanda recebida." if criada else "Comanda já recebida (chave repetida).", 201 if criada else 200)
+
+
+@extend_schema(tags=["pdv"])
+class AutorizacaoPdvView(APIView):
+    """Autorizações do PDV para o app: `POST /pdv/autorizacoes/validar/` (limpar a venda em andamento / excluir item lançado) e
+    `POST /pdv/autorizacoes/codigo/` (gera o crachá do próprio usuário)."""
+
+    permission_classes = [PermissaoPorAcao]
+    modulo_slug = "pdv"
+    permissoes = {"post": "pdv.add_venda"}
+
+    ACOES = {"remover_item": "excluir item lançado na venda em andamento", "limpar": "limpar a venda em andamento"}
+
+    @extend_schema(
+        request=inline_serializer("AutorizacaoPdvEntrada", {"acao": serializers.ChoiceField(choices=list(ACOES)), "usuario": serializers.CharField(required=False), "senha": serializers.CharField(required=False),
+                                                           "codigo": serializers.CharField(required=False), "resumo": serializers.CharField(required=False, help_text="O que será descartado (até 200 caracteres); só vai para a auditoria.")}),
+        responses={200: OpenApiTypes.OBJECT}, summary="Valida a credencial para limpar a venda em andamento ou excluir item lançado",
+    )
+    def post(self, request):
+        dados = request.data if isinstance(request.data, dict) else {}
+        if dados.get("acao") not in self.ACOES:
+            raise serializers.ValidationError({"acao": ["Use limpar ou remover_item."]})
+        c = credenciais_de(dados)
+        autorizador = autorizar(request, "pdv.remover_item", cliente_do_usuario(request.user), c["usuario"], c["senha"], c["codigo"])
+        resumo = " ".join(str(dados.get("resumo") or "").split())[:200]
+        auditar(request, autorizador, self.ACOES[dados["acao"]] + (f" ({resumo})" if resumo else ""), None)
+        return resposta({"autorizado": True}, "Autorizado.")
+
+
+@extend_schema(tags=["pdv"])
+class CodigoAutorizacaoView(APIView):
+    """Gera o código de crachá (barras/QR) do próprio usuário. O código é devolvido UMA vez; o anterior deixa de valer."""
+
+    permission_classes = [PermissaoPorAcao]
+    modulo_slug = "pdv"
+    permissoes = {"post": "pdv.add_venda"}
+
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT}, summary="Gera o código de crachá de autorização do usuário")
+    def post(self, request):
+        if not any(request.user.has_perm(p) for p in PERMISSOES_DE_AUTORIZACAO):
+            raise PermissionDenied("Você não tem permissão para autorizar operações do PDV.")
+        return resposta({"codigo": gerar_codigo(request.user)}, "Código gerado. Guarde-o: não será exibido de novo.")

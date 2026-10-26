@@ -28,6 +28,10 @@ urlpatterns = [
     path("pdv/api/finalizar", p("add_venda", views.FinalizarJsonView, "vender"), name="pdv-api-finalizar"),
     # Autorização por senha (excluir item lançado): usada pela tela de vender
     path("pdv/api/autorizar", p("add_venda", views.AutorizarJsonView), name="pdv-api-autorizar"),
+    # Código de crachá (barras/QR) do próprio usuário para autorizar sem digitar a senha
+    path("pdv/api/codigo-autorizacao", p("add_venda", views.CodigoAutorizacaoJsonView), name="pdv-api-codigo-autorizacao"),
+    # Pergunta "Emitir nota?" ao finalizar: pede o documento fiscal da venda paga (idempotente)
+    path("pdv/api/vendas/<int:pk>/nota", p("view_venda", views.NotaVendaJsonView), name="pdv-api-nota"),
     # Caixa
     path("pdv/caixa", p("view_caixa", views.CaixaView, "caixa"), name="pdv-caixa"),
     path("pdv/caixa/abrir", p("abrir_caixa", views.AbrirCaixaView, "caixa"), name="pdv-caixa-abrir"),

@@ -3,6 +3,7 @@
  *
  * IMPORTANTE: tudo que aparece aqui (preços, totais, troco) é só PRÉVIA. O servidor recalcula preço e ficha a partir do
  * cadastro, valida os pagamentos e devolve o resultado oficial; o navegador nunca decide valor.
+ * Desconto e "Limpar" pedem a credencial (senha ou código de crachá) de quem tem permissão; o servidor revalida e audita (apps/pdv/autorizacao.py).
  * Cada tentativa de finalizar leva uma `chave` única: se a rede cair e a tela reenviar, o servidor devolve a MESMA venda.
  */
 (function () {
@@ -102,10 +103,41 @@
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, dados: d }; }); });
   }
 
+  // Depois de finalizar, pergunta se emite a nota (só quando o servidor oferece: empresa emite, módulo habilitado, usuário pode).
+  // A emissão é idempotente no servidor; sem provedor o documento fica pendente e o retorno explica o motivo. Devolve uma Promise.
+  function perguntarNota(oferta) {
+    if (!oferta || !window.Swal) return Promise.resolve();
+    var tipos = oferta.tipos || [];
+    var rotulos = { nfce: 'NFC-e', nfe: 'NF-e', nfse: 'NFS-e' };
+    var cfg = { title: 'Emitir nota fiscal?', text: 'A venda já foi registrada. Deseja emitir ' + (tipos.length === 1 ? rotulos[tipos[0]] : 'a nota fiscal') + ' agora?', icon: 'question',
+      showCancelButton: true, confirmButtonText: 'Sim, emitir', cancelButtonText: 'Não', reverseButtons: true, customClass: { confirmButton: 'btn btn-primary me-4', cancelButton: 'btn btn-label-secondary' }, buttonsStyling: false };
+    if (tipos.length > 1) { cfg.input = 'select'; cfg.inputOptions = tipos.reduce(function (o, t) { o[t] = rotulos[t] || t; return o; }, {}); cfg.inputValue = tipos[0]; }
+    return window.Swal.fire(cfg).then(function (r) {
+      if (!r.isConfirmed) return;
+      return enviar(oferta.url, { tipo: tipos.length > 1 ? r.value : tipos[0] }).then(function (res) {
+        var ok = res.ok;
+        return window.Swal.fire({ icon: ok ? 'info' : 'error', title: ok ? 'Nota fiscal ' + (res.dados.status_rotulo || '').toLowerCase() : 'Não foi possível emitir', text: ok ? (res.dados.motivo || 'Pedido de emissão registrado.') : (res.dados.erro || 'Tente novamente pela tela Fiscal.'),
+          confirmButtonText: 'Entendi', customClass: { confirmButton: 'btn btn-primary' }, buttonsStyling: false });
+      });
+    });
+  }
+
+  // Credencial do desconto: pedida uma vez por tentativa de venda; `descartar()` força pedir de novo (ex.: servidor recusou).
+  function CredencialDesconto() {
+    var cred = null;
+    return {
+      obter: function (centavos) {
+        if (cred) return Promise.resolve(cred);
+        return window.PdvAutorizacao.pedir('Autorizar desconto de ' + moeda(centavos)).then(function (c) { cred = c; return c; });
+      },
+      descartar: function () { cred = null; },
+    };
+  }
+
   // ---------------- balcão ----------------
   function iniciarBalcao(app) {
     var formas = JSON.parse(document.getElementById('formasPdv').textContent);
-    var carrinho = [], chave = novaChave(), enviando = false, descontoCentavos = 0;
+    var carrinho = [], chave = novaChave(), enviando = false, descontoCentavos = 0, credDesconto = CredencialDesconto();
     var $ = function (id) { return document.getElementById(id); };
 
     function subtotal() { return carrinho.reduce(function (s, i) { return s + Math.round(i.preco * i.qtd); }, 0); }
@@ -127,7 +159,7 @@
     function excluirComSenha(item, idx) {
       window.PdvAutorizacao.pedir('Excluir "' + item.nome + '" da venda').then(function (cred) {
         if (!cred) return;
-        enviar(app.dataset.urlAutorizar, { acao: 'remover_item', usuario: cred.usuario, senha: cred.senha }).then(function (r) {
+        enviar(app.dataset.urlAutorizar, { acao: 'remover_item', usuario: cred.usuario, senha: cred.senha, codigo: cred.codigo }).then(function (r) {
           if (r.ok) { carrinho.splice(idx, 1); desenharCarrinho(); } else { window.PdvAutorizacao.erro((r.dados && r.dados.erro) || 'Não foi possível autorizar.'); }
         });
       });
@@ -165,7 +197,8 @@
           lista.innerHTML = '';
           (d.itens || []).forEach(function (p) {
             var b = el('button', { type: 'button', 'class': 'btn btn-outline-primary text-start', 'aria-label': 'Adicionar ' + p.nome }, [
-              (p.imagem_url ? el('img', { src: p.imagem_url, alt: '', width: 48, height: 48, 'class': 'rounded mb-1 d-block', style: 'object-fit:cover' }) : document.createTextNode('')), el('div', { 'class': 'fw-medium', text: p.nome }), el('small', { 'class': 'text-muted', text: p.categoria + ' · ' + p.preco_formatado }),
+              (p.imagem_url ? el('img', { src: p.imagem_url, alt: '', width: 48, height: 48, 'class': 'rounded mb-1 d-block', style: 'object-fit:cover' }) : document.createTextNode('')), el('div', { 'class': 'fw-medium', text: p.nome }), el('small', { 'class': 'text-muted d-block', text: p.categoria + ' · ' + p.preco_formatado }),
+              el('small', { 'class': 'd-block ' + (p.estoque && p.estoque.controlado && Number(p.estoque.saldo) <= 0 ? 'text-danger' : 'text-muted'), text: p.estoque ? p.estoque.rotulo : '' }),
             ]);
             b.addEventListener('click', function () { adicionar(p); });
             lista.appendChild(el('div', { 'class': 'col-6 col-lg-4' }, [b]));
@@ -204,23 +237,43 @@
     if ($('pdvDesconto')) {
       $('pdvDesconto').addEventListener('input', function () { descontoCentavos = centavos(this.value); this.value = descontoCentavos ? moeda(descontoCentavos).replace('R$ ', '') : ''; pag.limpar(); pag.preencher(total()); atualizarTotais(); });
     }
-    $('pdvLimpar').addEventListener('click', function () { carrinho = []; descontoCentavos = 0; if ($('pdvDesconto')) $('pdvDesconto').value = ''; pag.limpar(); chave = novaChave(); desenharCarrinho(); $('pdvMsg').textContent = ''; });
+    function limparTudo() { carrinho = []; descontoCentavos = 0; credDesconto.descartar(); if ($('pdvDesconto')) $('pdvDesconto').value = ''; pag.limpar(); chave = novaChave(); desenharCarrinho(); $('pdvMsg').textContent = ''; }
+    // Limpar descarta a venda em andamento: mostra exatamente o que será apagado e exige a credencial de quem pode (validada e auditada no servidor).
+    $('pdvLimpar').addEventListener('click', function () {
+      if (!carrinho.length && !descontoCentavos) { limparTudo(); return; }  // nada a perder: não pede autorização
+      var qtd = carrinho.reduce(function (n, i) { return n + i.qtd; }, 0);
+      var resumo = carrinho.length + ' item(ns), ' + String(qtd).replace('.', ',') + ' un., total ' + moeda(total()) + (descontoCentavos ? ' (com desconto de ' + moeda(descontoCentavos) + ')' : '');
+      window.PdvAutorizacao.pedir('Limpar a venda em andamento', 'Será apagado: ' + resumo + '.').then(function (cred) {
+        if (!cred) return;
+        enviar(app.dataset.urlAutorizar, { acao: 'limpar', usuario: cred.usuario, senha: cred.senha, codigo: cred.codigo, resumo: resumo }).then(function (r) {
+          if (r.ok) limparTudo(); else window.PdvAutorizacao.erro((r.dados && r.dados.erro) || 'Não foi possível autorizar.');
+        });
+      });
+    });
 
     $('pdvFinalizar').addEventListener('click', function () {
+      if (enviando) return;
       enviando = true; atualizarTotais();
-      $('pdvMsg').className = 'alert alert-info mt-3'; $('pdvMsg').textContent = 'Registrando a venda...';
-      enviar(app.dataset.urlFinalizar, {
-        itens: carrinho.map(function (i) { return { produto: i.produto, quantidade: i.qtd }; }), pagamentos: pag.dados(), desconto: descontoCentavos,
-        observacao: $('pdvObs').value, consumidor: $('pdvConsumidor') ? $('pdvConsumidor').value : '', chave: chave,
-      }).then(function (r) {
-        enviando = false;
-        if (!r.ok) { $('pdvMsg').className = 'alert alert-danger mt-3'; $('pdvMsg').textContent = r.dados.erro || 'Não foi possível registrar a venda.'; atualizarTotais(); return; }
-        $('pdvMsg').className = 'alert alert-success mt-3';
-        $('pdvMsg').innerHTML = '';
-        $('pdvMsg').appendChild(document.createTextNode('Venda #' + r.dados.numero + ' registrada: ' + r.dados.total_formatado + (r.dados.troco ? ' · troco ' + r.dados.troco_formatado : '') + '. '));
-        var a = el('a', { href: r.dados.comprovante, target: '_blank', rel: 'noopener', text: 'Abrir comprovante' });
-        $('pdvMsg').appendChild(a);
-        carrinho = []; descontoCentavos = 0; if ($('pdvDesconto')) $('pdvDesconto').value = ''; pag.limpar(); chave = novaChave(); desenharCarrinho();
+      // Desconto: pede (uma vez) a credencial de quem pode concedê-lo; o servidor valida de novo e audita.
+      (descontoCentavos > 0 ? credDesconto.obter(descontoCentavos) : Promise.resolve(null)).then(function (cred) {
+        if (descontoCentavos > 0 && !cred) { enviando = false; atualizarTotais(); return; }  // cancelou a autorização
+        $('pdvMsg').className = 'alert alert-info mt-3'; $('pdvMsg').textContent = 'Registrando a venda...';
+        var corpo = {
+          itens: carrinho.map(function (i) { return { produto: i.produto, quantidade: i.qtd }; }), pagamentos: pag.dados(), desconto: descontoCentavos,
+          observacao: $('pdvObs').value, consumidor: $('pdvConsumidor') ? $('pdvConsumidor').value : '', chave: chave,
+        };
+        if (descontoCentavos > 0) corpo.autorizacao = cred;
+        return enviar(app.dataset.urlFinalizar, corpo).then(function (r) {
+          enviando = false;
+          if (!r.ok) { credDesconto.descartar(); $('pdvMsg').className = 'alert alert-danger mt-3'; $('pdvMsg').textContent = r.dados.erro || 'Não foi possível registrar a venda.'; atualizarTotais(); return; }
+          $('pdvMsg').className = 'alert alert-success mt-3';
+          $('pdvMsg').innerHTML = '';
+          $('pdvMsg').appendChild(document.createTextNode('Venda #' + r.dados.numero + ' registrada: ' + r.dados.total_formatado + (r.dados.troco ? ' · troco ' + r.dados.troco_formatado : '') + '. '));
+          var a = el('a', { href: r.dados.comprovante, target: '_blank', rel: 'noopener', text: 'Abrir comprovante' });
+          $('pdvMsg').appendChild(a);
+          carrinho = []; descontoCentavos = 0; credDesconto.descartar(); if ($('pdvDesconto')) $('pdvDesconto').value = ''; pag.limpar(); chave = novaChave(); desenharCarrinho();
+          return perguntarNota(r.dados.nota_fiscal);
+        });
       }).catch(function () {
         // Falha de rede: a chave é mantida. Tocar em Finalizar de novo reenvia com segurança (sem duplicar a venda).
         enviando = false; $('pdvMsg').className = 'alert alert-warning mt-3'; $('pdvMsg').textContent = 'Sem resposta do servidor. Toque em Finalizar novamente: a venda não será duplicada.'; atualizarTotais();
@@ -233,7 +286,7 @@
   // ---------------- comanda ----------------
   function iniciarComanda(app) {
     var formas = JSON.parse(document.getElementById('formasPdv').textContent);
-    var totalBase = parseInt(app.dataset.total, 10), desconto = 0, chave = novaChave(), enviando = false;
+    var totalBase = parseInt(app.dataset.total, 10), desconto = 0, chave = novaChave(), enviando = false, credDesconto = CredencialDesconto();
     var $ = function (id) { return document.getElementById(id); };
     var pag = Pagamentos($('pdvPagamentos'), formas, atualizar);
     function total() { return Math.max(0, totalBase - desconto); }
@@ -248,11 +301,17 @@
     document.querySelectorAll('[data-dividir]').forEach(function (b) { b.addEventListener('click', function () { pag.dividir(total(), parseInt(b.dataset.dividir, 10)); }); });
     if ($('pdvDesconto')) $('pdvDesconto').addEventListener('input', function () { desconto = centavos(this.value); this.value = desconto ? moeda(desconto).replace('R$ ', '') : ''; pag.limpar(); pag.preencher(total()); atualizar(); });
     $('pdvFinalizar').addEventListener('click', function () {
+      if (enviando) return;
       enviando = true; atualizar();
-      enviar(app.dataset.urlPagar, { pagamentos: pag.dados(), desconto: desconto, chave: chave }).then(function (r) {
-        enviando = false;
-        if (!r.ok) { $('pdvMsg').className = 'alert alert-danger mt-3'; $('pdvMsg').textContent = r.dados.erro || 'Não foi possível receber.'; atualizar(); return; }
-        window.location.href = r.dados.comprovante;
+      (desconto > 0 ? credDesconto.obter(desconto) : Promise.resolve(null)).then(function (cred) {
+        if (desconto > 0 && !cred) { enviando = false; atualizar(); return; }
+        var corpo = { pagamentos: pag.dados(), desconto: desconto, chave: chave };
+        if (desconto > 0) corpo.autorizacao = cred;
+        return enviar(app.dataset.urlPagar, corpo).then(function (r) {
+          enviando = false;
+          if (!r.ok) { credDesconto.descartar(); $('pdvMsg').className = 'alert alert-danger mt-3'; $('pdvMsg').textContent = r.dados.erro || 'Não foi possível receber.'; atualizar(); return; }
+          return perguntarNota(r.dados.nota_fiscal).then(function () { window.location.href = r.dados.comprovante; });
+        });
       }).catch(function () { enviando = false; $('pdvMsg').className = 'alert alert-warning mt-3'; $('pdvMsg').textContent = 'Sem resposta do servidor. Toque em Receber novamente: não será cobrado duas vezes.'; atualizar(); });
     });
     pag.preencher(total()); atualizar();

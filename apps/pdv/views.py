@@ -12,16 +12,16 @@ from apps.imagens.servico import url_da_entidade
 from apps.pdvconfig.models import ConfiguracaoPdv, FormaPagamento
 from web_project.globais import disponiveis_para
 from web_project import TemplateLayout
-from web_project.acesso import clientes_dos_itens
+from web_project.acesso import clientes_dos_itens, modulos_habilitados
 from web_project.regras import RegraNegocioError
 
 from . import comprovante as comp
-from .autorizacao import auditar, autorizar
+from .autorizacao import PERMISSOES_DE_AUTORIZACAO, auditar, autorizar, credenciais_de, exigir_desconto, gerar_codigo
 from .forms import AbrirCaixaForm, CancelarForm, ComandaForm, ConferenciaForm, DevolucaoForm, FecharCaixaForm, ItemComandaForm, MovimentoForm
 from .models import Caixa, MovimentoCaixa, Venda, VendaItem
 from .services import (
     abrir_caixa, abrir_comanda, adicionar_item, cancelar_venda, caixa_aberto_do, conferir_caixa, devolver_item, dividir_em_partes, fechar_caixa,
-    LIMITE_CATALOGO, pagar_comanda, produto_por_codigo, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
+    estoque_do_produto, LIMITE_CATALOGO, pagar_comanda, produto_por_codigo, produtos_do_pdv, registrar_movimento, registrar_venda, remover_item, resumo_do_caixa,
 )
 
 MAX_CORPO_JSON = 64 * 1024
@@ -56,7 +56,8 @@ def _config_visual(request):
     formas = list(disponiveis_para(FormaPagamento, cliente, ativo=True).order_by("nome")) if cliente else []
     return {
         "formas": formas, "formas_json": [{"id": f.pk, "nome": f.nome, "tipo": f.tipo} for f in formas],
-        "pode_desconto": request.user.has_perm("pdv.conceder_desconto"),
+        "pode_desconto": True,  # qualquer operador pede desconto; a credencial de quem pode concedê-lo é exigida ao finalizar
+        "pode_autorizar": any(request.user.has_perm(p) for p in PERMISSOES_DE_AUTORIZACAO),
     }
 
 
@@ -97,7 +98,7 @@ class ProdutosJsonView(View):
         consulta = produtos_do_pdv(caixa.cliente, request.GET.get("q", ""), limite=None)
         total = consulta.count()
         itens = [
-            {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura")}
+            {"produto": p.produto_id, "nome": p.produto.nome, "codigo": p.produto.codigo_barras, "categoria": p.produto.categoria.nome, "preco": p.preco_venda, "preco_formatado": p.preco_venda_formatado, "imagem_url": url_da_entidade("produto", p.produto_id, "miniatura"), "estoque": estoque_do_produto(p.produto)}
             for p in consulta[:LIMITE_CATALOGO]
         ]
         return JsonResponse({"itens": itens, "total": total, "truncado": total > len(itens)})
@@ -124,11 +125,42 @@ def _consumidor(caixa, valor):
         raise RegraNegocioError("Consumidor inválido.") from None
 
 
+def oferta_fiscal(user, venda):
+    """Dados para a tela perguntar "Emitir nota?": só quando a empresa emite nota, o módulo fiscal está habilitado, há tipo habilitado e o usuário
+    pode emitir. Devolve None caso contrário (a tela não pergunta). A emissão em si é feita por `NotaVendaJsonView` (idempotente)."""
+    from apps.fiscal.models import ConfiguracaoFiscal
+
+    cliente = venda.cliente
+    if not (cliente.emite_nota_fiscal and user.has_perm("fiscal.emitir_nota") and "fiscal" in modulos_habilitados(user)):
+        return None
+    tipos = ConfiguracaoFiscal.da_unidade(cliente).tipos_habilitados()
+    return {"tipos": tipos, "url": f"/pdv/api/vendas/{venda.pk}/nota"} if tipos else None
+
+
 def _resposta_venda(request, venda, criada):
     return JsonResponse({
         "ok": True, "criada": criada, "venda": venda.pk, "numero": venda.numero, "total": venda.total, "total_formatado": venda.total_formatado,
         "troco": venda.troco, "troco_formatado": venda.troco_formatado, "comprovante": request.build_absolute_uri(f"/pdv/vendas/{venda.pk}/comprovante"),
+        "nota_fiscal": oferta_fiscal(request.user, venda),
     }, status=201 if criada else 200)
+
+
+class NotaVendaJsonView(View):
+    """POST JSON {tipo}: pede a nota fiscal da venda paga (pergunta feita ao finalizar). Idempotente: repetir devolve o documento ativo.
+    Não duplica venda nem documento; sem provedor, o documento fica PENDENTE com o motivo (não há emissão simulada)."""
+
+    def post(self, request, pk):
+        from apps.fiscal import services as fiscal
+
+        venda = _venda(request, pk)
+        try:
+            tipo = str(_json_do_corpo(request).get("tipo") or "")
+            if not oferta_fiscal(request.user, venda):
+                raise RegraNegocioError("A emissão de nota não está disponível para esta venda.")
+            documento, criado = fiscal.solicitar_emissao(request, venda, tipo)
+        except RegraNegocioError as erro:
+            return JsonResponse({"erro": str(erro)}, status=422)
+        return JsonResponse({"ok": True, "criado": criado, "status": documento.status, "status_rotulo": documento.get_status_display(), "motivo": documento.motivo, "documento": documento.pk})
 
 
 class FinalizarJsonView(View):
@@ -141,10 +173,12 @@ class FinalizarJsonView(View):
             return JsonResponse({"erro": "Abra o caixa."}, status=409)
         try:
             dados = _json_do_corpo(request)
+            # Desconto exige credencial de quem pode concedê-lo (senha ou código do crachá), mesmo para quem já tem a permissão.
+            autorizador = exigir_desconto(request, caixa.cliente, dados.get("desconto"), dados.get("autorizacao"))
             venda, criada = registrar_venda(
                 request, caixa, dados.get("itens"), dados.get("pagamentos"), consumidor=_consumidor(caixa, dados.get("consumidor")), desconto=dados.get("desconto") or 0,
                 observacao=str(dados.get("observacao") or ""), chave=(str(dados["chave"])[:64] if dados.get("chave") else None),
-                pode_desconto=request.user.has_perm("pdv.conceder_desconto"),
+                pode_desconto=autorizador is not None,
             )
         except RegraNegocioError as erro:
             return JsonResponse({"erro": str(erro)}, status=422)
@@ -158,7 +192,7 @@ class FinalizarJsonView(View):
 class CaixaView(View):
     def get(self, request):
         caixa = caixa_aberto_do(request.user)
-        contexto = {"ativa": "caixa", "caixa": caixa, "form_fechar": FecharCaixaForm(), "form_mov": MovimentoForm()}
+        contexto = {"ativa": "caixa", "caixa": caixa, "form_fechar": FecharCaixaForm(), "form_mov": MovimentoForm(), **_config_visual(request)}
         if caixa is not None:
             contexto.update(resumo=resumo_do_caixa(caixa), movimentos=caixa.movimentos.all()[:50])
         return _pagina(self, request, "pdv_caixa.html", contexto)
@@ -256,9 +290,15 @@ class ComandaView(View):
     def get(self, request, pk):
         venda = _venda(request, pk)
         caixa = caixa_aberto_do(request.user)
+        itens = list(venda.itens.select_related("pedido_item__pedido"))
+        for i in itens:
+            i.enviado = hasattr(i, "pedido_item")  # já foi para a cozinha (tem item de pedido)
+        produtos = list(produtos_do_pdv(venda.cliente)) if venda.status == Venda.ABERTA else []
+        for p in produtos:
+            p.estoque = estoque_do_produto(p.produto)  # saldo já veio no select_related: sem consulta extra por produto
         return _pagina(self, request, "pdv_comanda.html", {
-            "ativa": "comandas", "venda": venda, "itens": venda.itens.all(), "caixa": caixa, "form_item": ItemComandaForm(),
-            "produtos": produtos_do_pdv(venda.cliente) if venda.status == Venda.ABERTA else [], **_config_visual(request),
+            "ativa": "comandas", "venda": venda, "itens": itens, "caixa": caixa, "form_item": ItemComandaForm(),
+            "novos": sum(1 for i in itens if not i.enviado), "produtos": produtos, **_config_visual(request),
             "dividir": [{"partes": n, "valor": dividir_em_partes(venda.total, n)[0]} for n in (2, 3, 4)] if venda.total >= 4 else [],
         })
 
@@ -295,8 +335,9 @@ class ComandaPagarJsonView(View):
         venda = _venda(request, pk)
         try:
             dados = _json_do_corpo(request)
+            autorizador = exigir_desconto(request, venda.cliente, dados.get("desconto"), dados.get("autorizacao"), venda)
             venda, criada = pagar_comanda(
-                request, venda, dados.get("pagamentos"), dados.get("desconto") or 0, request.user.has_perm("pdv.conceder_desconto"),
+                request, venda, dados.get("pagamentos"), dados.get("desconto") or 0, autorizador is not None,
                 chave=(str(dados["chave"])[:64] if dados.get("chave") else None),
             )
         except RegraNegocioError as erro:
@@ -310,7 +351,7 @@ class ComandaPagarJsonView(View):
 
 class VendasView(View):
     def get(self, request):
-        consulta = _vendas_visiveis(request.user).select_related("consumidor", "mesa", "caixa__operador").order_by("-criado_em", "-pk")
+        consulta = _vendas_visiveis(request.user).select_related("consumidor", "mesa", "caixa__operador").prefetch_related("pedidos").order_by("-criado_em", "-pk")
         status = request.GET.get("status")
         if status in dict(Venda.STATUS_CHOICES):
             consulta = consulta.filter(status=status)
@@ -336,26 +377,42 @@ class VendaDetalheView(View):
 
 
 def _autorizar_pelo_post(request, venda, permissao, acao):
-    """Exige a senha (campos `usuario_autorizacao`/`senha_autorizacao`) de quem tem `permissao`; audita quem autorizou."""
-    autorizador = autorizar(request, permissao, venda.cliente, request.POST.get("usuario_autorizacao", ""), request.POST.get("senha_autorizacao", ""))
+    """Exige a credencial (`usuario_autorizacao`+`senha_autorizacao` ou `codigo_autorizacao`) de quem tem `permissao`; audita quem autorizou."""
+    autorizador = autorizar(request, permissao, venda.cliente, request.POST.get("usuario_autorizacao", ""), request.POST.get("senha_autorizacao", ""), request.POST.get("codigo_autorizacao", ""))
     auditar(request, autorizador, acao, venda)
     return autorizador
 
 
 class AutorizarJsonView(View):
-    """POST JSON {acao:"remover_item", usuario?, senha}: valida a senha de quem pode excluir itens lançados (tela de vender)."""
+    """POST JSON {acao:"remover_item"|"limpar", usuario?, senha? | codigo?, resumo?}: valida a credencial na tela de vender.
+    `limpar` autoriza esvaziar a venda em andamento; `resumo` (itens/total que serão descartados, até 200 caracteres) só vai para a auditoria."""
+
+    ACOES = {"remover_item": "excluir item lançado na venda em andamento", "limpar": "limpar a venda em andamento"}
 
     def post(self, request):
         try:
             dados = _json_do_corpo(request)
-            if dados.get("acao") != "remover_item":
+            acao = dados.get("acao")
+            if acao not in self.ACOES:
                 raise RegraNegocioError("Ação inválida.")
+            c = credenciais_de(dados)
             cliente = request.user.profile.cliente
-            autorizador = autorizar(request, "pdv.remover_item", cliente, str(dados.get("usuario") or ""), str(dados.get("senha") or ""))
-            auditar(request, autorizador, "excluir item lançado na venda em andamento", None)
+            autorizador = autorizar(request, "pdv.remover_item", cliente, c["usuario"], c["senha"], c["codigo"])
+            resumo = " ".join(str(dados.get("resumo") or "").split())[:200]
+            auditar(request, autorizador, self.ACOES[acao] + (f" ({resumo})" if resumo else ""), None)
         except RegraNegocioError as erro:
             return JsonResponse({"erro": str(erro)}, status=403)
         return JsonResponse({"ok": True})
+
+
+class CodigoAutorizacaoJsonView(View):
+    """POST: gera o código de crachá (barras/QR) do próprio usuário e o devolve UMA vez; o anterior deixa de valer. Só para quem pode
+    autorizar alguma operação do PDV."""
+
+    def post(self, request):
+        if not any(request.user.has_perm(p) for p in PERMISSOES_DE_AUTORIZACAO):
+            return JsonResponse({"erro": "Você não tem permissão para autorizar operações do PDV."}, status=403)
+        return JsonResponse({"ok": True, "codigo": gerar_codigo(request.user)})
 
 
 class CancelarVendaView(View):

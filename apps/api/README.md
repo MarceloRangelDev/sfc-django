@@ -71,3 +71,17 @@ Testes: `apps/api/tests_cadastros.py`, `tests_estoque_financeiro.py` e `tests_op
 | Produtos | `/api/v1/produtos/` (ampliado) | Campo `controla_estoque` (boolean; não vale para serviço). |
 | Catálogo do PDV | `/api/v1/pdv/produtos/` (ampliado) | Paginado (`pagina`, `por_pagina` ≤ 200, padrão 100) em `data.itens` + `data.paginacao`; busca por nome, categoria ou código. |
 | Precificações | `/api/v1/precificacoes/` (ampliado) | `motivo_fora_do_pdv` (por que uma precificação marcada para o PDV não aparece). |
+
+## Atualização 6 (PDV/pedidos)
+
+| Recurso | Endpoint | Observações |
+|---|---|---|
+| Desconto autorizado | `POST /pdv/vendas/`, `POST /pdv/comandas/{id}/pagar/` | `autorizacao:{usuario?,senha?,codigo?}` **obrigatória** com `desconto>0`, mesmo para quem tem `conceder_desconto`; sem ela ou inválida: 422. Auditoria registra o autorizador. |
+| Cancelar venda | `POST /pdv/vendas/{id}/cancelar/` | **Incompatível:** exige `autorizacao` de quem tem `cancelar_venda`; a permissão de quem chama passou a `view_venda`. |
+| Validar credencial | `POST /pdv/autorizacoes/validar/` | Novo: `acao` = `limpar` ou `remover_item` (+ `resumo`). |
+| Crachá | `POST /pdv/autorizacoes/codigo/` | Novo: gera o código do próprio usuário (mostrado uma vez). |
+| Catálogo | `GET /pdv/produtos/` | `estoque:{controlado,saldo,rotulo}`. |
+| Vendas | `GET /pdv/vendas/`, `/{id}/` | `entrega`: `""`, `em_andamento`, `entregue`. |
+| Fila | `GET /pedidos/fila/` | Inclui pedidos novos. |
+
+Detalhes, decisões e endpoints considerados desnecessários: `apps/pdv/README.md` (Atualização 6).
