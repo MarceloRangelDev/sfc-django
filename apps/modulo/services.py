@@ -81,7 +81,10 @@ def salvar_ordem_do_menu(request, cliente, ids_em_ordem):
     por_id = {m.pk: m for m in atuais}
     lugares = sorted(m.ordem for m in atuais)  # os "lugares" ocupados no menu, em ordem crescente
     # a ordem dos lugares precisa ser estrita para a sequência sobreviver ao desempate por nome: força valores distintos
-    lugares = [max(lugares[i], (lugares[i - 1] + 1) if i else 0) for i in range(len(lugares))]
+    estritos = []
+    for valor in lugares:
+        estritos.append(max(valor, estritos[-1] + 1) if estritos else valor)
+    lugares = estritos
     with transaction.atomic():
         antes = ", ".join(m.nome for m in atuais)
         padrao = [m.pk for m in sorted(atuais, key=lambda m: (m.ordem, m.nome))]
@@ -105,3 +108,32 @@ def restaurar_ordem_do_menu(request, cliente):
         if antes != depois:
             registrar_alteracoes(request, cliente, [{"campo": "ordem_menu", "rotulo": "Ordem dos módulos no menu", "antes": antes, "depois": depois}], modulo="modulo")
     return modulos_ordenaveis(cliente)
+
+
+def salvar_ordem_do_catalogo(request, ids_em_ordem):
+    """Grava a ordem PADRÃO do sistema (`Modulo.ordem`) a partir da lista do catálogo. `ids_em_ordem` precisa conter exatamente todos os
+    módulos. A sequência reaproveita os valores de ordem já usados (em ordem crescente, forçados a distintos), então a posição relativa
+    dentro de cada seção do menu acompanha o que foi arrastado. Clientes com ordem personalizada não são afetados."""
+    atuais = list(Modulo.objects.all())
+    try:
+        ids = [int(i) for i in ids_em_ordem]
+    except (TypeError, ValueError):
+        raise RegraNegocioError("Ordem inválida.") from None
+    if len(set(ids)) != len(ids) or set(ids) != {m.pk for m in atuais}:
+        raise RegraNegocioError("A lista de módulos mudou. Recarregue a página e tente de novo.")
+    por_id = {m.pk: m for m in atuais}
+    lugares = sorted(m.ordem for m in atuais)
+    estritos = []
+    for valor in lugares:
+        estritos.append(max(valor, estritos[-1] + 1) if estritos else valor)
+    lugares = estritos
+    with transaction.atomic():
+        antes = ", ".join(m.nome for m in sorted(atuais, key=lambda m: (m.ordem, m.nome)))
+        for ordem, modulo_id in zip(lugares, ids):
+            if por_id[modulo_id].ordem != ordem:
+                Modulo.objects.filter(pk=modulo_id).update(ordem=ordem)
+        depois = ", ".join(por_id[i].nome for i in ids)
+        if antes != depois:
+            registrar_alteracoes(request, por_id[ids[0]], [{"campo": "ordem_catalogo", "rotulo": "Ordem dos módulos no catálogo", "antes": antes, "depois": depois}], modulo="modulo")
+    return list(Modulo.objects.all())
+

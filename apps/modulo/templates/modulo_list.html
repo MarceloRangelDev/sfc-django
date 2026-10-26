@@ -18,7 +18,10 @@
 <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-warning{% endif %}" role="alert">{{ message }}</div>
 {% endfor %}
 
-<div class="card">
+{% if perms.modulo.change_modulo %}
+<p class="text-muted small">{% translate "Arraste pela alça (ou use as setas) para mudar a ordem padrão dos módulos no menu. A ordem é salva na hora; clientes com ordem personalizada não são afetados." %}</p>
+{% endif %}
+<div class="card" id="cartaoOrdem" data-url="{% url 'modulo-catalogo-ordem' %}">
   <div class="table-responsive text-nowrap">
     <table class="table">
       <thead>
@@ -33,10 +36,16 @@
           <th>{% translate "Ações" %}</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="listaOrdem">
         {% for modulo in modulos %}
-        <tr>
-          <td>{{ modulo.ordem }}</td>
+        <tr data-id="{{ modulo.pk }}">
+          <td>
+            {% if perms.modulo.change_modulo %}
+            <i class="icon-base ti tabler-grip-vertical text-muted drag-handle me-1" style="cursor:grab" aria-hidden="true"></i>
+            <button type="button" class="btn btn-sm btn-icon btn-text-secondary" data-mover="-1" aria-label="{% translate 'Mover para cima' %}: {{ modulo.nome }}"><i class="icon-base ti tabler-chevron-up"></i></button>
+            <button type="button" class="btn btn-sm btn-icon btn-text-secondary" data-mover="1" aria-label="{% translate 'Mover para baixo' %}: {{ modulo.nome }}"><i class="icon-base ti tabler-chevron-down"></i></button>
+            {% endif %}
+          </td>
           <td><i class="icon-base {{ modulo.icone }} me-2"></i>{{ modulo.nome }}</td>
           <td><code>{{ modulo.slug }}</code></td>
           <td>{{ modulo.get_secao_display }}</td>
@@ -69,7 +78,13 @@
 </div>
 {% endblock %}
 
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/sortablejs/sortable.js' %}"></script>
+{% endblock vendor_js %}
+
 {% block page_js %}
 {{ block.super }}
 <script>initTourModulo('modulo-lista');</script>
+{% if perms.modulo.change_modulo %}<div id="ordemVivo" class="visually-hidden" aria-live="polite"></div><script src="{% static 'js/modulo-ordem.js' %}"></script>{% endif %}
 {% endblock page_js %}

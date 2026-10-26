@@ -111,3 +111,37 @@ class OrdemDoMenuTests(TestCase):
         ids = self.ordem_atual()
         self.enviar({"cliente_id": self.cliente.pk, "modulos": list(reversed(ids))})
         self.assertEqual(ClienteModulo.objects.filter(cliente=self.cliente, ativo=True).count(), len(SLUGS))
+
+
+class OrdemDoCatalogoTests(TestCase):
+    def setUp(self):
+        call_command("seed_acl", verbosity=0)
+        self.admin = User.objects.create_user(username="adm2", email="adm2@t.local", password="SenhaForte123!")
+        self.admin.groups.add(Group.objects.get(name="Administrador"))
+        self.client.force_login(self.admin)
+
+    def enviar(self, corpo):
+        return self.client.post(reverse("modulo-catalogo-ordem"), json.dumps(corpo), content_type="application/json")
+
+    def test_tela_traz_alca_e_botoes(self):
+        r = self.client.get(reverse("modulo-catalogo"))
+        self.assertContains(r, 'id="listaOrdem"')
+        self.assertContains(r, 'data-mover="-1"')
+        self.assertContains(r, "sortable.js")
+
+    def test_salvar_persiste_a_nova_ordem(self):
+        ids = list(Modulo.objects.values_list("pk", flat=True))
+        r = self.enviar({"modulos": list(reversed(ids))})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(list(Modulo.objects.values_list("pk", flat=True)), list(reversed(ids)))
+
+    def test_lista_invalida_e_recusada(self):
+        ids = list(Modulo.objects.values_list("pk", flat=True))
+        for lista in (ids[:-1], ids + [ids[0]], ["x"], None):
+            self.assertEqual(self.enviar({"modulos": lista}).status_code, 422)
+
+    def test_sem_permissao_e_403(self):
+        gestor = User.objects.create_user(username="g2", email="g2@t.local", password="SenhaForte123!")
+        gestor.groups.add(Group.objects.get(name="Gestor"))
+        self.client.force_login(gestor)
+        self.assertEqual(self.enviar({"modulos": []}).status_code, 403)

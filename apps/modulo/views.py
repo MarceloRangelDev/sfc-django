@@ -16,7 +16,7 @@ from .forms import ModuloForm, SegmentoForm
 from .models import ClienteModulo, Modulo, Segmento
 from web_project.regras import RegraNegocioError
 
-from .services import atualizar_modulos_do_cliente, modulos_do_cliente, modulos_ordenaveis, restaurar_ordem_do_menu, salvar_ordem_do_menu
+from .services import atualizar_modulos_do_cliente, modulos_do_cliente, modulos_ordenaveis, restaurar_ordem_do_menu, salvar_ordem_do_catalogo, salvar_ordem_do_menu
 
 
 class ModuloClienteView(TemplateView):
@@ -81,6 +81,22 @@ class ModuloOrdemView(View):
 # --------------------------------------------------------------------------
 # Catálogo de módulos
 # --------------------------------------------------------------------------
+
+class ModuloCatalogoOrdemView(View):
+    """POST JSON {modulos:[ids na nova ordem]}: grava a ordem padrão do sistema (`Modulo.ordem`). Exige `change_modulo`."""
+
+    def post(self, request):
+        import json
+
+        try:
+            dados = json.loads(request.body or b"{}") if len(request.body) <= 8192 else None
+            if not isinstance(dados, dict):
+                raise RegraNegocioError("Requisição inválida.")
+            ordem = salvar_ordem_do_catalogo(request, dados.get("modulos"))
+        except (ValueError, RegraNegocioError) as erro:
+            return JsonResponse({"erro": str(erro) if isinstance(erro, RegraNegocioError) else "Requisição inválida."}, status=422)
+        return JsonResponse({"ok": True, "modulos": [{"id": m.pk, "nome": m.nome} for m in ordem]})
+
 
 class ModuloListView(ListView):
     model = Modulo

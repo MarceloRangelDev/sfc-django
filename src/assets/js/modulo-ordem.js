@@ -30,7 +30,7 @@
   function enviar(corpo) {
     return fetch(cartao.dataset.url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf(), 'Accept': 'application/json' },
-      body: JSON.stringify(Object.assign({ cliente_id: cartao.dataset.cliente }, corpo)), credentials: 'same-origin',
+      body: JSON.stringify(cartao.dataset.cliente ? Object.assign({ cliente_id: cartao.dataset.cliente }, corpo) : corpo), credentials: 'same-origin',
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
   }
 
@@ -53,7 +53,7 @@
   lista.addEventListener('click', function (e) {
     var b = e.target.closest('[data-mover]');
     if (!b) return;
-    var li = b.closest('li'), passo = parseInt(b.getAttribute('data-mover'), 10);
+    var li = b.closest('[data-id]'), passo = parseInt(b.getAttribute('data-mover'), 10);
     var alvo = passo < 0 ? li.previousElementSibling : li.nextElementSibling;
     if (!alvo) return;
     if (passo < 0) lista.insertBefore(li, alvo); else lista.insertBefore(alvo, li);
@@ -61,7 +61,8 @@
     salvar();
   });
 
-  document.getElementById('restaurarOrdem').addEventListener('click', function () {
+  var restaurar = document.getElementById('restaurarOrdem');
+  if (restaurar) restaurar.addEventListener('click', function () {
     enviar({ restaurar: true }).then(function (r) {
       if (!r.ok) { avisar((r.d && r.d.erro) || 'Tente novamente.', true); return; }
       confirmada = r.d.modulos.map(function (m) { return String(m.id); });
