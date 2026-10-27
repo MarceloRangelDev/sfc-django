@@ -47,6 +47,15 @@ sudo systemctl restart gunicorn
 sudo systemctl reload nginx
 ```
 
+### Atalho
+```bash
+sudo -u django_user git pull --ff-only origin main 
+python manage.py migrate
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+sudo systemctl reload nginx
+```
+
 ## 5. Variáveis de ambiente novas (somente se usar o recurso)
 
 Edite o arquivo de ambiente que o serviço usa (`.env` na pasta do projeto ou `Environment=`/`EnvironmentFile=` em `/etc/systemd/system/gunicorn.service`); depois `sudo systemctl daemon-reload && sudo systemctl restart gunicorn`. **Nunca** coloque estas chaves no Git.
