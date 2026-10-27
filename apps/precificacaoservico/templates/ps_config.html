@@ -1,0 +1,72 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Custo-hora e premissas" %} - Precificação de serviços - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Precificação de serviços" %}</h4></div>
+{% include "_ps_nav.html" with ativa="config" %}
+
+<div class="alert alert-warning">{% translate "Os percentuais de impostos e taxas são ESTIMATIVAS informadas por você (ou pelo seu contador) e variam conforme a atividade e o regime tributário. O sistema não é consultoria tributária." %}</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <p class="text-muted">{% translate "Estas premissas valem para as PRÓXIMAS propostas. Propostas já feitas guardam as premissas da época e só mudam se você pedir para atualizá-las." %}{% if cfg.atualizado_em %} {% translate "Última atualização" %}: {{ cfg.atualizado_em|date:"d/m/Y H:i" }} ({% translate "versão" %} {{ cfg.versao }}).{% endif %}</p>
+      <form method="post" data-form-salvar novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-4">
+          <div class="col-md-4"><label for="{{ form.moeda.id_for_label }}" class="form-label">{% translate "Moeda" %}</label>{{ form.moeda }}</div>
+          <div class="col-md-8"><label for="{{ form.remuneracao_mensal.id_for_label }}" class="form-label">{% translate "Remuneração mensal desejada (R$)" %}</label>{{ form.remuneracao_mensal }}{% if form.remuneracao_mensal.errors %}<div class="text-danger small mt-1">{{ form.remuneracao_mensal.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Quanto você quer ganhar pelo seu trabalho. É custo, não lucro." %}</div></div>
+          <div class="col-md-4"><label for="{{ form.dias_mes.id_for_label }}" class="form-label">{% translate "Dias de trabalho no mês" %}</label>{{ form.dias_mes }}{% if form.dias_mes.errors %}<div class="text-danger small mt-1">{{ form.dias_mes.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Descontadas férias, feriados e folgas (média)." %}</div></div>
+          <div class="col-md-4"><label for="{{ form.horas_dia.id_for_label }}" class="form-label">{% translate "Horas de trabalho por dia" %}</label>{{ form.horas_dia }}{% if form.horas_dia.errors %}<div class="text-danger small mt-1">{{ form.horas_dia.errors|striptags }}</div>{% endif %}</div>
+          <div class="col-md-4"><label for="{{ form.horas_nao_faturaveis.id_for_label }}" class="form-label">{% translate "Horas não faturáveis no mês" %}</label>{{ form.horas_nao_faturaveis }}{% if form.horas_nao_faturaveis.errors %}<div class="text-danger small mt-1">{{ form.horas_nao_faturaveis.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Orçamentos, compras, atendimento, cobrança, deslocamento não cobrado." %}</div></div>
+          <div class="col-md-6"><label for="{{ form.horas_faturaveis_informadas.id_for_label }}" class="form-label">{% translate "Horas faturáveis no mês (opcional)" %}</label>{{ form.horas_faturaveis_informadas }}{% if form.horas_faturaveis_informadas.errors %}<div class="text-danger small mt-1">{{ form.horas_faturaveis_informadas.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Vazio = horas disponíveis − não faturáveis." %}</div></div>
+          <div class="col-md-6"><label for="{{ form.custo_variavel_hora.id_for_label }}" class="form-label">{% translate "Custo variável por hora (R$)" %}</label>{{ form.custo_variavel_hora }}{% if form.custo_variavel_hora.errors %}<div class="text-danger small mt-1">{{ form.custo_variavel_hora.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Opcional: custo que cresce com as horas (ex.: combustível médio)." %}</div></div>
+          <div class="col-md-4"><label for="{{ form.impostos_pct.id_for_label }}" class="form-label">{% translate "Impostos estimados (% do preço)" %}</label>{{ form.impostos_pct }}{% if form.impostos_pct.errors %}<div class="text-danger small mt-1">{{ form.impostos_pct.errors|striptags }}</div>{% endif %}</div>
+          <div class="col-md-4"><label for="{{ form.taxas_pct.id_for_label }}" class="form-label">{% translate "Taxas estimadas (% do preço)" %}</label>{{ form.taxas_pct }}{% if form.taxas_pct.errors %}<div class="text-danger small mt-1">{{ form.taxas_pct.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Cartão, plataforma, comissão." %}</div></div>
+          <div class="col-md-4"><label for="{{ form.margem_pct.id_for_label }}" class="form-label">{% translate "Margem desejada (% do preço)" %}</label>{{ form.margem_pct }}{% if form.margem_pct.errors %}<div class="text-danger small mt-1">{{ form.margem_pct.errors|striptags }}</div>{% endif %}</div>
+          <div class="col-12"><div class="small text-muted border rounded p-3" id="ps-conceitos">
+            <strong>{% translate "Margem" %}</strong>: {% translate "lucro como % do PREÇO de venda (preço = custo ÷ (1 − impostos − taxas − margem))." %}
+            <strong>{% translate "Markup" %}</strong>: {% translate "acréscimo como % do CUSTO (preço = custo × (1 + markup)). 20% de markup não é 20% de margem." %}
+          </div></div>
+        </div>
+        {% if pode_alterar %}<div class="mt-6">{% url 'ps-proposta-list' as url_lista %}{% include "partials/botoes_salvar.html" with cancelar=url_lista %}</div>{% endif %}
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card" id="ps-custo-hora"><div class="card-header"><h5 class="mb-0">{% translate "Custo-hora calculado" %}</h5></div><div class="card-body">
+      {% if erro_calculo %}<div class="alert alert-danger" role="alert">{{ erro_calculo }}</div>
+      {% else %}
+      <table class="table table-sm mb-3">
+        <tr><td>{% translate "Horas disponíveis no mês" %}</td><td class="text-end">{{ capacidade.horas_disponiveis|floatformat:"-2" }} h</td></tr>
+        <tr><td>{% translate "Horas não faturáveis" %}</td><td class="text-end">{{ capacidade.horas_nao_faturaveis|floatformat:"-2" }} h</td></tr>
+        <tr><th>{% translate "Horas faturáveis no mês" %}</th><th class="text-end">{{ capacidade.horas_faturaveis|floatformat:"-2" }} h</th></tr>
+      </table>
+      <table class="table table-sm mb-3">
+        <tr><td>{% translate "Remuneração do profissional" %}</td><td class="text-end">{{ custo.remuneracao_mensal|moeda }}</td></tr>
+        <tr><td>{% translate "Despesas fixas e indiretas (mensal)" %}</td><td class="text-end">{{ custo.despesas_mensais|moeda }}</td></tr>
+        <tr><td>{% translate "Provisões (mensal)" %}</td><td class="text-end">{{ custo.provisoes_mensais|moeda }}</td></tr>
+        <tr><th>{% translate "Custo fixo mensal" %}</th><th class="text-end">{{ custo.custo_fixo_mensal|moeda }}</th></tr>
+      </table>
+      <table class="table table-sm mb-3">
+        <tr><td>{% translate "Custo fixo por hora faturável" %} <span class="text-muted">({% translate "da qual remuneração" %}: {{ custo.remuneracao_hora|moeda }})</span></td><td class="text-end">{{ custo.custo_fixo_hora|moeda }}</td></tr>
+        <tr><td>{% translate "Custo variável por hora" %}</td><td class="text-end">{{ custo.custo_variavel_hora|moeda }}</td></tr>
+        <tr class="table-primary"><th>{% translate "Custo-hora total" %}</th><th class="text-end fs-5">{{ custo.custo_hora_total|moeda }}</th></tr>
+      </table>
+      <div class="small text-muted">{% translate "Custo fixo mensal ÷ horas faturáveis + custo variável por hora. Valores calculados pelo sistema (não editáveis aqui)." %}</div>
+      {% endif %}
+      <div class="small mt-3">{% translate "Despesas e provisões ativas" %}: <strong>{{ despesas_ativas }}</strong>{% if perms.precificacaoservico.view_despesafixa %} · <a href="{% url 'ps-despesa-list' %}">{% translate "gerenciar" %}</a>{% endif %}</div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-config');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

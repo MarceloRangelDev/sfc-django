@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, estoque_produtos, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, estoque_produtos, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, precificacaoservico, pdv, pedidos, estoque_financeiro, views, views_operacao
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -41,6 +41,9 @@ router.register("mensagens", integracoes.MensagemViewSet, basename="api-mensagem
 router.register("whatsapp-templates", integracoes.TemplateWhatsAppViewSet, basename="api-whatsapp-template")
 router.register("notificacoes", notificacoes.MinhasNotificacoesViewSet, basename="api-notificacao")
 router.register("orcamentos", orcamentos.OrcamentoViewSet, basename="api-orcamento")
+router.register("precificacao-servico/propostas", precificacaoservico.PropostaViewSet, basename="api-ps-proposta")
+router.register("precificacao-servico/despesas", precificacaoservico.DespesaViewSet, basename="api-ps-despesa")
+router.register("precificacao-servico/modelos", precificacaoservico.ModeloViewSet, basename="api-ps-modelo")
 router.register("compromissos", integracoes.CompromissoViewSet, basename="api-compromisso")
 router.register("fiscal/documentos", fiscal.DocumentoFiscalViewSet, basename="api-documento-fiscal")
 router.register("colaboradores", maodeobra.ColaboradorViewSet, basename="api-colaborador")
@@ -89,6 +92,9 @@ urlpatterns = [
     path("api/v1/kanban/cartoes/", kanban_api.CartoesView.as_view(), name="api-kanban-cartoes"),
     path("api/v1/kanban/cartoes/<int:pk>/", kanban_api.CartaoView.as_view(), name="api-kanban-cartao"),
     path("api/v1/kanban/cartoes/<int:pk>/mover/", kanban_api.CartaoMoverView.as_view(), name="api-kanban-cartao-mover"),
+    path("api/v1/precificacao-servico/configuracao/", precificacaoservico.ConfiguracaoView.as_view(), name="api-ps-config"),
+    path("api/v1/precificacao-servico/custo-hora/", precificacaoservico.CustoHoraView.as_view(), name="api-ps-custo-hora"),
+    path("api/v1/precificacao-servico/simular/", precificacaoservico.SimularView.as_view(), name="api-ps-simular"),
     path("api/v1/mao-de-obra/regras/", maodeobra.ConfiguracaoMaoDeObraView.as_view(), name="api-mao-obra-config"),
     path("api/v1/mao-de-obra/relatorio/", maodeobra.RelatorioMaoDeObraView.as_view(), name="api-mao-obra-relatorio"),
     path("api/v1/imagens/<str:tipo>/<int:pk>/", imagens.ImagemEntidadeView.as_view(), name="api-imagem"),

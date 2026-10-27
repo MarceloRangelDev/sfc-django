@@ -1,0 +1,72 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Propostas de serviço" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Precificação de serviços" %}</h4>
+  {% if perms.precificacaoservico.add_proposta %}<a href="{% url 'ps-proposta-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova proposta" %}</a>{% endif %}
+</div>
+{% include "_ps_nav.html" with ativa="propostas" %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      {% if dir %}<input type="hidden" name="dir" value="{{ dir }}">{% endif %}
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" placeholder="{% translate 'Número, cliente ou serviço...' %}" value="{{ termo_pesquisa }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="situacao">{% translate "Situação" %}</label>
+        <select id="situacao" name="situacao" class="form-select"><option value="">{% translate "Todas" %}</option>{% for valor, rotulo in situacoes %}<option value="{{ valor }}" {% if situacao == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary"><i class="icon-base ti tabler-search me-1"></i>{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr>
+        <th>{% translate "Nº" as label %}{% include "_th_ordenavel.html" with campo="numero" label=label %}</th>
+        <th>{% translate "Cliente" as label %}{% include "_th_ordenavel.html" with campo="cliente" label=label %}</th>
+        <th>{% translate "Serviço" %}</th>
+        {% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}
+        <th>{% translate "Cobrança" %}</th>
+        <th>{% translate "Situação" %}</th>
+        <th class="text-end">{% translate "Total" as label %}{% include "_th_ordenavel.html" with campo="total" label=label %}</th>
+        <th class="text-end">{% translate "Lucro estimado" %}</th>
+        <th>{% translate "Ações" %}</th>
+      </tr></thead>
+      <tbody>
+        {% for p in propostas %}
+        <tr>
+          <td><a href="{% url 'ps-proposta-detalhe' p.pk %}">{{ p.numero }}</a></td>
+          <td>{{ p.destinatario_nome }}</td><td>{{ p.descricao|truncatechars:40 }}</td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=p %}</td>{% endif %}
+          <td>{{ p.get_modo_display }}</td>
+          <td><span class="badge bg-label-{% if p.status == 'aprovada' or p.status == 'concluida' %}success{% elif p.status == 'recusada' or p.status == 'cancelada' %}secondary{% elif p.status == 'enviada' %}info{% else %}warning{% endif %}">{{ p.get_status_display }}</span></td>
+          <td class="text-end">{{ p.total|moeda }}</td>
+          <td class="text-end {% if p.lucro < 0 %}text-danger{% endif %}">{{ p.lucro|moeda }}</td>
+          <td>
+            <a href="{% url 'ps-proposta-detalhe' p.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Abrir' %}"><i class="icon-base ti tabler-eye"></i></a>
+            <a href="{% url 'ps-proposta-imprimir' p.pk %}" target="_blank" rel="noopener" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Imprimir / PDF' %}"><i class="icon-base ti tabler-printer"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if mostrar_unidade %}9{% else %}8{% endif %}" class="text-center py-6">{% translate "Nenhuma proposta encontrada." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-propostas');</script>
+{% endblock page_js %}

@@ -30,6 +30,7 @@ SCREEN_APPS = [
     "integracao",
     "fiscal",
     "orcamento",
+    "precificacaoservico",
     "ficha",
     "precificacao",
     "custo",
@@ -63,6 +64,8 @@ PDV_GERENCIAIS = [  # fora da matriz: cancelar, devolver, desconto, sangria, sup
 ]
 # Mão de obra revela valor da hora/diária de pessoas: só Administrador (tudo) e Gestor (ver/criar/alterar; excluir é do Administrador).
 MAO_DE_OBRA_GESTOR = [("maodeobra", f"{acao}_{modelo}") for modelo in ("colaborador", "apontamento", "configuracaomaodeobra", "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao", "configuracaofiscal", "documentofiscal") for acao in ("view", "add", "change")]
+# Precificação de serviços revela remuneração, custos e margem: só Administrador (tudo) e Gestor (ver/criar/alterar; excluir é do Administrador).
+PRECIFICACAO_SERVICO_GESTOR = [("precificacaoservico", f"{acao}_{modelo}") for modelo in ("configuracaoservico", "despesafixa", "modeloservico", "proposta", "propostaitem", "propostacusto", "lancamento", "pagamento") for acao in ("view", "add", "change")]
 # Integrações guardam credenciais de terceiros: só Administrador (tudo) e Gestor (conectar, mensagens e log). Compromissos da agenda: todos que operam.
 INTEGRACAO_GESTOR = [("integracao", f"{acao}_{modelo}") for modelo in ("conexao", "mensagem", "templatewhatsapp") for acao in ("view", "add", "change")] + [("integracao", "view_logintegracao"), ("integracao", "enviar_mensagem")]
 # Fiscal: certificado e dados fiscais da empresa. Só Administrador e Gestor veem os documentos, pedem emissão e configuram.
@@ -83,7 +86,7 @@ EXTRAS = {
     # Receita e observações de Processados/Fichas (segredo do negócio): só Administrador e Gestor.
     "Administrador": [*PAINEL, *FOTO_PERFIL, ("insumoglobal", "padronizar_insumo"), ("kanban", "mover_cartao"), ("assinatura", "gerenciar_assinatura"), ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PEDIDO_PERMISSOES, ('integracao', 'enviar_mensagem'), ('fiscal', 'emitir_nota'), ("orcamento", "enviar_orcamento")],
     "Gestor": [
-        *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR, ("orcamento", "enviar_orcamento"),
+        *PAINEL, *FOTO_PERFIL, ("processado", "ver_receita"), ("ficha", "ver_receita"), *PDV_GERENCIAIS, *PDV_CONFIG_GESTOR, *PEDIDO_PERMISSOES, *MAO_DE_OBRA_GESTOR, *PRECIFICACAO_SERVICO_GESTOR, *INTEGRACAO_GESTOR, *FISCAL_GESTOR, ("orcamento", "enviar_orcamento"),
         ("auth", "view_user"), ("auth", "add_user"), ("auth", "change_user"),
         ("assinatura", "view_assinatura"), ("assinatura", "gerenciar_assinatura"),
         ("cliente", "view_cliente"),
@@ -118,7 +121,8 @@ AUTH_CODENAMES_ADMINISTRADOR = [
 # a quem for autorizado explicitamente (Administrador e, via EXTRAS, o Gestor): transferir
 # estoque entre matriz e filiais e ver os relatórios financeiros (DRE e balanço).
 SOMENTE_AUTORIZADOS = ("transferenciaestoque", "relatoriofinanceiro", "colaborador", "apontamento", "configuracaomaodeobra",
-                        "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao", "templatewhatsapp")
+                        "conexao", "mensagem", "eventowebhook", "itemsincronizado", "logintegracao", "templatewhatsapp",
+                        "configuracaoservico", "despesafixa", "modeloservico", "proposta", "propostaitem", "propostacusto", "lancamento", "pagamento")
 
 # name do grupo -> ações permitidas (subconjunto de view/add/change/delete)
 # aplicadas em TODAS as telas de negócio listadas em SCREEN_APPS.

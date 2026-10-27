@@ -278,6 +278,51 @@
       FILTROS('Filtre por período, colaborador e unidade.'),
       TABELA('Horas trabalhadas, extras e o custo total de cada apontamento.')
     ],
+    'ps-propostas': [
+      NOVO('Nova proposta', 'Monte uma proposta de serviço: o sistema calcula custo, preço mínimo, preço-alvo, lucro e margem.'),
+      FILTROS('Pesquise por número, cliente ou serviço e filtre pela situação da proposta.'),
+      TABELA('Total e lucro estimado de cada proposta. Lucro em vermelho indica prejuízo. Abra uma proposta para aprovar, imprimir e acompanhar a execução.')
+    ],
+    'ps-proposta-form': [
+      { element: '#ps-itens', title: 'Trabalho', text: 'Escolha a forma de cobrança (hora, dia, semana, quinzena, mês, unidade ou pacote), a quantidade e, se quiser, o preço unitário.', position: 'top' },
+      { element: '#ps-custos', title: 'Custos diretos', text: 'Materiais, deslocamento, terceiros e outros. Defina se são discriminados ao cliente, incluídos no preço ou absorvidos por você.', position: 'top' },
+      { element: '#ps-preco', title: 'Formação do preço', text: 'Margem é percentual do preço de venda; markup é percentual do custo. Aqui também ficam preço fechado, mínimo, desconto e acréscimos.', position: 'top' },
+      { element: '#resultadoProposta', title: 'Resumo calculado', text: 'Custo, preço mínimo, preço-alvo, impostos e taxas estimados, lucro e margem. Os alertas avisam se o preço fica abaixo do custo ou da margem desejada.', position: 'left' },
+      SALVAR
+    ],
+    'ps-proposta-detalhe': [
+      { element: '#ps-acoes', title: 'Ações', text: 'Edite, imprima, envie, aprove ou cancele. O aceite registra quem aprovou e quando.', position: 'bottom' },
+      { element: '#ps-resultado', title: 'Resultado estimado', text: 'Como o preço foi obtido: custo, preço mínimo, preço-alvo, impostos e taxas, lucro e margem.', position: 'left' },
+      { element: '#ps-premissas', title: 'Premissas da proposta', text: 'O custo-hora e os percentuais ficam gravados na proposta. Mudar a configuração depois não altera propostas antigas.', position: 'left' },
+      { element: '#ps-previsto-realizado', title: 'Previsto x realizado', text: 'Depois de aprovada, registre horas, custos, extras e pagamentos reais e compare com a estimativa.', position: 'left' }
+    ],
+    'ps-config': [
+      { element: '#id_remuneracao_mensal', title: 'Remuneração desejada', text: 'Quanto você quer ganhar pelo seu trabalho. Entra no custo-hora e não é lucro.', position: 'bottom' },
+      { element: '#id_horas_nao_faturaveis', title: 'Horas não faturáveis', text: 'Tempo gasto com orçamentos, compras, atendimento e cobrança. As horas faturáveis são as disponíveis menos estas.', position: 'bottom' },
+      { element: '#id_margem_pct', title: 'Margem desejada', text: 'Percentual do preço de venda que você quer como lucro. Impostos, taxas e margem juntos precisam ficar abaixo de 100%.', position: 'bottom' },
+      { element: '#ps-custo-hora', title: 'Custo-hora calculado', text: 'Veja a composição: remuneração, despesas e provisões divididas pelas horas faturáveis.', position: 'left' },
+      SALVAR
+    ],
+    'ps-despesas': [
+      NOVO('Nova despesa', 'Cadastre despesas fixas e indiretas (aluguel, internet, contabilidade...) e provisões mensais.'),
+      FILTROS('Pesquise pela descrição e filtre por status.'),
+      TABELA('Cada valor é convertido para base mensal conforme a periodicidade e entra no custo-hora.')
+    ],
+    'ps-despesa-form': [
+      { element: '#id_valor', title: 'Valor', text: 'Valor da despesa na periodicidade escolhida.', position: 'bottom' },
+      { element: '#id_periodicidade', title: 'Periodicidade', text: 'Semanal, mensal, anual etc. O sistema converte para base mensal.', position: 'bottom' },
+      SALVAR
+    ],
+    'ps-modelos': [
+      NOVO('Novo modelo', 'Salve serviços que você repete, com forma de cobrança, preço-base e margem própria.'),
+      FILTROS('Pesquise pelo nome ou categoria e filtre por status.'),
+      TABELA('Use o ícone de nova proposta para iniciar uma proposta com os valores do modelo. Mudar o modelo depois não altera propostas já feitas.')
+    ],
+    'ps-modelo-form': [
+      { element: '#id_modo', title: 'Forma de cobrança', text: 'Hora, dia, semana, quinzena, mês, unidade ou pacote.', position: 'bottom' },
+      { element: '#id_margem_pct', title: 'Margem própria', text: 'Opcional. Vazio usa a margem da configuração; cada serviço pode ter a sua.', position: 'bottom' },
+      SALVAR
+    ],
     'usuarios': [
       NOVO('Novo usuário', 'Crie o acesso de uma pessoa e escolha o perfil dela. Usuários não são excluídos, só desativados.'),
       FILTROS('Pesquise por nome, usuário ou e-mail e filtre por perfil e status.'),

@@ -40,6 +40,7 @@ MODULOS_PADRAO = {
     "mao-de-obra": dict(nome="Mão de obra", descricao="Colaboradores e apontamentos por hora ou por dia, com hora extra e relatório.", icone="ti tabler-clock-hour-4", rota="apontamento-list", app="maodeobra", permissao="maodeobra.view_apontamento", secao=P, ordem=14),
     "agenda": dict(nome="Agenda", descricao="Compromissos, reservas e entregas; sincroniza com Google Agenda e iCloud.", icone="ti tabler-calendar-event", rota="compromisso-list", app="integracao", permissao="integracao.view_compromisso", secao=P, ordem=19, essencial=True),
     "orcamento": dict(nome="Orçamentos", descricao="Orçamentos de produtos e serviços, com PDF e envio por e-mail ou WhatsApp.", icone="ti tabler-file-dollar", rota="orcamento-list", app="orcamento", permissao="orcamento.view_orcamento", secao=P, ordem=16, essencial=True),
+    "precificacao-servico": dict(nome="Precificação de serviços", descricao="Custo-hora, propostas de serviço por hora, dia, período, unidade ou pacote, e acompanhamento do previsto x realizado.", icone="ti tabler-calculator", rota="ps-proposta-list", app="precificacaoservico", permissao="precificacaoservico.view_proposta", secao=P, ordem=61),
     "fiscal": dict(nome="Notas fiscais", descricao="Pedidos de NFC-e, NF-e e NFS-e das vendas (emissão real depende de provedor homologado).", icone="ti tabler-file-invoice", rota="fiscal-documentos", app="fiscal", permissao="fiscal.view_documentofiscal", secao=P, ordem=56, essencial=True),
     "consumidor": dict(nome="Consumidores", descricao="Clientes finais da empresa (cadastro, contatos e consentimento LGPD).", icone="ti tabler-users-group", rota="consumidor", app="consumidor", permissao="consumidor.view_consumidor", secao=P, ordem=45),
     "produto": dict(nome="Produto", descricao="Cadastro de produtos.", icone="ti tabler-package", rota="produto", app="produto", permissao="produto.view_produto", secao=P, ordem=40),
@@ -83,7 +84,7 @@ MODULOS_PADRAO = {
 }
 
 # Módulos de negócio que só fazem sentido para segmentos que precificam SERVIÇO (Serviço e Produto e Serviço).
-SOMENTE_SERVICO = {"mao-de-obra"}
+SOMENTE_SERVICO = {"mao-de-obra", "precificacao-servico"}
 
 
 def permitido_no_segmento(slug_modulo, tipo_precificacao):

@@ -1,0 +1,110 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if proposta %}{% translate "Editar proposta" %}{% else %}{% translate "Nova proposta" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if proposta %}{% translate "Editar proposta" %} nº {{ proposta.numero }}{% else %}{% translate "Nova proposta de serviço" %}{% endif %}</h4>
+
+<form method="post" id="formProposta" data-form-salvar data-calculo-url="{% url 'ps-proposta-calcular' %}" data-proposta="{{ proposta.pk|default:'' }}"
+      data-modos="{{ modos_json }}" data-categorias="{{ categorias_json }}" data-repasses="{{ repasses_json }}" data-itens="{{ itens_json }}" data-custos="{{ custos_json }}" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="itens_json" id="itens_json" value="[]">
+  <input type="hidden" name="custos_json" id="custos_json" value="[]">
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="alert alert-warning py-2">{% translate "Valores preenchidos por você aparecem nos campos; valores calculados aparecem no resumo ao lado. Impostos e taxas são estimativas." %}</div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card mb-4" id="ps-cliente"><div class="card-body"><div class="row g-4">
+        <div class="col-md-6"><label for="{{ form.consumidor.id_for_label }}" class="form-label">{% translate "Cliente final (cadastro)" %}</label>{{ form.consumidor }}</div>
+        <div class="col-md-6"><label for="{{ form.destinatario_nome.id_for_label }}" class="form-label">{% translate "Cliente" %}</label>{{ form.destinatario_nome }}{% if form.destinatario_nome.errors %}<div class="text-danger small mt-1">{{ form.destinatario_nome.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-6"><label for="{{ form.destinatario_email.id_for_label }}" class="form-label">{% translate "E-mail" %}</label>{{ form.destinatario_email }}{% if form.destinatario_email.errors %}<div class="text-danger small mt-1">{{ form.destinatario_email.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-6"><label for="{{ form.destinatario_whatsapp.id_for_label }}" class="form-label">{% translate "WhatsApp" %}</label>{{ form.destinatario_whatsapp }}{% if form.destinatario_whatsapp.errors %}<div class="text-danger small mt-1">{{ form.destinatario_whatsapp.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-8"><label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição do serviço" %}</label>{{ form.descricao }}{% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-4"><label for="{{ form.modo.id_for_label }}" class="form-label">{% translate "Forma de cobrança" %}</label>{{ form.modo }}<div class="form-text">{% translate "Valor padrão das novas linhas." %}</div></div>
+      </div></div></div>
+
+      <div class="card mb-4" id="ps-itens">
+        <div class="card-header"><h5 class="mb-0">{% translate "Trabalho (itens cobrados)" %}</h5><div class="small text-muted">{% translate "Hora, dia, semana, quinzena, mês, unidade/etapa ou pacote. Horas por unidade vazias usam o padrão da cobrança (dia = jornada; semana = 5 dias; quinzena = 10 dias; mês = horas faturáveis). Preço unitário vazio = o preço sai do custo e da margem." %}</div></div>
+        <div class="table-responsive"><table class="table" id="tabelaItens">
+          <thead><tr><th style="min-width:220px">{% translate "Descrição" %}</th><th>{% translate "Cobrança" %}</th><th>{% translate "Qtde." %}</th><th>{% translate "Unidade" %}</th><th>{% translate "Horas/unid." %}</th><th>{% translate "Preço unit. (R$)" %}</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div class="card-body"><button type="button" class="btn btn-outline-primary" id="adicionarItem"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar item" %}</button></div>
+      </div>
+
+      <div class="card mb-4" id="ps-custos">
+        <div class="card-header"><h5 class="mb-0">{% translate "Custos diretos do serviço" %}</h5><div class="small text-muted">{% translate "Discriminado: cobrado do cliente à parte, pelo custo. Incluído: embutido no preço. Absorvido: você paga e o preço não sobe." %}</div></div>
+        <div class="table-responsive"><table class="table" id="tabelaCustos">
+          <thead><tr><th style="min-width:200px">{% translate "Tipo" %}</th><th style="min-width:180px">{% translate "Descrição" %}</th><th>{% translate "Qtde." %}</th><th>{% translate "Unidade" %}</th><th>{% translate "Custo unit. (R$)" %}</th><th style="min-width:170px">{% translate "No orçamento" %}</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div class="card-body"><button type="button" class="btn btn-outline-primary" id="adicionarCusto"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Adicionar custo" %}</button></div>
+      </div>
+
+      <div class="card mb-4" id="ps-preco"><div class="card-header"><h5 class="mb-0">{% translate "Formação do preço" %}</h5></div><div class="card-body"><div class="row g-4">
+        <div class="col-md-4"><label for="{{ form.metodo_preco.id_for_label }}" class="form-label">{% translate "Método" %}</label>{{ form.metodo_preco }}<div class="form-text">{% translate "Margem: % do preço. Markup: % do custo (não são iguais)." %}</div></div>
+        <div class="col-md-4"><label for="{{ form.margem_pct.id_for_label }}" class="form-label">{% translate "Margem desta proposta (%)" %}</label>{{ form.margem_pct }}{% if form.margem_pct.errors %}<div class="text-danger small mt-1">{{ form.margem_pct.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Vazio = margem da configuração." %}</div></div>
+        <div class="col-md-4"><label for="{{ form.markup_pct.id_for_label }}" class="form-label">{% translate "Markup (% sobre o custo)" %}</label>{{ form.markup_pct }}{% if form.markup_pct.errors %}<div class="text-danger small mt-1">{{ form.markup_pct.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Só no método markup." %}</div></div>
+        <div class="col-md-4"><label for="{{ form.preco_fechado.id_for_label }}" class="form-label">{% translate "Preço fechado (R$)" %}</label>{{ form.preco_fechado }}{% if form.preco_fechado.errors %}<div class="text-danger small mt-1">{{ form.preco_fechado.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Opcional: use para arredondar ou fechar um valor; o resumo mostra a margem resultante." %}</div></div>
+        <div class="col-md-4"><label for="{{ form.minimo_cobranca.id_for_label }}" class="form-label">{% translate "Cobrança mínima (R$)" %}</label>{{ form.minimo_cobranca }}</div>
+        <div class="col-md-4"><label for="{{ form.horas_minimas.id_for_label }}" class="form-label">{% translate "Horas mínimas (cobrança por hora)" %}</label>{{ form.horas_minimas }}</div>
+        <div class="col-md-4"><label for="{{ form.arredondamento_minutos.id_for_label }}" class="form-label">{% translate "Arredondar horas em blocos de" %}</label>{{ form.arredondamento_minutos }}</div>
+        <div class="col-md-4"><label for="{{ form.horas_deslocamento.id_for_label }}" class="form-label">{% translate "Horas de deslocamento" %}</label>{{ form.horas_deslocamento }}</div>
+        <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch">{{ form.cobra_deslocamento }}<label class="form-check-label" for="{{ form.cobra_deslocamento.id_for_label }}">{% translate "Cobrar o tempo de deslocamento" %}</label></div></div>
+        <div class="col-md-4"><label for="{{ form.desconto.id_for_label }}" class="form-label">{% translate "Desconto" %}</label>{{ form.desconto }}{% if form.desconto.errors %}<div class="text-danger small mt-1">{{ form.desconto.errors|striptags }}</div>{% endif %}</div>
+        <div class="col-md-4"><label for="{{ form.desconto_tipo.id_for_label }}" class="form-label">{% translate "Tipo do desconto" %}</label>{{ form.desconto_tipo }}</div>
+        <div class="col-md-4"><label for="{{ form.acrescimo_pct.id_for_label }}" class="form-label">{% translate "Acréscimo (urgência, fim de semana, risco) %" %}</label>{{ form.acrescimo_pct }}</div>
+        <div class="col-md-4"><label for="{{ form.acrescimo_valor.id_for_label }}" class="form-label">{% translate "Acréscimo em valor (R$)" %}</label>{{ form.acrescimo_valor }}<div class="form-text">{% translate "Taxa de deslocamento, hora extra etc." %}</div></div>
+        <div class="col-md-4"><label for="{{ form.custo_financeiro_pct.id_for_label }}" class="form-label">{% translate "Custo financeiro do parcelamento (%)" %}</label>{{ form.custo_financeiro_pct }}<div class="form-text">{% translate "Tratado como taxa sobre o preço." %}</div></div>
+        <div class="col-12"><div class="form-check form-switch">{{ form.detalhar_custos }}<label class="form-check-label" for="{{ form.detalhar_custos.id_for_label }}">{% translate "Mostrar ao cliente os custos discriminados (senão, valor consolidado)" %}</label></div></div>
+      </div></div></div>
+
+      <div class="card mb-4" id="ps-escopo"><div class="card-header"><h5 class="mb-0">{% translate "Escopo, prazo e condições" %}</h5></div><div class="card-body"><div class="row g-4">
+        <div class="col-md-4"><label for="{{ form.validade.id_for_label }}" class="form-label">{% translate "Válida até" %}</label>{{ form.validade }}</div>
+        <div class="col-md-8"><label for="{{ form.prazo.id_for_label }}" class="form-label">{% translate "Prazo estimado" %}</label>{{ form.prazo }}</div>
+        <div class="col-12"><label for="{{ form.condicoes_pagamento.id_for_label }}" class="form-label">{% translate "Condições de pagamento" %}</label>{{ form.condicoes_pagamento }}</div>
+        <div class="col-md-6"><label for="{{ form.escopo_incluido.id_for_label }}" class="form-label">{% translate "Escopo incluído" %}</label>{{ form.escopo_incluido }}<div class="form-text">{% translate "Em diárias e períodos, diga o que está incluído: horas, dias, visitas, entregáveis." %}</div></div>
+        <div class="col-md-6"><label for="{{ form.escopo_excluido.id_for_label }}" class="form-label">{% translate "Escopo excluído" %}</label>{{ form.escopo_excluido }}</div>
+        <div class="col-md-6"><label for="{{ form.etapas.id_for_label }}" class="form-label">{% translate "Etapas ou entregáveis" %}</label>{{ form.etapas }}</div>
+        <div class="col-md-6"><label for="{{ form.limites.id_for_label }}" class="form-label">{% translate "Limites (visitas, revisões, alterações)" %}</label>{{ form.limites }}</div>
+        <div class="col-md-6"><label for="{{ form.materiais_incluidos.id_for_label }}" class="form-label">{% translate "Materiais incluídos" %}</label>{{ form.materiais_incluidos }}</div>
+        <div class="col-md-6"><label for="{{ form.materiais_excluidos.id_for_label }}" class="form-label">{% translate "Materiais excluídos" %}</label>{{ form.materiais_excluidos }}</div>
+        <div class="col-12"><label for="{{ form.regras_extras.id_for_label }}" class="form-label">{% translate "Extras, hora extra, espera, alteração de escopo e excedentes" %}</label>{{ form.regras_extras }}</div>
+        <div class="col-12"><label for="{{ form.observacoes.id_for_label }}" class="form-label">{% translate "Observações" %}</label>{{ form.observacoes }}</div>
+      </div></div></div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card position-sticky" style="top: 90px" id="resultadoProposta"><div class="card-header"><h5 class="mb-0">{% translate "Resumo calculado" %}</h5></div><div class="card-body">
+        <div id="rAlertas" aria-live="polite">{% if erro_calculo %}<div class="alert alert-danger py-2">{{ erro_calculo }}</div>{% endif %}</div>
+        <table class="table table-sm mb-2">
+          <tr><td>{% translate "Custo-hora total" %}</td><td class="text-end" id="rCustoHora">—</td></tr>
+          <tr><td>{% translate "Custo estimado" %}</td><td class="text-end" id="rCusto">—</td></tr>
+          <tr><td>{% translate "Preço mínimo" %}</td><td class="text-end" id="rMinimo">—</td></tr>
+          <tr><td>{% translate "Preço-alvo" %}</td><td class="text-end" id="rAlvo">—</td></tr>
+          <tr class="table-primary"><th>{% translate "Total da proposta" %}</th><th class="text-end fs-5" id="rTotal">—</th></tr>
+          <tr><td>{% translate "Impostos e taxas estimados" %}</td><td class="text-end" id="rImpostos">—</td></tr>
+          <tr><td>{% translate "Lucro estimado" %}</td><td class="text-end" id="rLucro">—</td></tr>
+          <tr><td>{% translate "Margem estimada (sobre o preço)" %}</td><td class="text-end" id="rMargem">—</td></tr>
+          <tr><td>{% translate "Markup resultante (sobre o custo)" %}</td><td class="text-end" id="rMarkup">—</td></tr>
+        </table>
+        <div class="small text-muted" id="rOrigem"></div>
+        <div class="small text-muted mt-2">{% translate "Calculado pelo servidor com as premissas" %} {% if proposta %}{% translate "gravadas na proposta" %}{% else %}{% translate "de hoje" %}{% endif %}.</div>
+        {% if proposta %}<div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="atualizar_premissas" name="atualizar_premissas" value="1"><label class="form-check-label small" for="atualizar_premissas">{% translate "Atualizar para as premissas de hoje ao salvar" %}</label></div>{% endif %}
+      </div></div>
+    </div>
+  </div>
+
+  <div class="mt-4">{% if proposta %}{% url 'ps-proposta-detalhe' proposta.pk as url_lista %}{% else %}{% url 'ps-proposta-list' as url_lista %}{% endif %}{% include "partials/botoes_salvar.html" with cancelar=url_lista %}</div>
+</form>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-proposta-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script src="{% static_v 'js/ps-proposta-form.js' %}"></script>
+{% endblock %}

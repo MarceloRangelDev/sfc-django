@@ -1,0 +1,7 @@
+{% load i18n %}
+<ul class="nav nav-pills mb-4 flex-wrap">
+  <li class="nav-item"><a class="nav-link {% if ativa == 'propostas' %}active{% endif %}" href="{% url 'ps-proposta-list' %}">{% translate "Propostas" %}</a></li>
+  {% if perms.precificacaoservico.view_modeloservico %}<li class="nav-item"><a class="nav-link {% if ativa == 'modelos' %}active{% endif %}" href="{% url 'ps-modelo-list' %}">{% translate "Modelos de serviço" %}</a></li>{% endif %}
+  {% if perms.precificacaoservico.view_despesafixa %}<li class="nav-item"><a class="nav-link {% if ativa == 'despesas' %}active{% endif %}" href="{% url 'ps-despesa-list' %}">{% translate "Despesas e provisões" %}</a></li>{% endif %}
+  {% if perms.precificacaoservico.view_configuracaoservico %}<li class="nav-item"><a class="nav-link {% if ativa == 'config' %}active{% endif %}" href="{% url 'ps-config' %}">{% translate "Custo-hora e premissas" %}</a></li>{% endif %}
+</ul>

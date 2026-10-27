@@ -1,0 +1,59 @@
+{% load i18n %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% translate "Proposta" %} nº {{ proposta.numero }}</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #222; margin: 0; padding: 24px; }
+    .folha { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 22px 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { padding: 6px 4px; border-bottom: 1px solid #e5e5e5; text-align: left; }
+    .dir { text-align: right; } .total { font-size: 18px; font-weight: bold; } .nota { font-size: 12px; color: #666; } .texto { white-space: pre-line; font-size: 14px; }
+    .topo { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .acoes { margin-bottom: 16px; } .acoes button { padding: 8px 16px; }
+    @media print { .acoes { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+<div class="folha">
+  <div class="acoes"><button type="button" onclick="window.print()">{% translate "Imprimir / salvar como PDF" %}</button></div>
+  <div class="topo">
+    <div><h1>{% translate "PROPOSTA" %} Nº {{ proposta.numero }}</h1><div class="nota">{% translate "Emitida em" %} {{ proposta.criado_em|date:"d/m/Y" }}{% if proposta.validade %} · {% translate "válida até" %} {{ proposta.validade|date:"d/m/Y" }}{% endif %}</div></div>
+    <div class="dir"><strong>{{ empresa.nome_fantasia|default:empresa.nome_razao_social }}</strong></div>
+  </div>
+
+  <h2>{% translate "Cliente" %}</h2>
+  <div>{{ proposta.destinatario_nome }}{% if proposta.destinatario_email %}<br>{{ proposta.destinatario_email }}{% endif %}{% if proposta.destinatario_whatsapp %}<br>{{ proposta.destinatario_whatsapp }}{% endif %}</div>
+
+  <h2>{% translate "Serviço" %}</h2>
+  <p>{{ proposta.descricao }} · {{ proposta.get_modo_display }}</p>
+  <table>
+    <thead><tr><th>{% translate "Descrição" %}</th><th class="dir">{% translate "Quantidade" %}</th><th class="dir">{% translate "Preço unit." %}</th></tr></thead>
+    <tbody>
+      {% for i in itens %}<tr><td>{{ i.descricao }}</td><td class="dir">{{ i.quantidade|floatformat:"-3" }} {{ i.unidade }}</td><td class="dir">{% if i.preco_unitario is not None %}{{ i.preco_unitario|moeda }}{% else %}&mdash;{% endif %}</td></tr>{% endfor %}
+      {% for k in custos_discriminados %}<tr><td>{{ k.descricao }} <span class="nota">({% translate "custo repassado" %})</span></td><td class="dir">{{ k.quantidade|floatformat:"-3" }} {{ k.unidade }}</td><td class="dir">{{ k.custo_unitario|moeda }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if r.acrescimos %}<p class="dir nota">{% translate "Acréscimos" %}: {{ r.acrescimos|moeda }}</p>{% endif %}
+  {% if r.desconto %}<p class="dir nota">{% translate "Desconto" %}: − {{ r.desconto|moeda }}</p>{% endif %}
+  <p class="dir total">{% translate "Total" %}: {{ proposta.total|moeda }}</p>
+
+  {% if proposta.escopo_incluido %}<h2>{% translate "Escopo incluído" %}</h2><div class="texto">{{ proposta.escopo_incluido }}</div>{% endif %}
+  {% if proposta.escopo_excluido %}<h2>{% translate "Escopo excluído" %}</h2><div class="texto">{{ proposta.escopo_excluido }}</div>{% endif %}
+  {% if proposta.etapas %}<h2>{% translate "Etapas ou entregáveis" %}</h2><div class="texto">{{ proposta.etapas }}</div>{% endif %}
+  {% if proposta.materiais_incluidos or proposta.materiais_excluidos %}<h2>{% translate "Materiais" %}</h2><div class="texto">{% if proposta.materiais_incluidos %}<strong>{% translate "Incluídos" %}:</strong> {{ proposta.materiais_incluidos }}{% endif %}{% if proposta.materiais_excluidos %}
+<strong>{% translate "Não incluídos" %}:</strong> {{ proposta.materiais_excluidos }}{% endif %}</div>{% endif %}
+  {% if proposta.limites %}<h2>{% translate "Limites" %}</h2><div class="texto">{{ proposta.limites }}</div>{% endif %}
+  {% if proposta.prazo %}<h2>{% translate "Prazo" %}</h2><div class="texto">{{ proposta.prazo }}</div>{% endif %}
+  {% if proposta.condicoes_pagamento %}<h2>{% translate "Condições de pagamento" %}</h2><div class="texto">{{ proposta.condicoes_pagamento }}</div>{% endif %}
+  {% if proposta.regras_extras %}<h2>{% translate "Extras, hora extra, espera e alterações de escopo" %}</h2><div class="texto">{{ proposta.regras_extras }}</div>{% endif %}
+  {% if proposta.observacoes %}<h2>{% translate "Observações" %}</h2><div class="texto">{{ proposta.observacoes }}</div>{% endif %}
+
+  <h2>{% translate "Aceite" %}</h2>
+  {% if proposta.aceite_em %}<p>{% translate "Aceita por" %} {{ proposta.aceite_nome }} {% translate "em" %} {{ proposta.aceite_em|date:"d/m/Y H:i" }}.</p>
+  {% else %}<p class="nota">{% translate "De acordo:" %} ____________________________________ &nbsp; {% translate "Data" %}: ___/___/______</p>{% endif %}
+</div>
+</body>
+</html>

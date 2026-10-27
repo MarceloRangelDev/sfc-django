@@ -1,0 +1,53 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Despesas e provisões" %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Precificação de serviços" %}</h4>
+  {% if perms.precificacaoservico.add_despesafixa %}<a href="{% url 'ps-despesa-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova despesa" %}</a>{% endif %}
+</div>
+{% include "_ps_nav.html" with ativa="despesas" %}
+{% if total_mensal %}<div class="alert alert-info">{% translate "Total mensal das despesas ativas" %}: <strong>{{ total_mensal.despesas|moeda }}</strong> · {% translate "provisões" %}: <strong>{{ total_mensal.provisoes|moeda }}</strong>. {% translate "Estes valores (convertidos para base mensal) entram no custo-hora." %}</div>{% endif %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
+      <div class="col-md-auto"><label class="form-label" for="status">{% translate "Status" %}</label>
+        <select id="status" name="status" class="form-select"><option value="">{% translate "Ativas" %}</option><option value="inativo" {% if status == "inativo" %}selected{% endif %}>{% translate "Inativas" %}</option><option value="todos" {% if status == "todos" %}selected{% endif %}>{% translate "Todas" %}</option></select></div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Descrição" as label %}{% include "_th_ordenavel.html" with campo="descricao" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Natureza" %}</th><th>{% translate "Categoria" %}</th><th>{% translate "Periodicidade" %}</th><th class="text-end">{% translate "Valor" %}</th><th>{% translate "Status" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for d in despesas %}
+        <tr>
+          <td>{{ d.descricao }}</td>{% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=d %}</td>{% endif %}
+          <td>{{ d.get_natureza_display }}</td><td>{{ d.get_categoria_display }}</td><td>{{ d.get_periodicidade_display }}</td><td class="text-end">{{ d.valor|moeda }}</td>
+          <td>{% if d.ativo %}<span class="badge bg-label-success">{% translate "Ativa" %}</span>{% else %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}</td>
+          <td>{% if perms.precificacaoservico.change_despesafixa %}<a href="{% url 'ps-despesa-edit' d.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}
+            {% if perms.precificacaoservico.delete_despesafixa %}<form method="post" action="{% url 'ps-despesa-excluir' d.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Excluir esta despesa?" %}')">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>{% endif %}</td>
+        </tr>
+        {% empty %}<tr><td colspan="{% if mostrar_unidade %}8{% else %}7{% endif %}" class="text-center py-6">{% translate "Nenhuma despesa cadastrada." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-despesas');</script>
+{% endblock page_js %}

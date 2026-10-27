@@ -1,0 +1,34 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar modelo" %}{% else %}{% translate "Novo modelo" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar modelo de serviço" %}{% else %}{% translate "Novo modelo de serviço" %}{% endif %}</h4>
+<div class="card"><div class="card-body">
+  <form method="post" data-form-salvar novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      {% if form.fields.cliente %}<div class="col-md-6"><label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>{{ form.cliente }}</div>{% endif %}
+      <div class="col-md-6"><label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-6"><label for="{{ form.categoria.id_for_label }}" class="form-label">{% translate "Categoria" %}</label>{{ form.categoria }}</div>
+      <div class="col-md-4"><label for="{{ form.modo.id_for_label }}" class="form-label">{% translate "Forma de cobrança" %}</label>{{ form.modo }}</div>
+      <div class="col-md-2"><label for="{{ form.unidade.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>{{ form.unidade }}<div class="form-text">{% translate "m², ponto, visita..." %}</div></div>
+      <div class="col-md-4"><label for="{{ form.preco_base.id_for_label }}" class="form-label">{% translate "Preço-base por unidade (R$)" %}</label>{{ form.preco_base }}{% if form.preco_base.errors %}<div class="text-danger small mt-1">{{ form.preco_base.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Opcional. Sem preço, o valor sai do custo e da margem." %}</div></div>
+      <div class="col-md-4"><label for="{{ form.horas_por_unidade.id_for_label }}" class="form-label">{% translate "Horas por unidade" %}</label>{{ form.horas_por_unidade }}{% if form.horas_por_unidade.errors %}<div class="text-danger small mt-1">{{ form.horas_por_unidade.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Esforço estimado de cada unidade (vazio = padrão da forma de cobrança)." %}</div></div>
+      <div class="col-md-4"><label for="{{ form.margem_pct.id_for_label }}" class="form-label">{% translate "Margem própria (%)" %}</label>{{ form.margem_pct }}{% if form.margem_pct.errors %}<div class="text-danger small mt-1">{{ form.margem_pct.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Vazio = margem da configuração. Margem é % do preço de venda, não do custo." %}</div></div>
+      <div class="col-12"><label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição / escopo padrão" %}</label>{{ form.descricao }}</div>
+      <div class="col-12"><div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label></div></div>
+    </div>
+    <div class="mt-6">{% url 'ps-modelo-list' as url_lista %}{% translate "Salvar e adicionar outro" as texto_novo %}{% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-modelo-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

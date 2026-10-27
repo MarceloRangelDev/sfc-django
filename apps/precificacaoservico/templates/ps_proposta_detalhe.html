@@ -1,0 +1,152 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Proposta" %} nº {{ proposta.numero }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-4 mb-2">
+  <h4 class="mb-0">{% translate "Proposta" %} nº {{ proposta.numero }} <span class="badge bg-label-{% if proposta.status == 'aprovada' or proposta.status == 'concluida' %}success{% elif proposta.status == 'recusada' or proposta.status == 'cancelada' %}secondary{% elif proposta.status == 'enviada' %}info{% else %}warning{% endif %} ms-2">{{ proposta.get_status_display }}</span></h4>
+  <div class="d-flex flex-wrap gap-2" id="ps-acoes">
+    <a href="{% url 'ps-proposta-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if pode_editar %}<a href="{% url 'ps-proposta-edit' proposta.pk %}" class="btn btn-outline-primary">{% translate "Editar" %}</a>{% endif %}
+    <a href="{% url 'ps-proposta-imprimir' proposta.pk %}" target="_blank" rel="noopener" class="btn btn-outline-secondary"><i class="icon-base ti tabler-printer me-1"></i>{% translate "Imprimir / PDF" %}</a>
+    {% for novo, rotulo in transicoes %}
+    <form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'status' %}" class="d-inline">{% csrf_token %}<input type="hidden" name="novo" value="{{ novo }}">
+      {% if novo == 'aprovada' %}<input type="text" name="aceite_nome" class="form-control d-inline-block w-auto" placeholder="{% translate 'Aceite dado por' %}" maxlength="150" aria-label="{% translate 'Aceite dado por' %}">{% endif %}
+      <button class="btn btn-{% if novo == 'aprovada' or novo == 'concluida' %}success{% elif novo == 'enviada' %}primary{% else %}outline-danger{% endif %}">{{ rotulo }}</button></form>
+    {% endfor %}
+    {% if pode_excluir %}<form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'excluir' %}" onsubmit="return confirm('{% translate "Excluir este rascunho?" %}')">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Excluir rascunho" %}</button></form>{% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card mb-4"><div class="card-body">
+      <h5>{{ proposta.descricao }}</h5>
+      <p class="mb-1">{{ proposta.destinatario_nome }}{% if proposta.destinatario_email %} · {{ proposta.destinatario_email }}{% endif %}{% if proposta.destinatario_whatsapp %} · {{ proposta.destinatario_whatsapp }}{% endif %}</p>
+      <p class="mb-0 small text-muted">{% translate "Cobrança" %}: {{ proposta.get_modo_display }}{% if proposta.validade %} · {% translate "válida até" %} {{ proposta.validade|date:"d/m/Y" }}{% endif %}{% if proposta.prazo %} · {% translate "prazo" %}: {{ proposta.prazo }}{% endif %}{% if proposta.aceite_em %} · {% translate "aceite" %}: {{ proposta.aceite_nome }} em {{ proposta.aceite_em|date:"d/m/Y H:i" }}{% endif %}</p>
+    </div></div>
+
+    <div class="card mb-4" id="ps-detalhe-itens">
+      <div class="table-responsive"><table class="table">
+        <thead><tr><th>{% translate "Trabalho" %}</th><th>{% translate "Cobrança" %}</th><th class="text-end">{% translate "Qtde." %}</th><th class="text-end">{% translate "Horas/unid." %}</th><th class="text-end">{% translate "Preço unit." %}</th></tr></thead>
+        <tbody>{% for i in itens %}<tr><td>{{ i.descricao }}</td><td>{{ i.get_modo_display }}</td><td class="text-end">{{ i.quantidade|floatformat:"-3" }} {{ i.unidade }}</td><td class="text-end">{% if i.horas_por_unidade is not None %}{{ i.horas_por_unidade|floatformat:"-2" }}{% else %}{% translate "padrão" %}{% endif %}</td><td class="text-end">{% if i.preco_unitario is not None %}{{ i.preco_unitario|moeda }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% if custos %}<div class="table-responsive"><table class="table">
+        <thead><tr><th>{% translate "Custo direto" %}</th><th>{% translate "Tipo" %}</th><th class="text-end">{% translate "Qtde." %}</th><th class="text-end">{% translate "Custo unit." %}</th><th>{% translate "No orçamento" %}</th></tr></thead>
+        <tbody>{% for k in custos %}<tr><td>{{ k.descricao }}</td><td>{{ k.get_categoria_display }}</td><td class="text-end">{{ k.quantidade|floatformat:"-3" }} {{ k.unidade }}</td><td class="text-end">{{ k.custo_unitario|moeda }}</td><td>{{ k.get_repasse_display }}</td></tr>{% endfor %}</tbody>
+      </table></div>{% endif %}
+    </div>
+
+    {% if proposta.escopo_incluido or proposta.escopo_excluido or proposta.regras_extras or proposta.condicoes_pagamento or proposta.observacoes %}
+    <div class="card mb-4"><div class="card-body small" style="white-space:pre-line">
+      {% if proposta.escopo_incluido %}<strong>{% translate "Escopo incluído" %}:</strong> {{ proposta.escopo_incluido }}<br>{% endif %}
+      {% if proposta.escopo_excluido %}<strong>{% translate "Escopo excluído" %}:</strong> {{ proposta.escopo_excluido }}<br>{% endif %}
+      {% if proposta.regras_extras %}<strong>{% translate "Extras e alterações" %}:</strong> {{ proposta.regras_extras }}<br>{% endif %}
+      {% if proposta.condicoes_pagamento %}<strong>{% translate "Pagamento" %}:</strong> {{ proposta.condicoes_pagamento }}<br>{% endif %}
+      {% if proposta.observacoes %}<strong>{% translate "Observações" %}:</strong> {{ proposta.observacoes }}{% endif %}
+    </div></div>
+    {% endif %}
+
+    {% if em_execucao %}
+    <div class="card mb-4" id="ps-execucao"><div class="card-header"><h5 class="mb-0">{% translate "Execução: horas, custos e extras reais" %}</h5></div>
+      <div class="table-responsive"><table class="table">
+        <thead><tr><th>{% translate "Data" %}</th><th>{% translate "Tipo" %}</th><th>{% translate "Descrição" %}</th><th class="text-end">{% translate "Horas" %}</th><th class="text-end">{% translate "Custo real" %}</th><th class="text-end">{% translate "Cobrado (extra)" %}</th><th></th></tr></thead>
+        <tbody>{% for l in lancamentos %}<tr><td>{{ l.data|date:"d/m/Y" }}</td><td>{{ l.get_tipo_display }}</td><td>{{ l.descricao|default:"—" }}</td><td class="text-end">{{ l.horas|floatformat:"-2" }}</td><td class="text-end">{{ l.custo|moeda }}</td><td class="text-end">{% if l.receita %}{{ l.receita|moeda }}{% else %}—{% endif %}</td>
+          <td>{% if pode_alterar %}<form method="post" action="{% url 'ps-registro-excluir' proposta.pk 'lancamento' l.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Excluir este lançamento?" %}')">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="7" class="text-center py-4">{% translate "Nenhum lançamento ainda." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% if pode_alterar %}<div class="card-body border-top"><form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'lancamento' %}" class="row g-3 align-items-end">{% csrf_token %}
+        <div class="col-md-3"><label class="form-label" for="{{ form_lancamento.tipo.id_for_label }}">{% translate "Tipo" %}</label>{{ form_lancamento.tipo }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_lancamento.data.id_for_label }}">{% translate "Data" %}</label>{{ form_lancamento.data }}</div>
+        <div class="col-md-6"><label class="form-label" for="{{ form_lancamento.descricao.id_for_label }}">{% translate "Descrição" %}</label>{{ form_lancamento.descricao }}</div>
+        <div class="col-md-2"><label class="form-label" for="{{ form_lancamento.horas.id_for_label }}">{% translate "Horas" %}</label>{{ form_lancamento.horas }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_lancamento.custo.id_for_label }}">{% translate "Custo real (R$)" %}</label>{{ form_lancamento.custo }}<div class="form-text">{% translate "Vazio = horas × custo-hora da proposta." %}</div></div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_lancamento.receita.id_for_label }}">{% translate "Cobrado do extra (R$)" %}</label>{{ form_lancamento.receita }}</div>
+        <div class="col-md-auto"><button class="btn btn-primary">{% translate "Registrar" %}</button></div>
+      </form></div>{% endif %}
+    </div>
+
+    <div class="card mb-4" id="ps-pagamentos"><div class="card-header"><h5 class="mb-0">{% translate "Pagamentos" %}</h5></div>
+      <div class="table-responsive"><table class="table">
+        <thead><tr><th>{% translate "Data" %}</th><th>{% translate "Meio" %}</th><th>{% translate "Situação" %}</th><th class="text-end">{% translate "Valor" %}</th><th class="text-end">{% translate "Taxa" %}</th><th></th></tr></thead>
+        <tbody>{% for g in pagamentos %}<tr><td>{{ g.data|date:"d/m/Y" }}</td><td>{{ g.get_meio_display }}</td><td>{{ g.get_status_display }}</td><td class="text-end">{{ g.valor|moeda }}</td><td class="text-end">{{ g.taxa|moeda }}</td>
+          <td>{% if pode_alterar %}<form method="post" action="{% url 'ps-registro-excluir' proposta.pk 'pagamento' g.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Excluir este pagamento?" %}')">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="6" class="text-center py-4">{% translate "Nenhum pagamento registrado." %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% if pode_alterar %}<div class="card-body border-top"><form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'pagamento' %}" class="row g-3 align-items-end">{% csrf_token %}
+        <div class="col-md-3"><label class="form-label" for="{{ form_pagamento.valor.id_for_label }}">{% translate "Valor (R$)" %}</label>{{ form_pagamento.valor }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_pagamento.data.id_for_label }}">{% translate "Data" %}</label>{{ form_pagamento.data }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_pagamento.meio.id_for_label }}">{% translate "Meio" %}</label>{{ form_pagamento.meio }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_pagamento.taxa.id_for_label }}">{% translate "Taxa do meio (R$)" %}</label>{{ form_pagamento.taxa }}</div>
+        <div class="col-md-3"><label class="form-label" for="{{ form_pagamento.status.id_for_label }}">{% translate "Situação" %}</label>{{ form_pagamento.status }}</div>
+        <div class="col-md-6"><label class="form-label" for="{{ form_pagamento.observacao.id_for_label }}">{% translate "Observação" %}</label>{{ form_pagamento.observacao }}</div>
+        <div class="col-md-auto"><button class="btn btn-primary">{% translate "Registrar" %}</button></div>
+      </form></div>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-4" id="ps-resultado"><div class="card-header"><h5 class="mb-0">{% translate "Resultado estimado" %}</h5></div><div class="card-body">
+      {% for a in r.alertas %}<div class="alert alert-{% if a.nivel == 'erro' %}danger{% else %}warning{% endif %} py-2">{{ a.mensagem }}</div>{% endfor %}
+      <table class="table table-sm mb-2">
+        <tr><td>{% translate "Custo do trabalho" %}</td><td class="text-end">{{ r.custo_trabalho|moeda }}</td></tr>
+        {% if r.custo_deslocamento %}<tr><td>{% translate "Deslocamento" %}</td><td class="text-end">{{ r.custo_deslocamento|moeda }}</td></tr>{% endif %}
+        <tr><td>{% translate "Custos diretos" %}</td><td class="text-end">{{ r.custos_incluidos|add:r.custos_discriminados|add:r.custos_absorvidos|moeda }}</td></tr>
+        <tr><th>{% translate "Custo estimado" %}</th><th class="text-end">{{ r.custo_total|moeda }}</th></tr>
+        <tr><td>{% translate "Preço mínimo" %}</td><td class="text-end">{{ r.preco_minimo|moeda }}</td></tr>
+        <tr><td>{% translate "Preço-alvo" %}</td><td class="text-end">{{ r.preco_alvo|moeda }}</td></tr>
+        {% if r.acrescimos %}<tr><td>{% translate "Acréscimos" %}</td><td class="text-end">+ {{ r.acrescimos|moeda }}</td></tr>{% endif %}
+        {% if r.desconto %}<tr><td>{% translate "Desconto" %}</td><td class="text-end">− {{ r.desconto|moeda }}</td></tr>{% endif %}
+        <tr class="table-primary"><th>{% translate "Total" %}</th><th class="text-end fs-5">{{ proposta.total|moeda }}</th></tr>
+        <tr><td>{% translate "Impostos e taxas (" %}{{ r.encargos_pct }}%)</td><td class="text-end">{{ r.impostos_taxas|moeda }}</td></tr>
+        <tr><td>{% translate "Lucro estimado" %}</td><td class="text-end {% if proposta.lucro < 0 %}text-danger{% endif %}">{{ proposta.lucro|moeda }}</td></tr>
+        <tr><td>{% translate "Margem (sobre o preço)" %}</td><td class="text-end">{% if r.margem %}{{ r.margem }}%{% else %}—{% endif %}</td></tr>
+        <tr><td>{% translate "Markup resultante (sobre o custo)" %}</td><td class="text-end">{% if r.markup_resultante %}{{ r.markup_resultante }}%{% else %}—{% endif %}</td></tr>
+      </table>
+      <div class="small text-muted">{% translate "Horas de trabalho previstas" %}: {{ r.horas_trabalho }} h · {% translate "preço obtido por" %}: {{ r.origem_preco }}</div>
+    </div></div>
+
+    <div class="card mb-4" id="ps-premissas"><div class="card-header"><h5 class="mb-0">{% translate "Premissas desta proposta" %}</h5></div><div class="card-body small">
+      <p class="mb-2 text-muted">{% translate "Retrato do momento do cálculo; mudar a configuração depois não altera esta proposta." %}</p>
+      <ul class="mb-2 ps-3">
+        <li>{% translate "Custo-hora total" %}: {{ p.custo_hora_total|floatformat:"0u"|moeda }} ({% translate "versão da configuração" %} {{ p.versao_configuracao }}, {{ p.calculado_em|slice:":10" }})</li>
+        <li>{% translate "Horas faturáveis/mês" %}: {{ p.horas_faturaveis }} · {% translate "jornada" %}: {{ p.horas_dia }} h</li>
+        <li>{% translate "Impostos" %} {{ p.impostos_pct }}% · {% translate "taxas" %} {{ p.taxas_pct }}% · {% translate "margem" %} {{ p.margem_pct }}% ({% translate "estimativas informadas pelo usuário" %})</li>
+      </ul>
+      {% if pode_editar %}<form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'premissas' %}" onsubmit="return confirm('{% translate "Recalcular esta proposta com as premissas de hoje?" %}')">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">{% translate "Atualizar para as premissas de hoje" %}</button></form>{% endif %}
+    </div></div>
+
+    {% if em_execucao %}
+    <div class="card mb-4" id="ps-previsto-realizado"><div class="card-header"><h5 class="mb-0">{% translate "Previsto x realizado" %}</h5></div><div class="card-body">
+      <table class="table table-sm mb-2">
+        <thead><tr><th></th><th class="text-end">{% translate "Previsto" %}</th><th class="text-end">{% translate "Realizado" %}</th></tr></thead>
+        <tr><td>{% translate "Horas" %}</td><td class="text-end">{{ rel.previsto.horas }}</td><td class="text-end">{{ rel.realizado.horas }}</td></tr>
+        <tr><td>{% translate "Custo" %}</td><td class="text-end">{{ rel.previsto.custo|moeda }}</td><td class="text-end">{{ rel.realizado.custo|moeda }}</td></tr>
+        <tr><td>{% translate "Valor" %}</td><td class="text-end">{{ rel.previsto.valor|moeda }}</td><td class="text-end">{{ rel.realizado.valor_total|moeda }}</td></tr>
+      </table>
+      <table class="table table-sm mb-2">
+        <tr><td>{% translate "Variação de custo (real − previsto)" %}</td><td class="text-end {% if rel.variacao_custo > 0 %}text-danger{% endif %}">{{ rel.variacao_custo|moeda }}</td></tr>
+        <tr><td>{% translate "Recebido" %}</td><td class="text-end">{{ rel.recebido|moeda }}</td></tr>
+        <tr><td>{% translate "Pendente" %}</td><td class="text-end">{{ rel.pendente|moeda }}</td></tr>
+        <tr><td>{% translate "Impostos e taxas registrados" %}</td><td class="text-end">{{ rel.impostos_taxas_registrados|moeda }}</td></tr>
+        <tr class="table-primary"><th>{% translate "Resultado (recebido − custos reais − taxas)" %}</th><th class="text-end {% if rel.resultado < 0 %}text-danger{% endif %}">{{ rel.resultado|moeda }}</th></tr>
+      </table>
+      <div class="small text-muted mb-3">{% translate "Os dados reais não alteram preços futuros; use-os para ajustar a configuração se quiser." %}</div>
+      {% if pode_alterar %}<form method="post" action="{% url 'ps-proposta-acao' proposta.pk 'datas' %}" class="row g-2 align-items-end">{% csrf_token %}
+        <div class="col-6"><label class="form-label small" for="{{ form_datas.data_inicio.id_for_label }}">{% translate "Início" %}</label>{{ form_datas.data_inicio }}</div>
+        <div class="col-6"><label class="form-label small" for="{{ form_datas.data_conclusao.id_for_label }}">{% translate "Conclusão" %}</label>{{ form_datas.data_conclusao }}</div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-primary">{% translate "Salvar datas" %}</button></div>
+      </form>{% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('ps-proposta-detalhe');</script>
+{% endblock page_js %}
