@@ -392,6 +392,14 @@ class TelasTests(Base):
         self.assertEqual(resposta.json()["resultado"]["custo_total"], 25000)
         self.assertEqual(Proposta.objects.count(), 0)
 
+    def test_previa_incompleta_devolve_aviso_sem_status_de_erro(self):
+        # custo sem valor durante a digitação: o painel mostra o aviso, mas a requisição não falha (nada de 4xx no console)
+        custos = [{"descricao": "x", "categoria": "material", "repasse": "incluido", "quantidade": "1", "custo_unitario": ""}]
+        resposta = self.client.post(reverse("ps-proposta-calcular"), {"destinatario_nome": "M", "descricao": "d", "modo": "hora", "metodo_preco": "margem", "arredondamento_minutos": "0",
+                                                                       "desconto_tipo": "valor", "itens_json": "[]", "custos_json": json.dumps(custos)})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(resposta.json()["ok"])
+
     def test_erro_de_regra_volta_ao_formulario_sem_gravar(self):
         resposta = self.post_proposta(margem_pct="95")
         self.assertEqual(resposta.status_code, 200)

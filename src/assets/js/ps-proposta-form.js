@@ -27,6 +27,8 @@
   function entrada(nome, valor, extra) {
     var i = el('input', Object.assign({ type: 'text', class: 'form-control form-control-sm', 'data-campo': nome }, extra || {}));
     i.value = valor == null ? '' : valor;
+    // Máscara do sistema (mascaras.js): as linhas nascem depois do carregamento da página, então é aplicada aqui.
+    if (extra && extra['data-mask'] && window.SFCMascaras) window.SFCMascaras.aplicar(i);
     return i;
   }
   function lista(nome, opcoes, valor) {
@@ -49,10 +51,10 @@
     var tr = el('tr', {}, [
       celula(entrada('descricao', d.descricao, { maxlength: 150, placeholder: 'Ex.: instalação' })),
       celula(lista('modo', modos, d.modo || form.elements.modo.value || 'hora')),
-      celula(entrada('quantidade', d.quantidade || '1', { inputmode: 'decimal', style: 'min-width:80px' })),
+      celula(entrada('quantidade', d.quantidade || '1', { 'data-mask': 'decimal', style: 'min-width:80px' })),
       celula(entrada('unidade', d.unidade, { maxlength: 20, style: 'min-width:80px' })),
-      celula(entrada('horas_por_unidade', d.horas_por_unidade, { inputmode: 'decimal', placeholder: 'padrão', style: 'min-width:80px' })),
-      celula(entrada('preco_unitario', d.preco_unitario, { inputmode: 'decimal', placeholder: 'opcional', style: 'min-width:100px' })),
+      celula(entrada('horas_por_unidade', d.horas_por_unidade, { 'data-mask': 'decimal', placeholder: 'padrão', style: 'min-width:80px' })),
+      celula(entrada('preco_unitario', d.preco_unitario, { 'data-mask': 'moeda', placeholder: 'opcional', style: 'min-width:100px' })),
       celula(remover())
     ]);
     tItens.appendChild(tr);
@@ -62,9 +64,9 @@
     tCustos.appendChild(el('tr', {}, [
       celula(lista('categoria', categorias, d.categoria || 'material')),
       celula(entrada('descricao', d.descricao, { maxlength: 150 })),
-      celula(entrada('quantidade', d.quantidade || '1', { inputmode: 'decimal', style: 'min-width:80px' })),
+      celula(entrada('quantidade', d.quantidade || '1', { 'data-mask': 'decimal', style: 'min-width:80px' })),
       celula(entrada('unidade', d.unidade, { maxlength: 20, style: 'min-width:80px' })),
-      celula(entrada('custo_unitario', d.custo_unitario, { inputmode: 'decimal', style: 'min-width:100px' })),
+      celula(entrada('custo_unitario', d.custo_unitario, { 'data-mask': 'moeda', placeholder: '0,00', style: 'min-width:100px' })),
       celula(lista('repasse', repasses, d.repasse || 'incluido')),
       celula(remover())
     ]));

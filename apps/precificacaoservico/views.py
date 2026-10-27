@@ -321,13 +321,14 @@ class PropostaCalcularView(SegmentoMixin, View):
             existente = _proposta(request, int(request.POST["proposta"]))
         form = PropostaForm(request.POST, cliente=cliente, instance=existente)
         if not form.is_valid():
-            return JsonResponse({"ok": False, "erros": {k: [str(m) for m in v] for k, v in form.errors.items()}}, status=422)
+            # 200 com ok=False: formulário ainda incompleto durante a digitação não é falha do servidor (evita "erro" no console).
+            return JsonResponse({"ok": False, "erros": {k: [str(m) for m in v] for k, v in form.errors.items()}})
         try:
             itens, custos = linhas_do_json(request.POST.get("itens_json"), request.POST.get("custos_json"))
             itens, custos = s.normalizar_linhas(itens, custos)
             resultado, premissas = s.simular(cliente, form.save(commit=False), itens, custos, existente.premissas if existente and existente.premissas else None)
         except RegraNegocioError as e:
-            return JsonResponse({"ok": False, "erros": {"__all__": [str(e)]}}, status=422)
+            return JsonResponse({"ok": False, "erros": {"__all__": [str(e)]}})
         return JsonResponse({"ok": True, "resultado": resultado, "custo_hora": premissas["custo_hora_total"], "versao": premissas["versao_configuracao"]})
 
 
