@@ -30,7 +30,8 @@
     return i;
   }
   function lista(nome, opcoes, valor) {
-    var s = el('select', { class: 'form-select form-select-sm', 'data-campo': nome });
+    // data-sem-busca: sem o select2 global, que dentro de célula de tabela fica sem largura e some; min-width garante a coluna visível.
+    var s = el('select', { class: 'form-select form-select-sm', 'data-campo': nome, 'data-sem-busca': '', style: 'min-width:150px' });
     opcoes.forEach(function (o) {
       var op = el('option', { value: o[0] }); op.textContent = o[1]; if (o[0] === valor) op.selected = true; s.appendChild(op);
     });
