@@ -53,10 +53,19 @@ def _mascarar(texto):
 # Conexão
 # --------------------------------------------------------------------------
 
+def provedor_liberado(cliente, provedor):
+    """Segmento da unidade libera este provedor? Sem segmento (ou segmento sem bloqueios) = liberado."""
+    segmento = getattr(cliente, "segmento", None)
+    return segmento is None or segmento.integracao_liberada(provedor)
+
+
 def conectar(request, cliente, provedor, nome, credenciais, config=None, escopos="", testar=True):
     """Cria a conexão (manual ou pós-OAuth): valida, cifra, grava (auditado) e, por padrão, TESTA no provedor. Sem teste bem-sucedido
     a conexão fica `erro` (editável); com sucesso, `conectada`."""
     adaptador = obter(provedor)
+    # Regra no serviço (e não só na tela): vale também para a API e para o retorno do OAuth. Conexões já existentes não são removidas.
+    if not provedor_liberado(cliente, provedor):
+        raise RegraNegocioError(f"A integração com {adaptador.rotulo} não está liberada para o segmento desta unidade.")
     nome = " ".join((nome or "").split())
     if not nome:
         raise RegraNegocioError("Informe um nome para a conexão.")

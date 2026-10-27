@@ -27,6 +27,9 @@ class Segmento(models.Model):
         help_text="Define se as regras de precificação usadas são as de serviço, de produto ou ambas.",
     )
     modulos = models.ManyToManyField("modulo.Modulo", blank=True, related_name="segmentos", verbose_name="Módulos")
+    # Integrações (Configurações > Integrações) NÃO liberadas ao segmento: lista de chaves de provedor (ex.: "instagram"). Guardar o que está
+    # BLOQUEADO (e não o liberado) mantém o padrão "tudo liberado": segmentos antigos e provedores novos continuam funcionando sem migração de dados.
+    integracoes_bloqueadas = models.JSONField(default=list, blank=True, verbose_name="Integrações bloqueadas")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -38,6 +41,10 @@ class Segmento(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def integracao_liberada(self, chave):
+        """Se o provedor de integração (chave do adaptador) está liberado para os clientes deste segmento."""
+        return chave not in (self.integracoes_bloqueadas or [])
 
     @property
     def precifica_servico(self):

@@ -51,6 +51,18 @@
           </div>
           <div class="form-text">{% translate "Os módulos de Configurações são essenciais e valem para todos os segmentos." %}</div>
         </div>
+        <div class="col-12" id="segIntegracoes">
+          <label class="form-label d-block">{% translate "Integrações liberadas (Configurações > Integrações)" %}</label>
+          <div class="d-flex flex-wrap gap-4">
+            {% for opcao in form.integracoes %}
+            <div class="form-check">
+              {{ opcao.tag }}
+              <label class="form-check-label" for="{{ opcao.id_for_label }}">{{ opcao.choice_label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="form-text">{% translate "Desmarque as integrações que os clientes deste segmento NÃO podem conectar. Conexões que já existem não são apagadas; só deixa de ser possível criar novas. O WhatsApp (API oficial da Meta) também libera os Templates do WhatsApp." %}</div>
+        </div>
         <div class="col-12">
           <label class="form-label d-block">{% translate "Insumos globais do segmento" %}</label>
           <input type="search" id="filtroInsumosGlobais" class="form-control mb-2" placeholder="{% translate 'Filtrar insumos...' %}" aria-label="{% translate 'Filtrar insumos' %}">

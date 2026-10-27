@@ -5,11 +5,13 @@
 {% block title %}{% translate "Integrações" %} - Sistema Faturando Certo{% endblock title %}
 
 {% block content %}
-<div class="py-4 mb-2 d-flex justify-content-between align-items-center"><h4 class="mb-0">{% translate "Integrações" %}</h4>{% if perms.integracao.view_templatewhatsapp %}<a href="{% url 'template-whatsapp-list' %}" class="btn btn-outline-secondary" id="btn-templates-whatsapp">{% translate "Templates do WhatsApp" %}</a>{% endif %}</div>
+<div class="py-4 mb-2 d-flex justify-content-between align-items-center"><h4 class="mb-0">{% translate "Integrações" %}</h4>{% if perms.integracao.view_templatewhatsapp and templates_liberados %}<a href="{% url 'template-whatsapp-list' %}" class="btn btn-outline-secondary" id="btn-templates-whatsapp">{% translate "Templates do WhatsApp" %}</a>{% endif %}</div>
 
 <div class="alert alert-warning" role="note">
   {% translate "Os conectores abaixo foram implementados pela documentação dos provedores, mas ainda NÃO foram homologados contra contas reais. Valide com uma conta de homologação antes de usar em produção." %}
 </div>
+
+{% if bloqueados %}<div class="alert alert-info" role="note">{% translate "Algumas integrações não estão liberadas para o segmento desta unidade e por isso não aparecem para conectar. Peça a quem administra o sistema para liberá-las em Segmentos." %}</div>{% endif %}
 
 {% if perms.integracao.add_conexao %}
 <div class="row g-4 mb-6">

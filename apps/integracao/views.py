@@ -54,7 +54,14 @@ class IntegracoesView(View):
         conexoes = Conexao.objects.filter(cliente__in=clientes_dos_itens(request.user, "view")).select_related("cliente")
         if not settings.DEBUG:
             conexoes = conexoes.exclude(provedor="teste")  # o provedor simulado só existe em desenvolvimento
-        return _pagina(self, request, "integracoes.html", {"conexoes": conexoes, "provedores": disponiveis(), "google_configurado": obter("google_calendar").configurado()})
+        cliente = cliente_do_usuario(request.user)
+        # Só os provedores liberados ao segmento da unidade têm cartão de "Conectar"; as conexões já existentes continuam listadas.
+        provedores = [p for p in disponiveis() if s.provedor_liberado(cliente, p.chave)]
+        return _pagina(self, request, "integracoes.html", {
+            "conexoes": conexoes, "provedores": provedores, "google_configurado": obter("google_calendar").configurado(),
+            "templates_liberados": s.provedor_liberado(cliente, "whatsapp_cloud"),
+            "bloqueados": len(provedores) < len(disponiveis()),
+        })
 
 
 class NovaConexaoView(View):
@@ -64,6 +71,8 @@ class NovaConexaoView(View):
         adaptador = obter_ou_404(provedor)
         if adaptador.usa_oauth:
             raise Http404  # provedores OAuth têm fluxo próprio (autorização no provedor)
+        if not s.provedor_liberado(cliente_do_usuario(self.request.user), provedor):
+            raise PermissionDenied  # provedor não liberado ao segmento (o serviço `conectar` confere de novo)
         return adaptador
 
     def get(self, request, provedor):

@@ -67,10 +67,18 @@ class SegmentoForm(forms.ModelForm):
     # Insumos globais oferecidos a este segmento (o vínculo fica em InsumoGlobal.segmentos). Sem nenhum marcado em NENHUM segmento = visível a todos.
     insumos_globais = forms.ModelMultipleChoiceField(queryset=None, required=False, label="Insumos globais do segmento", widget=forms.CheckboxSelectMultiple())
 
+    # Integrações (Configurações > Integrações) liberadas ao segmento. Marcado = liberado; o que fica desmarcado vai para `integracoes_bloqueadas`.
+    integracoes = forms.MultipleChoiceField(required=False, label="Integrações liberadas", widget=forms.CheckboxSelectMultiple())
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.insumoglobal.models import InsumoGlobal
+        from apps.integracao.adaptadores import disponiveis
 
+        self._ofertadas = [a.chave for a in disponiveis()]
+        self.fields["integracoes"].choices = [(a.chave, a.rotulo) for a in disponiveis()]
+        bloqueadas = self.instance.integracoes_bloqueadas or []
+        self.fields["integracoes"].initial = [c for c in self._ofertadas if c not in bloqueadas]  # segmento novo: tudo liberado
         # Módulos essenciais (Configurações) valem para todos os segmentos.
         self.fields["modulos"].queryset = Modulo.objects.filter(essencial=False)
         self.fields["insumos_globais"].queryset = InsumoGlobal.objects.filter(ativo=True).order_by("nome")
@@ -78,6 +86,13 @@ class SegmentoForm(forms.ModelForm):
             self.fields["insumos_globais"].initial = list(self.instance.insumos_globais.values_list("pk", flat=True))
         if self.instance.pk:
             self.fields["slug"].disabled = True
+
+    def save(self, commit=True):
+        liberadas = set(self.cleaned_data.get("integracoes", []))
+        antigas = self.instance.integracoes_bloqueadas or []
+        # Bloqueia o que foi desmarcado entre as ofertadas e preserva bloqueios de chaves que a tela não oferece (ex.: "teste" fora do DEBUG).
+        self.instance.integracoes_bloqueadas = [c for c in self._ofertadas if c not in liberadas] + [c for c in antigas if c not in self._ofertadas]
+        return super().save(commit)
 
     def _save_m2m(self):
         super()._save_m2m()

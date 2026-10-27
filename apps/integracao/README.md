@@ -157,3 +157,15 @@ Testes: `python manage.py test apps.integracao.tests_templates apps.integracao.t
 **Sincronização do Google Agenda** (`adaptadores/agenda.py`, `services.sincronizar_agenda`): lista **todas as páginas** (`nextPageToken`, até 20 × 250); acima do limite recusa a sincronização, e **nunca trabalha com lista parcial** (o núcleo desativa compromissos que “sumiram” do calendário, então truncar causaria exclusões indevidas); ignora cancelados; respeita `timeZone` quando o horário vem sem deslocamento; recorrentes são expandidos (`singleEvents`, cada ocorrência tem id próprio); o hash de conteúdo compara instantes em **UTC** (antes, “14:00-03:00” vs “17:00+00:00” fazia todo evento com hora ser reenviado a cada sincronização — na 1ª sincronização após a atualização cada item pode ser reescrito uma vez, com o mesmo conteúdo); a importação é **atômica** (compromisso + vínculo) e o mesmo evento já importado por outra conexão do mesmo provedor **da mesma unidade** é vinculado, não duplicado; nada cruza unidades. Janela: 1 dia atrás até 60 dias à frente.
 
 **Erros úteis**: 401/403/404 do Google viram mensagens objetivas (reconectar, ativar a API, conferir o ID do calendário) sem repetir o corpo da resposta nem credenciais; a Agenda mostra um aviso (só a quem tem `integracao.view_conexao`) quando uma conexão de calendário está com erro.
+
+## Integrações liberadas por segmento
+
+Em **Configurações > Segmentos** cada segmento define quais provedores os clientes dele podem conectar (caixas de seleção "Integrações liberadas").
+
+- O campo `Segmento.integracoes_bloqueadas` (lista de chaves de provedor) guarda o que está **bloqueado**; vazio = tudo liberado. Assim segmentos
+  antigos e provedores novos continuam funcionando sem migração de dados.
+- A regra está em `services.conectar` (vale para tela, retorno do OAuth do Google e API) e a tela esconde os cartões bloqueados
+  (`/integracoes/nova/<provedor>` responde 403).
+- Conexões já existentes **não** são apagadas nem desligadas; só deixa de ser possível criar novas.
+- O botão "Templates do WhatsApp" acompanha o provedor `whatsapp_cloud`.
+- Unidade sem segmento não tem bloqueios. A alteração é auditada (módulo `modulo`).

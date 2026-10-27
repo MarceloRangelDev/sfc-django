@@ -155,6 +155,13 @@ class SegmentoListView(ListView):
         return TemplateLayout.init(self, super().get_context_data(**kwargs))
 
 
+def _integracoes_liberadas(segmento):
+    """Texto das integrações liberadas (para a auditoria), na ordem do catálogo."""
+    from apps.integracao.adaptadores import disponiveis
+
+    return ", ".join(a.rotulo for a in disponiveis() if segmento.integracao_liberada(a.chave)) or "nenhuma"
+
+
 def _nomes_dos_modulos(segmento):
     return ", ".join(segmento.modulos.order_by("nome").values_list("nome", flat=True)) or None
 
@@ -174,6 +181,7 @@ class SegmentoFormMixin:
         editando = self.object is not None
         antes = _nomes_dos_modulos(self.object) if editando else None
         insumos_antes = set(self.object.insumos_globais.values_list("nome", flat=True)) if editando else set()
+        integracoes_antes = _integracoes_liberadas(self.object) if editando else None
         with transaction.atomic():
             resposta = super().form_valid(form)
             insumos_depois = set(self.object.insumos_globais.values_list("nome", flat=True))
@@ -183,6 +191,13 @@ class SegmentoFormMixin:
                     self.request, self.object,
                     [{"campo": "insumos_globais", "rotulo": "Insumos globais do segmento", "antes": f"{len(insumos_antes)} insumo(s)",
                       "depois": f"{len(insumos_depois)} insumo(s); incluídos: {', '.join(incluidos[:30]) or '—'}; retirados: {', '.join(retirados[:30]) or '—'}"}],
+                    modulo="modulo",
+                )
+            integracoes_depois = _integracoes_liberadas(self.object)
+            if editando and integracoes_antes != integracoes_depois:
+                registrar_alteracoes(
+                    self.request, self.object,
+                    [{"campo": "integracoes_bloqueadas", "rotulo": "Integrações liberadas do segmento", "antes": integracoes_antes, "depois": integracoes_depois}],
                     modulo="modulo",
                 )
             depois = _nomes_dos_modulos(self.object)
