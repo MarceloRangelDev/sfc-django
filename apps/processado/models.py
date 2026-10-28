@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from web_project.dimensoes import DimensoesMixin
 from web_project.regras.conversao import (
     DIMENSAO_COMPRIMENTO,
     DIMENSAO_MASSA,
@@ -119,7 +120,7 @@ class Processado(models.Model):
         return ((Decimal(1) - self.fator_rendimento) * 100).quantize(Decimal("0.01"))
 
 
-class ProcessadoItem(models.Model):
+class ProcessadoItem(DimensoesMixin, models.Model):
     """Linha da ficha técnica de um processado: quanto de um insumo é usado."""
 
     processado = models.ForeignKey(Processado, on_delete=models.CASCADE, related_name="itens")

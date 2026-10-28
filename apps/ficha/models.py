@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from apps.processado.models import LIMITE_OBSERVACOES, LIMITE_RECEITA
+from web_project.dimensoes import DimensoesMixin
 from web_project.regras.dinheiro import DinheiroService
 
 
@@ -58,7 +59,7 @@ class Ficha(models.Model):
         return DinheiroService.formatar(self.custo_total)
 
 
-class FichaItem(models.Model):
+class FichaItem(DimensoesMixin, models.Model):
     """Linha da ficha: quanto de um insumo é usado por receita/porção."""
 
     ficha = models.ForeignKey(Ficha, on_delete=models.CASCADE, related_name="itens")

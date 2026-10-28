@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -19,9 +20,11 @@ from apps.processado.recalculo import custo_do_item
 from apps.produto.models import Produto
 from web_project import TemplateLayout
 from web_project.acesso import clientes_dos_itens
+from web_project.dimensoes import SIGLA_POR_DIMENSOES, dimensoes_de, texto_decimal
 from web_project.exportacao import exportar_excel, exportar_pdf, sanitizar_texto_excel
 from web_project.mixins import ClienteScopedMixin, ExcluirOuDesativarView, ListaPaginadaMixin, ListaPorUnidadeMixin
 from web_project.regras import RegraNegocioError
+from web_project.regras.conversao import medida_e_metro, quantidade_por_dimensoes
 from web_project.regras.dinheiro import DinheiroService, ler_numero_brasileiro
 
 from apps.maodeobra.models import Colaborador, segmento_permite
@@ -142,7 +145,7 @@ class FichaFormMixin:
         if ficha.pk is None:  # só ao criar: o dono é a unidade do usuário
             ficha.cliente = self.request.user.profile.cliente
         itens = [
-            FichaItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"])
+            FichaItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"], **dimensoes_de(f))
             for f in formset.itens_validos()
         ]
         mao_de_obra = None if mo_formset is None else [
@@ -191,6 +194,8 @@ class FichaCalcularView(View):
     POST JSON {"itens": [{"insumo": 1, "medida": 2, "quantidade": "1,5"}], "mao_de_obra": [{"colaborador": 3, "horas": "2"}]}
     -> {"itens": [{"custo": "R$ 1,00", "extenso": "1,5 quilos", "erro": null}], "mao_de_obra": [{"custo": "R$ 40,00", "erro": null}],
         "total": "R$ 41,00"}   ("mao_de_obra" é opcional nos dois sentidos; o processado não a usa)
+    Unidade Metro: a linha pode trazer "dimensoes" (1, 2 ou 3) e "comprimento"/"largura"/"altura"; com 2 ou 3 a quantidade
+    é o produto das medidas (web_project/regras/conversao.py::quantidade_por_dimensoes) e o campo "quantidade" é ignorado.
     Insumos e colaboradores só dentro do escopo de visualização do usuário (tenant)."""
 
     def post(self, request):
@@ -214,14 +219,21 @@ class FichaCalcularView(View):
             try:
                 insumo = insumos.get(int(linha.get("insumo") or 0))
                 medida = medidas.get(int(linha.get("medida") or 0))
-                if medida and str(linha.get("quantidade", "")).strip():
+                dimensoes = int(linha.get("dimensoes") or 1) if medida is not None and medida_e_metro(medida) else 1
+                quantidade = Decimal(0)
+                if medida is not None and dimensoes > 1:
+                    # metro em área/volume: a quantidade é o produto das medidas (a mesma função da gravação)
+                    lados = (ler_numero_brasileiro(linha[c]) if str(linha.get(c) or "").strip() else None for c in ("comprimento", "largura", "altura"))
+                    quantidade = quantidade_por_dimensoes(dimensoes, *lados)
+                    item["extenso"] = f"{texto_decimal(quantidade)} {SIGLA_POR_DIMENSOES[dimensoes]}"
+                elif medida is not None and str(linha.get("quantidade", "")).strip():
                     quantidade = ler_numero_brasileiro(linha["quantidade"])
                     if quantidade > 0:
                         item["extenso"] = medida.por_extenso(quantidade)  # "2 unidades", "100 gramas"
-                    if insumo and quantidade > 0:
-                        custo = custo_do_item(insumo, medida, quantidade)
-                        total += custo
-                        item["custo"] = DinheiroService.formatar(custo)
+                if insumo and medida is not None and quantidade > 0:
+                    custo = custo_do_item(insumo, medida, quantidade, dimensoes)
+                    total += custo
+                    item["custo"] = DinheiroService.formatar(custo)
             except (RegraNegocioError, ValueError, TypeError, AttributeError) as erro:
                 item["erro"] = str(erro) if isinstance(erro, RegraNegocioError) else "Valores inválidos."
             resultado.append(item)

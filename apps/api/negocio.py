@@ -59,13 +59,17 @@ def para_formulario(dados, campos_moeda=()):
     return saida
 
 
-def dados_do_formset(itens, campos, prefixo="itens"):
+def dados_do_formset(itens, campos, prefixo="itens", opcionais=()):
     """Lista de itens (dicts) -> dados POST de um formset (management form + um conjunto de campos por linha).
-    INITIAL_FORMS fica 0: a gravação SUBSTITUI todos os itens, como nas telas."""
+    INITIAL_FORMS fica 0: a gravação SUBSTITUI todos os itens, como nas telas. `opcionais` só entram quando o item os traz
+    (o formulário assume o padrão do campo ausente)."""
     dados = {f"{prefixo}-TOTAL_FORMS": str(len(itens)), f"{prefixo}-INITIAL_FORMS": "0", f"{prefixo}-MIN_NUM_FORMS": "0", f"{prefixo}-MAX_NUM_FORMS": "1000"}
     for i, item in enumerate(itens):
         for campo in campos:
             dados[f"{prefixo}-{i}-{campo}"] = str(item[campo])
+        for campo in opcionais:
+            if item.get(campo) is not None:
+                dados[f"{prefixo}-{i}-{campo}"] = str(item[campo])
     return dados
 
 

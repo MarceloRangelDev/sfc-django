@@ -74,3 +74,7 @@ Nos segmentos **Serviço** e **Serviço e Produto** (os mesmos que usam o módul
 - API: `mao_de_obra` na entrada/saída de `/api/v1/fichas-tecnicas/` (`itens` agora opcional nesses segmentos; PATCH sem o campo mantém).
 
 Tabela **`ficha_fichamaodeobra`** (migração `ficha.0004_mao_de_obra_na_ficha`, aditiva): `id`; `ficha_id` FK CASCADE → `ficha_ficha`; `colaborador_id` FK **PROTECT** → `maodeobra_colaborador`; `horas` decimal(7,2) > 0; `custo` bigint (centavos, calculado); restrição única `ficha_mao_de_obra_unica (ficha, colaborador)`. Sem impacto nos dados existentes.
+
+## Metro em 1, 2 e 3 dimensões
+
+Insumo, item de processado e item de ficha aceitam a unidade **Metro** como linear, área (m²) ou volume (m³): `dimensoes`, `comprimento`, `largura`, `altura` (colunas aditivas; `quantidade` vira o produto das medidas e segue sendo o valor das contas). Insumo e item precisam ter o mesmo número de dimensões. Regra, decisões, colunas e migrações: **apps/medida/README.md** (seção "Metro em 1, 2 e 3 dimensões"); código em `web_project/dimensoes.py` e `web_project/regras/conversao.py`.

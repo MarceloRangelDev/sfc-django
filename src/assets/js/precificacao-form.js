@@ -48,7 +48,7 @@
       corpo.innerHTML = '';
       d.itens.forEach(function (i) {
         var tr = document.createElement('tr');
-        [i.insumo, i.quantidade + ' ' + i.medida, i.custo].forEach(function (texto, idx) {
+        [i.insumo, i.quantidade_texto || (i.quantidade + ' ' + i.medida), i.custo].forEach(function (texto, idx) {
           var td = document.createElement('td');
           td.textContent = texto;  // textContent: nomes vindos do banco nunca viram HTML
           if (idx === 2) td.className = 'text-end';
@@ -57,6 +57,24 @@
         corpo.appendChild(tr);
       });
     }
+    // Mão de obra opcional da ficha: linhas e subtotais vindos do servidor (a soma fecha com o custo total).
+    var moCorpo = document.getElementById('tabelaMaoDeObra');
+    var temMo = !!(d.mao_de_obra && d.mao_de_obra.length);
+    moCorpo.classList.toggle('d-none', !temMo);
+    document.getElementById('linhaSubtotalMaoDeObra').classList.toggle('d-none', !temMo);
+    moCorpo.querySelectorAll('tr:not(:first-child)').forEach(function (tr) { tr.remove(); });
+    (d.mao_de_obra || []).forEach(function (m) {
+      var tr = document.createElement('tr');
+      [m.colaborador, m.horas + ' h', m.custo].forEach(function (texto, idx) {
+        var td = document.createElement('td');
+        td.textContent = texto;
+        if (idx === 2) td.className = 'text-end';
+        tr.appendChild(td);
+      });
+      moCorpo.appendChild(tr);
+    });
+    document.querySelector('[data-subtotal="insumos"]').textContent = d.subtotal_insumos || '—';
+    document.querySelector('[data-subtotal="mao-de-obra"]').textContent = d.subtotal_mao_de_obra || '—';
     document.querySelectorAll('.total-ficha').forEach(function (e) { e.textContent = d.custo_ficha || '—'; });
   }
 

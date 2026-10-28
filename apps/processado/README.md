@@ -97,3 +97,7 @@ Rotas (`urls.py`, todas com `module_required("processado", ...)`): `processado` 
 | `management/commands/recalcular_custos.py` | nova tentativa idempotente |
 
 Testes: `apps/processado/tests.py` (exemplo do camarão, cascata, losango, ciclo, falha/idempotência, tenant, bloqueios, telas).
+
+## Metro em 1, 2 e 3 dimensões
+
+Insumo, item de processado e item de ficha aceitam a unidade **Metro** como linear, área (m²) ou volume (m³): `dimensoes`, `comprimento`, `largura`, `altura` (colunas aditivas; `quantidade` vira o produto das medidas e segue sendo o valor das contas). Insumo e item precisam ter o mesmo número de dimensões. Regra, decisões, colunas e migrações: **apps/medida/README.md** (seção "Metro em 1, 2 e 3 dimensões"); código em `web_project/dimensoes.py` e `web_project/regras/conversao.py`.

@@ -133,6 +133,20 @@ class PrecificacaoListView(ListaPaginadaMixin, ListaPorUnidadeMixin, ListView):
         return context
 
 
+def resumo_da_ficha(ficha):
+    """Linhas e subtotais da ficha técnica para a tela: insumos + mão de obra opcional. O custo da ficha (`custo_total`) já soma
+    os dois, calculado no servidor (apps/ficha/services.py); aqui só se mostra de onde ele vem, sem recalcular nada no cliente."""
+    if ficha is None:
+        return {"itens": [], "mao_de_obra": [], "subtotal_insumos": None, "subtotal_mao_de_obra": None}
+    itens = list(ficha.itens.select_related("insumo", "medida"))
+    mao_de_obra = list(ficha.mao_de_obra.select_related("colaborador"))
+    return {
+        "itens": itens, "mao_de_obra": mao_de_obra,
+        "subtotal_insumos": DinheiroService.formatar(sum(i.custo for i in itens)),
+        "subtotal_mao_de_obra": DinheiroService.formatar(sum(m.custo for m in mao_de_obra)),
+    }
+
+
 class PrecificacaoFormMixin:
     model = Precificacao
     form_class = PrecificacaoForm
@@ -143,7 +157,11 @@ class PrecificacaoFormMixin:
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         ficha = getattr(self.object, "ficha", None) if self.object is not None else None
         context["ficha_atual"] = ficha
-        context["itens_ficha"] = list(ficha.itens.select_related("insumo", "medida")) if ficha else []
+        resumo = resumo_da_ficha(ficha)
+        context["itens_ficha"] = resumo["itens"]
+        context["mao_de_obra_ficha"] = resumo["mao_de_obra"]
+        context["subtotal_insumos"] = resumo["subtotal_insumos"]
+        context["subtotal_mao_de_obra"] = resumo["subtotal_mao_de_obra"]
         return context
 
     def form_valid(self, form):
@@ -200,7 +218,7 @@ class PrecificacaoCalcularView(View):
         form.fields["ficha"].queryset = Ficha.objects.filter(cliente__in=escopo, ativo=True).select_related("produto")
         form.fields["canal"].queryset = CanalVenda.objects.filter(Q(cliente__in=escopo) | q_globais_do_usuario(CanalVenda, request.user), ativo=True).distinct()
         valido = form.is_valid()
-        resposta = {"erros": {} if valido else {k: v[0] for k, v in form.errors.items()}, "itens": [], "resultado": None}
+        resposta = {"erros": {} if valido else {k: v[0] for k, v in form.errors.items()}, "itens": [], "mao_de_obra": [], "resultado": None}
         ficha = form.cleaned_data.get("ficha") if hasattr(form, "cleaned_data") else None
         if ficha is not None:
             # Sugestão do módulo de Custo operacional: custo por unidade da categoria do produto.
@@ -213,10 +231,15 @@ class PrecificacaoCalcularView(View):
                 "total_categoria": DinheiroService.formatar(sugestao["total"]), "ajuste_na_categoria": sugestao["manual"],
             }
             resposta["custo_ficha"] = DinheiroService.formatar(ficha.custo_total)
+            resumo = resumo_da_ficha(ficha)
             resposta["itens"] = [
-                {"insumo": i.insumo.nome, "medida": i.medida.sigla, "quantidade": f"{i.quantidade.normalize():f}", "custo": i.custo_formatado}
-                for i in ficha.itens.select_related("insumo", "medida")
+                {"insumo": i.insumo.nome, "medida": i.medida.sigla, "quantidade": f"{i.quantidade.normalize():f}", "quantidade_texto": i.quantidade_texto, "custo": i.custo_formatado}
+                for i in resumo["itens"]
             ]
+            # Mão de obra opcional da ficha (segmentos de serviço): linhas e subtotais, para a soma da tela fechar com o custo total.
+            resposta["mao_de_obra"] = [{"colaborador": m.colaborador.nome, "horas": f"{m.horas.normalize():f}", "custo": m.custo_formatado} for m in resumo["mao_de_obra"]]
+            resposta["subtotal_insumos"] = resumo["subtotal_insumos"]
+            resposta["subtotal_mao_de_obra"] = resumo["subtotal_mao_de_obra"]
         if valido:
             dados = form.cleaned_data
             canal = dados.get("canal")

@@ -7,7 +7,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from web_project.regras import RegraNegocioError
-from web_project.regras.conversao import preco_por_unidade_padrao
+from web_project.dimensoes import DimensoesMixin
+from web_project.regras.conversao import preco_por_unidade_padrao, sigla_preco_dimensoes
 from web_project.regras.dinheiro import DinheiroService
 
 # Teto de segurança para valores em centavos (R$ 10 trilhões): impede estouro
@@ -23,7 +24,7 @@ def validar_marca(valor):
         raise ValidationError("A marca contém caracteres não permitidos.")
 
 
-class Insumo(models.Model):
+class Insumo(DimensoesMixin, models.Model):
     """Insumo utilizado nas receitas/produtos de um Cliente.
 
     Dinheiro é guardado em CENTAVOS (inteiro) — nunca float nem Decimal no
@@ -158,8 +159,9 @@ class Insumo(models.Model):
     @property
     def rotulo_preco(self):
         """'PREÇO (por KG)' — a sigla muda conforme a dimensão da medida."""
-        return f"PREÇO (por {self.medida.sigla_preco})"
+        return f"PREÇO (por {sigla_preco_dimensoes(self.medida, self.dimensoes)})"
 
     @property
     def quantidade_por_extenso(self):
-        return self.medida.por_extenso(self.quantidade)
+        # metro em área/volume: "2,4 × 1,2 m = 2,88 m²"; senão "100 gramas"
+        return self.descricao_dimensoes or self.medida.por_extenso(self.quantidade)

@@ -47,14 +47,25 @@ class CicloDeDependenciaError(RegraNegocioError):
 # Cálculo de um processado
 # --------------------------------------------------------------------------
 
-def custo_do_item(insumo, medida, quantidade):
+DIMENSOES_ROTULO = {1: "1 dimensão (linear)", 2: "2 dimensões (área)", 3: "3 dimensões (volume)"}
+
+
+def custo_do_item(insumo, medida, quantidade, dimensoes=1):
     """Custo (centavos) de `quantidade` de `medida` do insumo.
 
     Proporcional ao que foi pago: custo = preço pago x usado / comprado, com a
     conversão de unidades feita na unidade base da dimensão (2 kg == 2000 g).
     Só arredonda no final (ROUND_HALF_UP). Unidades de dimensões diferentes
     (massa x volume) não se convertem sem densidade: é erro, não palpite.
+
+    Metro: `quantidade` já é o comprimento (1 dimensão) ou o produto das medidas em m² / m³ (2 e 3 dimensões);
+    por isso a conta é a mesma, mas insumo e item precisam ter o MESMO número de dimensões (m² não compara com m).
     """
+    if insumo.dimensoes != dimensoes:
+        raise RegraNegocioError(
+            f'"{insumo.nome}": o insumo foi comprado em {DIMENSOES_ROTULO[insumo.dimensoes]} e o item usa {DIMENSOES_ROTULO[dimensoes]}; '
+            "use o mesmo número de dimensões."
+        )
     if medida.dimensao != insumo.medida.dimensao:
         raise RegraNegocioError(
             f'"{insumo.nome}": a unidade {medida.sigla} não é compatível com a unidade de compra '
@@ -74,7 +85,8 @@ def fator_de_rendimento(processado, itens):
     (ex.: litros de leite virando kg de doce) não há comparação honesta e
     devolve None, assim como quando nada foi usado."""
     dimensao = processado.rendimento_medida.dimensao
-    if not itens or any(i.medida.dimensao != dimensao for i in itens):
+    # itens em m² / m³ não se comparam com uma saída em metro linear
+    if not itens or any(i.medida.dimensao != dimensao or i.dimensoes != 1 for i in itens):
         return None
     usado = sum(quantidade_em_base(i.quantidade, i.medida) for i in itens)
     if usado == 0:
@@ -166,7 +178,7 @@ def recalcular_processado(processado):
     itens = list(processado.itens.select_related("insumo", "insumo__medida", "medida"))
     total = 0
     for item in itens:
-        custo = custo_do_item(item.insumo, item.medida, item.quantidade)
+        custo = custo_do_item(item.insumo, item.medida, item.quantidade, item.dimensoes)
         if item.custo != custo:
             item.custo = custo
             item.save(update_fields=["custo"])

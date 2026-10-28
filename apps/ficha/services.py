@@ -46,7 +46,7 @@ def recalcular_ficha(ficha, forcar=False):
     e, se o custo mudou (ou `forcar`), refaz as precificações dela."""
     total = 0
     for item in ficha.itens.select_related("insumo", "insumo__medida", "medida"):
-        custo = custo_do_item(item.insumo, item.medida, item.quantidade)
+        custo = custo_do_item(item.insumo, item.medida, item.quantidade, item.dimensoes)
         if item.custo != custo:
             item.custo = custo
             item.save(update_fields=["custo"])

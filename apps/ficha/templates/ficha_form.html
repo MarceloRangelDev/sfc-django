@@ -74,7 +74,7 @@
           <tr class="linha-item">
             <td>{{ f.id }}{{ f.insumo }}{% if f.insumo.errors %}<div class="text-danger small">{{ f.insumo.errors|striptags }}</div>{% endif %}</td>
             <td>{{ f.medida }}{% if f.medida.errors %}<div class="text-danger small">{{ f.medida.errors|striptags }}</div>{% endif %}</td>
-            <td>{{ f.quantidade }}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div>{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|striptags }}</div>{% endif %}</td>
+            <td>{{ f.quantidade }}{% include "partials/dimensoes_campos.html" %}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div>{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|striptags }}</div>{% endif %}</td>
             <td class="custo-item text-nowrap">{% if f.instance.pk %}{{ f.instance.custo_formatado }}{% else %}&mdash;{% endif %}</td>
             <td class="text-center">{% if f.instance.pk %}{{ f.DELETE }}{% else %}<button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button>{% endif %}</td>
           </tr>
@@ -131,7 +131,7 @@
     <tr class="linha-item">
       <td>{{ formset.empty_form.id }}{{ formset.empty_form.insumo }}</td>
       <td>{{ formset.empty_form.medida }}</td>
-      <td>{{ formset.empty_form.quantidade }}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div></td>
+      <td>{{ formset.empty_form.quantidade }}{% include "partials/dimensoes_campos.html" with f=formset.empty_form %}<div class="form-text fw-medium text-primary extenso-item" aria-live="polite"></div></td>
       <td class="custo-item text-nowrap">&mdash;</td>
       <td class="text-center"><button type="button" class="btn btn-sm btn-text-danger remover-linha" aria-label="{% translate 'Remover linha' %}"><i class="icon-base ti tabler-trash"></i></button></td>
     </tr>
@@ -150,5 +150,6 @@
 {{ block.super }}
 <script>initTourModulo('ficha-form');</script>
 <script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script src="{% static_v 'js/dimensoes.js' %}"></script>
 <script src="{% static_v 'js/ficha-form.js' %}"></script>
 {% endblock %}

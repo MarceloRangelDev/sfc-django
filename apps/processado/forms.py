@@ -6,6 +6,7 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from apps.insumo.models import Insumo
 from apps.medida.models import Medida
+from web_project.dimensoes import CAMPOS_DIMENSOES, DimensoesFormMixin
 from web_project.forms import DecimalBRField
 
 from .models import DIMENSOES_DE_SAIDA, LIMITE_OBSERVACOES, LIMITE_RECEITA, Processado, ProcessadoItem
@@ -108,7 +109,7 @@ def maiores_grandezas():
     return maiores
 
 
-class ProcessadoItemForm(forms.ModelForm):
+class ProcessadoItemForm(DimensoesFormMixin, forms.ModelForm):
     quantidade = DecimalBRField(
         max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), label="Quantidade usada",
         widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "decimal"}),
@@ -117,7 +118,7 @@ class ProcessadoItemForm(forms.ModelForm):
 
     class Meta:
         model = ProcessadoItem
-        fields = ["insumo", "medida", "quantidade"]
+        fields = ["insumo", "medida", "quantidade", *CAMPOS_DIMENSOES]
         widgets = {
             "insumo": forms.Select(attrs=SELECT),
             "medida": forms.Select(attrs=SELECT),
@@ -135,6 +136,7 @@ class ProcessadoItemForm(forms.ModelForm):
         self.fields["medida"].queryset = Medida.objects.filter(ativo=True).order_by("id")
         self.fields["medida"].empty_label = "Unidade..."
         self.fields["medida"].label_from_instance = rotulo_da_medida
+        self.configurar_dimensoes()
 
     @staticmethod
     def _rotulo_do_insumo(insumo, maiores):

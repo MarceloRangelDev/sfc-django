@@ -131,12 +131,20 @@
             <thead><tr><th>{% translate "Insumo" %}</th><th>{% translate "Qtd." %}</th><th class="text-end">{% translate "Custo" %}</th></tr></thead>
             <tbody>
               {% for i in itens_ficha %}
-              <tr><td>{{ i.insumo.nome }}</td><td>{{ i.quantidade|floatformat:"-4" }} {{ i.medida.sigla }}</td><td class="text-end">{{ i.custo_formatado }}</td></tr>
+              <tr><td>{{ i.insumo.nome }}</td><td>{{ i.quantidade_texto }}</td><td class="text-end">{{ i.custo_formatado }}</td></tr>
               {% empty %}
               <tr><td colspan="3" class="text-center text-muted py-4">{% translate "Selecione uma ficha técnica para ver os itens." %}</td></tr>
               {% endfor %}
             </tbody>
+            <tbody id="tabelaMaoDeObra" class="{% if not mao_de_obra_ficha %}d-none{% endif %}">
+              <tr class="table-light"><th colspan="3">{% translate "Mão de obra" %}</th></tr>
+              {% for m in mao_de_obra_ficha %}
+              <tr><td>{{ m.colaborador.nome }}</td><td>{{ m.horas|floatformat:"-2" }} h</td><td class="text-end">{{ m.custo_formatado }}</td></tr>
+              {% endfor %}
+            </tbody>
             <tfoot>
+              <tr><td colspan="2" class="text-end text-muted">{% translate "Subtotal dos insumos" %}</td><td class="text-end text-muted" data-subtotal="insumos">{% if subtotal_insumos %}{{ subtotal_insumos }}{% else %}&mdash;{% endif %}</td></tr>
+              <tr id="linhaSubtotalMaoDeObra" class="{% if not mao_de_obra_ficha %}d-none{% endif %}"><td colspan="2" class="text-end text-muted">{% translate "Subtotal da mão de obra" %}</td><td class="text-end text-muted" data-subtotal="mao-de-obra">{{ subtotal_mao_de_obra|default:"—" }}</td></tr>
               <tr><th colspan="2" class="text-end">{% translate "Custo total da ficha" %}</th><th class="text-end total-ficha">{% if ficha_atual %}{{ ficha_atual.custo_total_formatado }}{% else %}&mdash;{% endif %}</th></tr>
             </tfoot>
           </table>

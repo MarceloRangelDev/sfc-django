@@ -39,7 +39,7 @@
       { element: '#id_nome', title: 'Nome', text: 'Nome da receita/processado. Ele também será o nome do insumo gerado.', position: 'bottom' },
       { element: '#id_rendimento_quantidade', title: 'Rendimento', text: 'Quanto a receita rende depois de pronta (ex.: 500 g de camarão limpo). Abaixo do campo aparece o valor por extenso, como "500 gramas".', position: 'bottom' },
       { element: '#id_rendimento_medida', title: 'Unidade de saída', text: 'Gramas, quilos, mililitros, litros, unidade ou metro. O insumo gerado sempre usa a maior grandeza: 1 kg, 1 L, 1 un ou 1 m.', position: 'bottom' },
-      { element: '#tabelaItens', title: 'Ficha técnica', text: 'Os insumos usados, a unidade e a quantidade. O custo de cada item e o total aparecem na hora, calculados pelo sistema com a conversão das unidades. Dá para usar outro processado como insumo.', position: 'top' },
+      { element: '#tabelaItens', title: 'Ficha técnica', text: 'Os insumos usados, a unidade e a quantidade. O custo de cada item e o total aparecem na hora, calculados pelo sistema com a conversão das unidades. Dá para usar outro processado como insumo. Com a unidade Metro, também dá para usar área ou volume (comprimento × largura × altura).', position: 'top' },
       { element: '#adicionarLinha', title: 'Adicionar insumo', text: 'Inclua quantos insumos precisar.', position: 'top' },
       SALVAR
     ],
@@ -95,7 +95,7 @@
     'ficha-form': [
       { element: '#id_produto', title: 'Produto', text: 'A ficha pertence a um produto e não tem nome próprio: ela usa o nome do produto. Um produto pode ter mais de uma ficha.', position: 'bottom' },
       { element: '.total-ficha', title: 'Custo total', text: 'Aparece aqui em cima e também no rodapé da tabela, sempre com o mesmo valor, atualizado enquanto você preenche.', position: 'bottom' },
-      { element: '#tabelaItens', title: 'Itens', text: 'Escolha o insumo na lista (dá para buscar digitando). A unidade já vem na maior grandeza (Kg, L, Un) e o custo de cada item aparece na linha.', position: 'top' },
+      { element: '#tabelaItens', title: 'Itens', text: 'Escolha o insumo na lista (dá para buscar digitando). A unidade já vem na maior grandeza (Kg, L, Un) e o custo de cada item aparece na linha. Com a unidade Metro, escolha linear, área ou volume e informe comprimento, largura e altura; o item e o insumo precisam ter o mesmo número de dimensões.', position: 'top' },
       { element: '#adicionarLinha', title: 'Adicionar insumo', text: 'Inclua mais linhas quando precisar.', position: 'top' },
       SALVAR
     ],
@@ -113,7 +113,7 @@
       { element: '#id_canal', title: 'Canal de venda', text: 'Use um canal cadastrado ou deixe "Personalizado" para informar nome, descrição e taxas em % e/ou em reais.', position: 'bottom' },
       { element: '#id_custo_operacional', title: 'Custo operacional', text: 'Já vem preenchido pela distribuição do Custo operacional da categoria do produto. Se você digitar outro valor, ele fica marcado como "Ajustado manualmente" e não é sobrescrito; "Restaurar automático" volta ao calculado.', position: 'bottom' },
       { element: '#id_metodo_lucro', title: 'Como formar o lucro', text: 'Margem (% sobre o preço de venda), markup (% sobre o custo) ou um valor em reais.', position: 'bottom' },
-      { element: '#tabelaItens', title: 'Itens da ficha', text: 'Os itens da ficha com seus custos e o custo total no topo e no rodapé.', position: 'left' },
+      { element: '#tabelaItens', title: 'Itens da ficha', text: 'Os insumos da ficha e, quando houver, a mão de obra, cada um com seu custo. O rodapé mostra o subtotal dos insumos, o da mão de obra e o custo total da ficha (que soma os dois).', position: 'left' },
       { element: '#resumo', title: 'Resumo do cálculo', text: 'Canal, custos, taxas, lucro, preço de venda e CMV. É calculado pelo servidor e atualizado enquanto você preenche.', position: 'left' },
       SALVAR
     ],
@@ -553,7 +553,7 @@
     'insumo-form': [
       { element: '#id_nome', title: 'Nome', text: 'Nome do insumo. Pode vir de um insumo padrão do seu segmento.', position: 'bottom' },
       { element: '#id_medida', title: 'Unidade de medida', text: 'Unidade em que o insumo é comprado e controlado no estoque.', position: 'bottom' },
-      { element: '#id_quantidade', title: 'Quantidade comprada', text: 'Quanto veio na embalagem comprada.', position: 'bottom' },
+      { element: '#id_quantidade', title: 'Quantidade comprada', text: 'Quanto veio na embalagem comprada. Se a unidade for Metro, aparece a escolha de dimensões: linear (comprimento), área (comprimento × largura, em m²) ou volume (com altura, em m³). Nesses casos o sistema calcula a quantidade e o preço passa a ser por m² ou m³.', position: 'bottom' },
       { element: '#id_preco_pago', title: 'Preço pago', text: 'Quanto pagou pela quantidade acima; o custo unitário é calculado.', position: 'bottom' },
       SALVAR
     ],

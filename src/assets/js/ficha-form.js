@@ -9,7 +9,7 @@
  *
  * Marcação esperada: <form data-calculo-url="..." data-prefixo="...">; linhas em
  * `tbody#tabelaItens tr.linha-item` com campos terminados em -insumo, -medida
- * e -quantidade, uma `td.custo-item` por linha e elementos `.total-ficha`.
+ * e -quantidade (e, para o metro, -dimensoes/-comprimento/-largura/-altura), uma `td.custo-item` por linha e elementos `.total-ficha`.
  * Ficha de serviço: opcionalmente `tbody#tabelaMaoDeObra tr.linha-mo` (campos -colaborador e
  * -horas, `td.custo-mo`), botão #adicionarMaoDeObra e <template id="modeloMaoDeObra">; o total
  * enviado/recebido soma insumos + mão de obra.
@@ -72,7 +72,12 @@
       return {
         insumo: campo(l, '-insumo').value,
         medida: campo(l, '-medida').value,
-        quantidade: campo(l, '-quantidade').value
+        quantidade: campo(l, '-quantidade').value,
+        // metro em área/volume: o servidor calcula o produto das medidas (dimensoes.js só mostra/esconde os campos)
+        dimensoes: campo(l, '-dimensoes').value,
+        comprimento: campo(l, '-comprimento').value,
+        largura: campo(l, '-largura').value,
+        altura: campo(l, '-altura').value
       };
     });
     var rowsMo = linhasMo();

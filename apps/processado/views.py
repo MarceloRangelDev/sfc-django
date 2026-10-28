@@ -10,6 +10,7 @@ from apps.auditoria.utils import tirar_foto
 from web_project import TemplateLayout
 from web_project.mixins import ClienteScopedMixin, ListaPaginadaMixin, ListaPorUnidadeMixin
 from web_project.acesso import clientes_dos_itens
+from web_project.dimensoes import dimensoes_de
 
 from apps.ficha.views import FichaCalcularView
 
@@ -75,7 +76,7 @@ class ProcessadoFormMixin:
             processado.cliente = self.request.user.profile.cliente
         itens = [
             ProcessadoItem(
-                insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"]
+                insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"], **dimensoes_de(f)
             )
             for f in formset.itens_validos()
         ]

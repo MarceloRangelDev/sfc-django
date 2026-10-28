@@ -6,6 +6,7 @@ from django.db.models import Q
 from apps.medida.models import Medida
 from apps.estoque.services import insumo_tem_estoque
 from apps.processado.services import mensagem_insumo_em_uso
+from web_project.dimensoes import CAMPOS_DIMENSOES, DimensoesFormMixin
 from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMixin
 from web_project.regras import RegraNegocioError
 
@@ -14,7 +15,7 @@ from apps.insumoglobal import services as globais
 from .models import LIMITE_CENTAVOS, Insumo
 
 
-class InsumoForm(UnidadeFormMixin, forms.ModelForm):
+class InsumoForm(DimensoesFormMixin, UnidadeFormMixin, forms.ModelForm):
     """Cadastro/edição de insumo.
 
     O usuário informa: nome, unidade comprada, quantidade comprada e valor
@@ -48,7 +49,7 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
 
     class Meta:
         model = Insumo
-        fields = ["nome", "marca", "medida", "quantidade", "preco_pago", "dias_validade", "ativo"]
+        fields = ["nome", "marca", "medida", "quantidade", *CAMPOS_DIMENSOES, "preco_pago", "dias_validade", "ativo"]
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control", "list": "insumosGlobais", "autocomplete": "off"}),
             "marca": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional", "maxlength": 60, "autocomplete": "off"}),
@@ -76,6 +77,9 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
             filtro |= Q(pk=self.instance.medida_id)
         self.fields["medida"].queryset = Medida.objects.filter(filtro).order_by("id")
         self.fields["medida"].empty_label = "Selecione..."
+        self.configurar_dimensoes()
+        for nome in CAMPOS_DIMENSOES:  # a prévia de preço (calculo-medida.js) também considera as dimensões
+            self.fields[nome].widget.attrs["data-calc"] = nome
 
     @property
     def info_padrao(self):
@@ -200,10 +204,13 @@ class InsumoForm(UnidadeFormMixin, forms.ModelForm):
             erro = mensagem_insumo_em_uso(self.instance)
             if erro:
                 self.add_error("medida", "Este insumo é usado em receitas; a unidade deve continuar na mesma dimensão.")
+        if self.instance.pk and dados.get("dimensoes") not in (None, self.instance.dimensoes) and mensagem_insumo_em_uso(self.instance):
+            # Os itens das receitas só se comparam com o mesmo número de dimensões do insumo.
+            self.add_error("dimensoes", "Este insumo é usado em receitas; o número de dimensões não pode mudar.")
         # Antecipa o erro de cálculo (ex.: preço por unidade gigante) com
         # mensagem amigável em vez de falhar só ao gravar.
         if all(dados.get(campo) is not None for campo in ("medida", "quantidade", "preco_pago")):
-            tentativa = Insumo(medida=dados["medida"], quantidade=dados["quantidade"], preco_pago=dados["preco_pago"])
+            tentativa = Insumo(medida=dados["medida"], quantidade=dados["quantidade"], preco_pago=dados["preco_pago"], dimensoes=dados["dimensoes"])
             try:
                 tentativa.calcular_preco_unidade()
             except RegraNegocioError as erro:

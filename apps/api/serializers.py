@@ -33,6 +33,7 @@ from apps.usuario.services import foto_usuario, salvar_usuario
 from auth.models import Profile
 from web_project.acesso import GRUPO_ADMINISTRADOR, administrador_global, clientes_acessiveis, perfis_visiveis
 from web_project.regras import RegraNegocioError
+from web_project.regras.conversao import DIMENSOES_METRO, medida_e_metro, quantidade_por_dimensoes
 from web_project.regras.dinheiro import DinheiroService
 
 from .exceptions import RegraDeNegocioViolada
@@ -90,17 +91,22 @@ class MedidaSerializer(serializers.ModelSerializer):
     fator_base = serializers.DecimalField(max_digits=20, decimal_places=6, min_value=Decimal("0.000001"))
     sigla_preco = serializers.CharField(read_only=True)
     em_uso = serializers.SerializerMethodField()
+    aceita_dimensoes = serializers.SerializerMethodField(help_text="True só para o Metro: insumos e itens podem usar dimensoes 1, 2 (m²) ou 3 (m³).")
 
     class Meta:
         model = Medida
         fields = [
             "id", "medida", "sigla", "descricao", "equivale", "dimensao", "fator_base",
-            "nome_singular", "nome_plural", "sigla_preco", "ativo", "em_uso", "criado_em", "atualizado_em",
+            "nome_singular", "nome_plural", "sigla_preco", "aceita_dimensoes", "ativo", "em_uso", "criado_em", "atualizado_em",
         ]
         read_only_fields = ["criado_em", "atualizado_em"]
         # A unicidade é checada sem diferenciar maiúsculas (abaixo); o
         # validador padrão (exato) sairia duplicado e com outra mensagem.
         extra_kwargs = {"medida": {"validators": []}, "sigla": {"validators": []}}
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_aceita_dimensoes(self, medida):
+        return medida_e_metro(medida)
 
     @extend_schema_field(serializers.BooleanField())
     def get_em_uso(self, medida):
@@ -171,9 +177,19 @@ class InsumoSerializer(serializers.ModelSerializer):
     medida = serializers.PrimaryKeyRelatedField(queryset=Medida.objects.all(), help_text="Id da unidade comprada (ver /medidas/).")
     medida_detalhe = MedidaResumoSerializer(source="medida", read_only=True)
     quantidade = serializers.DecimalField(
-        max_digits=15, decimal_places=4, min_value=Decimal("0.0001"),
-        help_text="Quantidade comprada, com ponto decimal (ex.: \"100\" ou \"1.5\").",
+        max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), required=False,
+        help_text="Quantidade comprada, com ponto decimal (ex.: \"100\" ou \"1.5\"). Obrigatória com 1 dimensão; com 2 ou 3 "
+                  "(unidade Metro) é calculada pelo servidor (comprimento × largura [× altura]) e o valor enviado é ignorado.",
     )
+    dimensoes = serializers.ChoiceField(
+        choices=list(DIMENSOES_METRO.items()), required=False,
+        help_text="Só para a unidade Metro: 1 = linear, 2 = área (m²), 3 = volume (m³). Omitido = 1 (ou o valor atual na edição). "
+                  "Em outras unidades é ignorado e gravado como 1.",
+    )
+    comprimento = serializers.DecimalField(max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), required=False, allow_null=True, help_text="Metros. Obrigatório com 2 ou 3 dimensões.")
+    largura = serializers.DecimalField(max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), required=False, allow_null=True, help_text="Metros. Obrigatória com 2 ou 3 dimensões.")
+    altura = serializers.DecimalField(max_digits=15, decimal_places=4, min_value=Decimal("0.0001"), required=False, allow_null=True, help_text="Metros. Obrigatória com 3 dimensões.")
+    descricao_dimensoes = serializers.CharField(read_only=True, help_text="Ex.: \"2,4 × 1,2 m = 2,88 m²\" (vazio com 1 dimensão).")
     # Dinheiro: inteiro em CENTAVOS (R$ 4,00 -> 400). Nunca float.
     preco_pago = serializers.IntegerField(min_value=0, max_value=LIMITE_CENTAVOS, help_text="Valor pago em centavos (R$ 4,00 = 400).")
     preco_pago_decimal = serializers.SerializerMethodField()
@@ -189,6 +205,7 @@ class InsumoSerializer(serializers.ModelSerializer):
         model = Insumo
         fields = [
             "id", "codigo", "uuid", "nome", "marca", "medida", "medida_detalhe", "quantidade", "quantidade_por_extenso",
+            "dimensoes", "comprimento", "largura", "altura", "descricao_dimensoes",
             "preco_pago", "preco_pago_decimal", "preco_pago_formatado",
             "preco_unidade", "preco_unidade_decimal", "preco_unidade_formatado", "rotulo_preco",
             "dias_validade", "ativo", "criado_em", "atualizado_em",
@@ -223,6 +240,30 @@ class InsumoSerializer(serializers.ModelSerializer):
             raise _erro_unico("Este insumo já está cadastrado.")
         return nome
 
+    def _resolver_dimensoes(self, dados, base, medida):
+        """Mesma regra do formulário (web_project/dimensoes.py): fora do metro vale 1 dimensão; com 2 ou 3 a quantidade
+        é o produto das medidas, calculado aqui; com 1 a quantidade é obrigatória. Insumo já usado em receita não muda de
+        dimensões (os itens guardam o número de dimensões do insumo no momento do cálculo)."""
+        dimensoes = int(dados.get("dimensoes", getattr(base, "dimensoes", 1)) or 1)
+        if medida is None or not medida_e_metro(medida):
+            dimensoes = 1
+        if base is not None and dimensoes != base.dimensoes and mensagem_insumo_em_uso(base):
+            raise serializers.ValidationError({"dimensoes": "Este insumo é usado em receitas; o número de dimensões não pode mudar."})
+        dados["dimensoes"] = dimensoes
+        if dimensoes == 1:
+            dados["comprimento"] = dados["largura"] = dados["altura"] = None
+            if dados.get("quantidade") is None and (base is None or base.dimensoes != 1):
+                raise serializers.ValidationError({"quantidade": "Informe a quantidade comprada."})
+            return
+        medidas = {c: dados.get(c, getattr(base, c, None) if base is not None and base.dimensoes == dimensoes else None) for c in ("comprimento", "largura", "altura")}
+        if dimensoes == 2:
+            medidas["altura"] = None
+        try:
+            dados["quantidade"] = quantidade_por_dimensoes(dimensoes, **medidas)
+        except RegraNegocioError as erro:
+            raise serializers.ValidationError({"comprimento": str(erro)}) from None
+        dados.update(medidas)
+
     def validate_medida(self, medida):
         # Só medidas ativas em novos usos; a medida atual de um insumo
         # existente continua válida mesmo que tenha sido inativada depois.
@@ -241,10 +282,13 @@ class InsumoSerializer(serializers.ModelSerializer):
             if nova is not None and nova.dimensao != base.medida.dimensao and mensagem_insumo_em_uso(base):
                 # Receitas que usam o insumo guardam unidades da dimensão antiga.
                 raise serializers.ValidationError({"medida": "Este insumo é usado em receitas; a unidade deve continuar na mesma dimensão."})
+        medida = dados.get("medida", getattr(base, "medida", None))
+        self._resolver_dimensoes(dados, base, medida)
         tentativa = Insumo(
-            medida=dados.get("medida", getattr(base, "medida", None)),
+            medida=medida,
             quantidade=dados.get("quantidade", getattr(base, "quantidade", None)),
             preco_pago=dados.get("preco_pago", getattr(base, "preco_pago", 0)),
+            dimensoes=dados.get("dimensoes", getattr(base, "dimensoes", 1)),
         )
         if tentativa.medida is not None and tentativa.quantidade is not None:
             try:

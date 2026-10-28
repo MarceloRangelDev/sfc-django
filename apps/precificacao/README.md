@@ -87,3 +87,7 @@ O campo "Custo operacional da categoria (R$)" e o resumo "Custo operacional por 
 Índice `(cliente, ativo)`. Migration `0003_precificacao_sem_nome_digitado`: remove a unicidade `(cliente, nome)` e preenche a identificação das linhas existentes (reversível). Migration `0002_precificacoes`: se existirem precificações antigas (sem cliente/ficha/produto) ela **para com mensagem** em vez de inventar dados.
 
 Testes: `apps/precificacao/tests.py` (fórmulas e bordas, recálculo em cadeia insumo → processado → ficha → precificação, canal, telas, validações, filtros, exportação, prévia e isolamento de tenant, matriz/filial).
+
+## Mão de obra na tela de precificação
+
+A tabela "Itens da ficha técnica" lista, além dos insumos, a **mão de obra** opcional da ficha (segmentos de serviço) com subtotais: *subtotal dos insumos*, *subtotal da mão de obra* e *custo total da ficha*. Antes só os insumos apareciam, embora o custo total (`Ficha.custo_total`, calculado no servidor em `apps/ficha/services.py::recalcular_ficha`) já somasse a mão de obra — a conta na tela não fechava. A correção é só de exibição: `views.py::resumo_da_ficha` monta linhas e subtotais (usado na tela e na prévia `precificacao/calcular`, chaves `mao_de_obra`, `subtotal_insumos`, `subtotal_mao_de_obra`; `itens[].quantidade_texto` novo). Nada é somado no navegador e a mão de obra não é contada duas vezes (o total vem da ficha). Sem mão de obra a tela fica como antes. Sem alteração de banco.

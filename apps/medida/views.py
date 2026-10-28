@@ -11,7 +11,8 @@ from apps.auditoria.mixins import AuditoriaFormMixin
 from apps.auditoria.utils import registrar_edicao, registrar_exclusao, tirar_foto
 from web_project import TemplateLayout
 from web_project.regras import RegraNegocioError
-from web_project.regras.conversao import DIMENSOES, preco_por_unidade_padrao
+from web_project.dimensoes import SIGLA_POR_DIMENSOES, texto_decimal
+from web_project.regras.conversao import DIMENSOES, medida_e_metro, preco_por_unidade_padrao, quantidade_por_dimensoes, sigla_preco_dimensoes
 from web_project.regras.dinheiro import DinheiroService, ler_numero_brasileiro
 
 from .forms import MedidaForm
@@ -156,22 +157,31 @@ class MedidaCalcularView(View):
     GET /medidas/calcular?medida=<id>&quantidade=100&preco=4,00 devolve:
       - quantidade por extenso ('100 gramas');
       - o rótulo e o valor de 'PREÇO (por KG)'.
+    Unidade Metro: com `dimensoes=2|3` e `comprimento`, `largura` [, `altura`] a quantidade é o produto das medidas
+    (m² / m³), o rótulo vira 'PREÇO (por M²)' e `quantidade_calculada` devolve o total.
     Usa exatamente as mesmas funções do backend (web_project/regras), então
     a prévia nunca diverge do valor que será gravado. Qualquer usuário
     autenticado pode usar (não exige permissão de administrar medidas).
     """
 
     def get(self, request):
-        resposta = {"quantidade_extenso": None, "rotulo_preco": None, "preco_unidade": None}
+        resposta = {"quantidade_extenso": None, "rotulo_preco": None, "preco_unidade": None, "quantidade_calculada": None}
         medida_id = request.GET.get("medida", "")
         medida = Medida.objects.filter(pk=medida_id, ativo=True).first() if medida_id.isdigit() else None
         if medida is None:
             return JsonResponse(resposta)
 
-        resposta["rotulo_preco"] = f"PREÇO (por {medida.sigla_preco})"
+        dimensoes = int(request.GET["dimensoes"]) if request.GET.get("dimensoes", "").isdigit() and medida_e_metro(medida) else 1
+        resposta["rotulo_preco"] = f"PREÇO (por {sigla_preco_dimensoes(medida, dimensoes)})"
         try:
-            quantidade = ler_numero_brasileiro(request.GET.get("quantidade"))
-            resposta["quantidade_extenso"] = medida.por_extenso(quantidade)
+            if dimensoes > 1:
+                medidas = [ler_numero_brasileiro(request.GET.get(c)) if request.GET.get(c, "").strip() else None for c in ("comprimento", "largura", "altura")]
+                quantidade = quantidade_por_dimensoes(dimensoes, *medidas)
+                resposta["quantidade_calculada"] = f"{texto_decimal(quantidade)} {SIGLA_POR_DIMENSOES[dimensoes]}"
+                resposta["quantidade_extenso"] = resposta["quantidade_calculada"]
+            else:
+                quantidade = ler_numero_brasileiro(request.GET.get("quantidade"))
+                resposta["quantidade_extenso"] = medida.por_extenso(quantidade)
             if quantidade > 0:
                 centavos = DinheiroService.de_texto(request.GET.get("preco"))
                 resposta["preco_unidade"] = DinheiroService.para_api(

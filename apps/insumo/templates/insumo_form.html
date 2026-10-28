@@ -50,6 +50,7 @@
         <div class="col-md-4">
           <label for="{{ form.quantidade.id_for_label }}" class="form-label">{% translate "Quantidade comprada" %}</label>
           {{ form.quantidade }}
+          {% include "partials/dimensoes_campos.html" with f=form %}
           <div class="form-text fw-medium text-primary" data-calc-saida="extenso" aria-live="polite"></div>
           {% if form.quantidade.errors %}<div class="text-danger small mt-1">{{ form.quantidade.errors|striptags }}</div>{% endif %}
         </div>
@@ -113,6 +114,7 @@
     montarMarcas(inicial);
   })();
 </script>
+<script src="{% static_v 'js/dimensoes.js' %}"></script>
 <script src="{% static_v 'js/calculo-medida.js' %}"></script>
 <script>
   // Evita duplo clique/duplo envio enquanto a requisição de salvar está em

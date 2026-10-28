@@ -15,6 +15,7 @@
  *     <div data-calc-saida="extenso"></div>           (ex.: "100 gramas")
  *     <label data-calc-saida="rotulo"></label>        (ex.: "PREÇO (por KG)")
  *     <input data-calc-saida="preco" readonly>        (ex.: "R$ 40,00")
+ *   Metro em área/volume (opcional): data-calc="dimensoes|comprimento|largura|altura" — o servidor calcula o produto.
  *   </form>
  */
 (function () {
@@ -41,6 +42,10 @@
       var params = new URLSearchParams({
         medida: medida.value, quantidade: quantidade.value, preco: preco ? preco.value : ''
       });
+      ['dimensoes', 'comprimento', 'largura', 'altura'].forEach(function (nome) {
+        var el = campo(nome);
+        if (el) params.set(nome, el.value);
+      });
       fetch(url + '?' + params.toString(), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : {}; })
         .then(function (dados) {
@@ -57,7 +62,7 @@
       temporizador = setTimeout(atualizar, 200);
     }
 
-    [medida, quantidade, preco].forEach(function (el) {
+    [medida, quantidade, preco, campo('dimensoes'), campo('comprimento'), campo('largura'), campo('altura')].forEach(function (el) {
       if (el) { el.addEventListener('input', agendar); el.addEventListener('change', agendar); }
     });
     atualizar(); // formulário de edição já vem preenchido

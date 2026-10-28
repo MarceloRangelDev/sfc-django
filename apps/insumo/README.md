@@ -76,3 +76,7 @@ POST /insumo/novo → InsumoCreateView → form → Insumo.save() (recalcula pre
 | fórmula do preço por unidade | `web_project/regras/conversao.py` |
 | nova coluna | `models.py` → migration → `forms.py` → `insumo.html` → `exports.py` → `api/serializers.py` |
 | ações do tour | bloco `page_js` de `insumo.html` (ver `apps/tour/README.md`) |
+
+## Metro em 1, 2 e 3 dimensões
+
+Insumo, item de processado e item de ficha aceitam a unidade **Metro** como linear, área (m²) ou volume (m³): `dimensoes`, `comprimento`, `largura`, `altura` (colunas aditivas; `quantidade` vira o produto das medidas e segue sendo o valor das contas). Insumo e item precisam ter o mesmo número de dimensões. Regra, decisões, colunas e migrações: **apps/medida/README.md** (seção "Metro em 1, 2 e 3 dimensões"); código em `web_project/dimensoes.py` e `web_project/regras/conversao.py`.

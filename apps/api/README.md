@@ -85,3 +85,9 @@ Testes: `apps/api/tests_cadastros.py`, `tests_estoque_financeiro.py` e `tests_op
 | Fila | `GET /pedidos/fila/` | Inclui pedidos novos. |
 
 Detalhes, decisões e endpoints considerados desnecessários: `apps/pdv/README.md` (Atualização 6).
+
+## Metro em 1, 2 e 3 dimensões e mão de obra (atualização)
+
+- `insumos`, e os `itens` de `processados` e `fichas-tecnicas`, ganharam `dimensoes` (1, 2 ou 3), `comprimento`, `largura`, `altura` (metros, string decimal) — **aditivo**: omitidos, vale 1 dimensão e `quantidade` como sempre. Com 2 ou 3 a `quantidade` é calculada pelo servidor (a enviada é ignorada); fora do Metro o campo é ignorado (grava 1). Erros: 400 para medida faltando/≤ 0, produto < 0,0001, ou insumo em receita mudando de dimensões; item com dimensões diferentes das do insumo é recusado (400/422). `GET /medidas/` traz `aceita_dimensoes`.
+- Nenhum endpoint novo foi criado: os fluxos de tenant (cadastros, estoque, financeiro, PDV, pedidos, mão de obra, orçamentos, propostas, integrações, notificações) já têm recursos; ficam fora, de propósito, as telas só de administrador da plataforma (segmentos, insumos globais, módulos de catálogo) e as de impressão/etiqueta.
+- Swagger (`/api/docs/`) documenta os campos novos (descrições e exemplos sem dados sensíveis). Testes: `apps/api/tests_dimensoes.py`.

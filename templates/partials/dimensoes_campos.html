@@ -1,0 +1,13 @@
+{% load i18n %}{# Dimensões do metro (linear/área/volume). Uso: {% include "partials/dimensoes_campos.html" with f=<form> %}. Escondido pelo dimensoes.js até escolher Metro. #}
+<div class="bloco-dimensoes d-none mt-2" data-dim="bloco">
+  {{ f.dimensoes }}
+  <div class="row g-1 mt-1">
+    <div class="col-12 col-sm" data-dim="col-comprimento">{{ f.comprimento }}</div>
+    <div class="col-12 col-sm" data-dim="col-largura">{{ f.largura }}</div>
+    <div class="col-12 col-sm" data-dim="col-altura">{{ f.altura }}</div>
+  </div>
+  {% if f.errors.dimensoes %}<div class="text-danger small">{{ f.errors.dimensoes|striptags }}</div>{% endif %}
+  {% if f.errors.comprimento %}<div class="text-danger small">{{ f.errors.comprimento|striptags }}</div>{% endif %}
+  {% if f.errors.largura %}<div class="text-danger small">{{ f.errors.largura|striptags }}</div>{% endif %}
+  {% if f.errors.altura %}<div class="text-danger small">{{ f.errors.altura|striptags }}</div>{% endif %}
+</div>

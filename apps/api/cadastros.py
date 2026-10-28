@@ -28,6 +28,8 @@ from apps.processado.services import excluir_processado, salvar_processado
 from apps.produto.forms import ProdutoForm
 from apps.produto.models import Produto
 from web_project.acesso import cliente_do_usuario
+from web_project.dimensoes import dimensoes_de
+from web_project.regras.conversao import DIMENSOES_METRO
 from web_project.documento import exportar_documento, interpretar_booleano
 from web_project.regras.dinheiro import DinheiroService
 
@@ -235,7 +237,17 @@ class CustoViewSet(RecursoViewSet):
 class ItemEntrada(serializers.Serializer):
     insumo = serializers.IntegerField(help_text="Id de um insumo ATIVO da sua empresa (ver /insumos/).")
     medida = serializers.IntegerField(help_text="Id da unidade em que a quantidade foi informada (ver /medidas/).")
-    quantidade = serializers.DecimalField(**QUANTIDADE, help_text='Quantidade usada, com ponto decimal (ex.: "0.5").')
+    quantidade = serializers.DecimalField(
+        **QUANTIDADE, required=False,
+        help_text='Quantidade usada, com ponto decimal (ex.: "0.5"). Obrigatória com 1 dimensão; com 2 ou 3 (unidade Metro) é calculada pelo servidor.',
+    )
+    dimensoes = serializers.ChoiceField(
+        choices=list(DIMENSOES_METRO.items()), required=False, default=1,
+        help_text="Só para a unidade Metro: 1 = linear, 2 = área (m²), 3 = volume (m³). Deve ser igual ao do insumo. Em outras unidades é ignorado.",
+    )
+    comprimento = serializers.DecimalField(**QUANTIDADE, required=False, help_text="Metros. Obrigatório com 2 ou 3 dimensões.")
+    largura = serializers.DecimalField(**QUANTIDADE, required=False, help_text="Metros. Obrigatória com 2 ou 3 dimensões.")
+    altura = serializers.DecimalField(**QUANTIDADE, required=False, help_text="Metros. Obrigatória com 3 dimensões.")
 
 
 class ItemSerializer(serializers.Serializer):
@@ -244,7 +256,11 @@ class ItemSerializer(serializers.Serializer):
     insumo_nome = serializers.CharField(source="insumo.nome")
     medida = serializers.IntegerField(source="medida_id")
     medida_nome = serializers.CharField(source="medida.medida")
-    quantidade = serializers.DecimalField(max_digits=15, decimal_places=4)
+    quantidade = serializers.DecimalField(max_digits=15, decimal_places=4, help_text="Com 2 ou 3 dimensões é o produto das medidas (m², m³).")
+    dimensoes = serializers.IntegerField(help_text="1 = linear, 2 = área, 3 = volume (só Metro).")
+    comprimento = serializers.DecimalField(max_digits=15, decimal_places=4, allow_null=True)
+    largura = serializers.DecimalField(max_digits=15, decimal_places=4, allow_null=True)
+    altura = serializers.DecimalField(max_digits=15, decimal_places=4, allow_null=True)
     custo = serializers.IntegerField(help_text="Custo desta quantidade, em centavos (calculado).")
 
 
@@ -298,7 +314,8 @@ class ReceitaApiMixin:
 
 
 def _itens_atuais(itens):
-    return [{"insumo": i.insumo_id, "medida": i.medida_id, "quantidade": i.quantidade} for i in itens]
+    return [{"insumo": i.insumo_id, "medida": i.medida_id, "quantidade": i.quantidade, "dimensoes": i.dimensoes,
+             "comprimento": i.comprimento, "largura": i.largura, "altura": i.altura} for i in itens]
 
 
 class ProcessadoSerializer(SaidaComReceita):
@@ -350,7 +367,7 @@ class ProcessadoViewSet(ReceitaApiMixin, RecursoViewSet):
         # formset sobre uma instância NOVA (sem itens gravados): a gravação substitui todos os itens, e o
         # insumo gerado fica de fora das opções para não criar ciclo direto.
         base = Processado(cliente=instancia.cliente if instancia is not None else self.cliente(), insumo_id=getattr(instancia, "insumo_id", None))
-        formset = ProcessadoItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida", "quantidade")), instance=base, cliente=base.cliente)
+        formset = ProcessadoItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida"), opcionais=("quantidade", "dimensoes", "comprimento", "largura", "altura")), instance=base, cliente=base.cliente)
         if not formset.is_valid():
             raise serializers.ValidationError(erros_de(contexto["form"], formset))
         contexto["formset"] = formset
@@ -360,7 +377,7 @@ class ProcessadoViewSet(ReceitaApiMixin, RecursoViewSet):
         processado = contexto["form"].instance
         if instancia is None:
             processado.cliente = self.cliente()
-        itens = [ProcessadoItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"]) for f in contexto["formset"].itens_validos()]
+        itens = [ProcessadoItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"], **dimensoes_de(f)) for f in contexto["formset"].itens_validos()]
         return salvar_processado(request, processado, itens, foto_antes=foto)
 
     def destroy(self, request, *args, **kwargs):
@@ -431,7 +448,7 @@ class FichaViewSet(ReceitaApiMixin, RecursoViewSet):
         contexto = super().preparar(dados, instancia)
         base = Ficha(cliente=instancia.cliente if instancia is not None else self.cliente())
         usa_mao_de_obra = segmento_permite(base.cliente)  # mesma regra da tela: insumos opcionais e mão de obra só nesses segmentos
-        formset = FichaItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida", "quantidade")), instance=base, cliente=base.cliente, itens_opcionais=usa_mao_de_obra)
+        formset = FichaItemFormSet(dados_do_formset(dados.get("itens", []), ("insumo", "medida"), opcionais=("quantidade", "dimensoes", "comprimento", "largura", "altura")), instance=base, cliente=base.cliente, itens_opcionais=usa_mao_de_obra)
         formsets = [formset]
         if usa_mao_de_obra:
             mo_formset = MaoDeObraFormSet(dados_do_formset(dados.get("mao_de_obra", []), ("colaborador", "horas"), prefixo="mao_de_obra"), instance=base, cliente=base.cliente)
@@ -448,7 +465,7 @@ class FichaViewSet(ReceitaApiMixin, RecursoViewSet):
         ficha = contexto["form"].instance
         if instancia is None:
             ficha.cliente = self.cliente()
-        itens = [FichaItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"]) for f in contexto["formset"].itens_validos()]
+        itens = [FichaItem(insumo=f.cleaned_data["insumo"], medida=f.cleaned_data["medida"], quantidade=f.cleaned_data["quantidade"], **dimensoes_de(f)) for f in contexto["formset"].itens_validos()]
         mo = contexto.get("mo_formset")
         mao_de_obra = None if mo is None else [FichaMaoDeObra(colaborador=f.cleaned_data["colaborador"], horas=f.cleaned_data["horas"]) for f in mo.linhas_validas()]
         return salvar_ficha(request, ficha, itens, foto_antes=foto, mao_de_obra=mao_de_obra)
