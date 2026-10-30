@@ -202,3 +202,7 @@ class Apontamento(models.Model):
             raise ValidationError(str(erro)) from None
         self.arredondamento_usado, self.jornada_usada = configuracao.arredondamento, configuracao.jornada_horas
         self.extra_percentual_usado, self.adicional_domingo_usado = configuracao.extra_percentual, configuracao.adicional_domingo
+
+
+# Modelos de funções, vínculos e simulações (arquivo à parte só para manter este legível).
+from .models_funcao import ComponenteFuncao, FuncaoMaoDeObra, PersonalizacaoColaborador, SimulacaoPromocao, VinculoFuncao  # noqa: E402,F401

@@ -219,7 +219,7 @@ sfc-django/
 │   ├── compras/                # Lista de compras: sugestões do estoque, itens manuais e serviços
 │   ├── pdv/                    # PDV: caixa, vendas, comandas de mesa, devolução e comprovante não fiscal
 │   ├── pedido/                 # Pedidos e cozinha: fila de produção, confirmação com baixa de estoque, eventos
-│   ├── maodeobra/              # Mão de obra por hora/dia: colaboradores, apontamentos, hora extra e relatório (serviço)
+│   ├── maodeobra/              # Mão de obra por hora/dia: colaboradores, apontamentos, hora extra e relatório; funções, custo completo, simulação de promoção e dashboard (serviço)
 │   ├── integracao/             # Integrações (WhatsApp, Instagram, Google Agenda, iCloud), mensagens, webhooks e agenda
 │   ├── orcamento/              # Orçamentos de produtos/serviços: PDF, e-mail, WhatsApp e link público
 │   ├── fiscal/                 # Fiscal: cadastro, certificado A1 cifrado, pedidos de documento e fila (SEM emissão real ainda)
@@ -397,6 +397,9 @@ Permissão = permissão nativa do Django exigida (além de estar autenticado). "
 | GET/POST | `/pedidos/` (+ `fila/`, `{id}/confirmar|avancar|voltar|cancelar/`) | Pedidos de produção **idempotentes** (`chave`/`Idempotency-Key`), fila da cozinha e mudança de estado | Bearer + módulo `pedido` | `pedido.view_pedido`, `add_pedido`, `mover_pedido`, `cancelar_pedido` |
 | GET/POST/PUT/PATCH/DELETE | `/colaboradores/`, `/apontamentos/` (+ `/{id}/`) | Mão de obra por hora/dia (cálculo no servidor, snapshot); só segmentos de serviço | Bearer + módulo `mao-de-obra` | `maodeobra.*_colaborador` / `*_apontamento` (Gestor e Administrador) |
 | GET/PATCH | `/mao-de-obra/regras/`, GET `/mao-de-obra/relatorio/` | Arredondamento, jornada, hora extra e domingo; relatório por colaborador | Bearer + módulo | `maodeobra.change_configuracaomaodeobra` / `view_apontamento` |
+| GET/POST/PUT/PATCH/DELETE | `/mao-de-obra/funcoes/`, `/mao-de-obra/itens-de-custo/` (+ `/{id}/`) | Funções de mão de obra e seus itens de custo com vigência (salário, adicionais, DSR, provisões, encargos, benefícios, indiretos); DELETE desativa/encerra, não apaga histórico | Bearer + módulo `mao-de-obra` | `maodeobra.*_funcaomaodeobra` / `*_componentefuncao` (Gestor e Administrador) |
+| GET / PUT | `/colaboradores/{id}/composicao/`, `/colaboradores/{id}/personalizacoes/` | Custo completo por dia/semana/quinzena/mês/bimestre/trimestre/semestre/ano e hora; personalização de itens da função (POST/PATCH de `/colaboradores/` também aceita `funcao_vinculada`/`funcao_inicio`) | Bearer + módulo | `view_colaborador` / `change_colaborador` |
+| GET/POST/PUT/PATCH/DELETE | `/mao-de-obra/simulacoes/` (+ `/{id}/`, GET `/{id}/resultado/`), GET `/mao-de-obra/dashboard/` | Simulação de promoção (planejamento, não altera dados reais) e indicadores de custo de mão de obra | Bearer + módulo | `maodeobra.*_simulacaopromocao` / `view_colaborador` |
 | GET/POST/PATCH | `/integracoes/` (+ `provedores/`, `{id}/testar|sincronizar|desconectar|credenciais/`) | Conexões com provedores (credenciais cifradas, **nunca devolvidas**) | Bearer + módulo `integracoes` | `integracao.view_conexao`, `add_conexao`, `change_conexao` (Gestor/Administrador) |
 | GET/POST | `/mensagens/` | Fila de mensagens (POST **idempotente**; envio assíncrono, sem garantia de entrega instantânea) | Bearer + módulo | `integracao.view_mensagem`, `enviar_mensagem` |
 | GET/POST/PUT/PATCH/DELETE | `/compromissos/` (+ `/{id}/`) | Agenda de compromissos, reservas e entregas (filtros `situacao=aberto\|atrasado\|concluido`, `tipo`, `inicio_de`, `inicio_ate`, `q`, `ativo`) | Bearer + módulo `agenda` | `integracao.*_compromisso` |
@@ -635,6 +638,20 @@ python manage.py seed_acl       # opcional: reaplica as permissões padrão (a m
 | `modulo` | `0024_modulo_orcamento` | acrescenta “Orçamentos” ao catálogo (módulo essencial: só depende da permissão) | sim |
 
 Colunas, tipos, índices e regras de cada tabela estão no README do app (`apps/cliente`, `apps/canal`, `apps/pdvconfig`, `apps/produto`, `apps/ficha`, `apps/orcamento`). **Comportamentos que mudam e merecem atenção:** o cadastro de cliente passa a exigir nome/usuário/e-mail do responsável (API: `usuario_nome` e `usuario_username` novos e obrigatórios na criação); a primeira sincronização do Google Agenda depois da atualização pode reescrever uma vez cada evento com hora (o hash passou a comparar instantes em UTC); o catálogo do PDV deixou de cortar em 80 itens. Faça backup do banco antes de produção. Para enviar orçamento por e-mail configure `RESEND_API_KEY` e `MAIL_FROM_EMAIL`; para WhatsApp use uma conexão ativa em Integrações e `BASE_URL` (links do PDF); mantenha `enviar_mensagens_pendentes` agendado a cada minuto.
+
+### Atualização: funções de mão de obra, custo completo, simulação de promoção e dashboard
+
+Migração **aditiva** `maodeobra.0003_funcoes_vinculos_simulacoes` (nenhuma tabela existente é alterada; cria e concede as permissões novas a Administrador e Gestor; reversível com `migrate maodeobra 0002`, que remove só as tabelas novas):
+
+| Tabela | Situação | Finalidade |
+|---|---|---|
+| `maodeobra_funcaomaodeobra` | **nova** | função/cargo da unidade (nome único por unidade, CBO de 6 dígitos) |
+| `maodeobra_componentefuncao` | **nova** | item de custo da função com vigência: categoria, valor fixo ou percentual, base, periodicidade, `personalizavel`, condição/fonte |
+| `maodeobra_vinculofuncao` | **nova** | histórico de funções do colaborador (um vínculo aberto por colaborador) |
+| `maodeobra_personalizacaocolaborador` | **nova** | valor individual de um item personalizável, preso ao vínculo |
+| `maodeobra_simulacaopromocao` | **nova** | parâmetros de um cenário de promoção (resultado recalculado, nunca gravado) |
+
+Colunas, tipos, índices, fórmulas, bases, períodos, arredondamentos, endpoints e premissas estão em `apps/maodeobra/README.md`. **Atenção:** o custo completo é informativo e **não** muda o valor da hora de apontamentos/fichas; nenhum percentual legal vem pré-cadastrado (o usuário informa os da sua realidade). Os tours ganharam `funcoes`, `funcao-form`, `funcao-detalhe`, `componente-form`, `colaborador-composicao`, `simulacoes`, `simulacao-form`, `simulacao-detalhe` e `mao-obra-dashboard`, além de um passo novo em `colaborador-form`.
 
 ### Rotinas agendáveis (cron) e configurações
 

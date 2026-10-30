@@ -1,0 +1,65 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ simulacao.nome }} - Simulações - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ simulacao.nome }}</h4>
+    <div class="text-muted small">{{ simulacao.get_tipo_display }} · {% if simulacao.tipo == "pessoa" %}{{ simulacao.colaborador.nome }}{% else %}{{ simulacao.funcao_origem.nome }}{% endif %} → {% if simulacao.funcao_destino %}{{ simulacao.funcao_destino.nome }}{% else %}{% translate "mesma função" %}{% endif %} · {% translate "referência" %} {{ simulacao.data_referencia|date:"d/m/Y" }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'simulacao-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if perms.maodeobra.change_simulacaopromocao %}<a href="{% url 'simulacao-edit' simulacao.pk %}" class="btn btn-outline-primary">{% translate "Editar parâmetros" %}</a>{% endif %}
+    {% if perms.maodeobra.delete_simulacaopromocao %}<form method="post" action="{% url 'simulacao-excluir' simulacao.pk %}" onsubmit="return confirm('{% translate "Excluir esta simulação?" %}')">{% csrf_token %}<button class="btn btn-outline-danger">{% translate "Excluir" %}</button></form>{% endif %}
+  </div>
+</div>
+{% include "_mo_nav.html" with ativa="simulacoes" %}
+
+<div class="alert alert-info py-2 small" role="note" id="avisoPlanejamento"><strong>{% translate "Planejamento." %}</strong> {% translate "Nada disto foi aplicado: colaboradores, funções, apontamentos e preços continuam como estão. A comparação usa os dados de hoje na data de referência." %}</div>
+{% if simulacao.novo_salario is not None or simulacao.ajuste_salario_percentual is not None %}
+<div class="small mb-3"><strong>{% translate "Premissa de salário:" %}</strong> {% if simulacao.novo_salario is not None %}{% translate "novo salário de" %} {{ simulacao.novo_salario|moeda }}{% else %}{% translate "ajuste de" %} {{ simulacao.ajuste_salario_percentual|floatformat:"-2" }}% {% translate "sobre o salário atual" %}{% endif %}.</div>
+{% endif %}
+{% if resultado.incompletos %}<div class="alert alert-warning py-2 small" role="alert">{{ resultado.incompletos }} {% translate "colaborador(es) com dados incompletos (sem função ou sem salário vigente): o custo atual considera só o que existe." %}</div>{% endif %}
+
+{% if not resultado.quantidade %}
+<div class="card"><div class="card-body text-center py-6">{% translate "Nenhum colaborador alcançado por esta simulação na data de referência." %}</div></div>
+{% else %}
+<div class="card mb-4" id="cartaoResumo">
+  <div class="card-header"><h5 class="card-title mb-0">{% translate "Resumo" %} — {{ resultado.quantidade }} {% translate "colaborador(es)" %}</h5></div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Período" %}</th><th class="text-end">{% translate "Atual" %}</th><th class="text-end">{% translate "Simulado" %}</th><th class="text-end">{% translate "Diferença" %}</th><th class="text-end">%</th></tr></thead>
+      <tbody>
+        {% for p in resultado.periodos %}<tr><td>{{ p.rotulo }}</td><td class="text-end">{{ p.atual|moeda }}</td><td class="text-end">{{ p.simulado|moeda }}</td><td class="text-end {% if p.diferenca > 0 %}text-danger{% elif p.diferenca < 0 %}text-success{% endif %}">{% if p.diferenca > 0 %}+{% endif %}{{ p.diferenca|moeda }}</td><td class="text-end">{% if p.percentual is None %}—{% else %}{% if p.diferenca > 0 %}+{% endif %}{{ p.percentual|floatformat:"-2" }}%{% endif %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% for l in resultado.linhas %}
+<div class="card mb-4">
+  <div class="card-header"><h5 class="card-title mb-0">{{ l.colaborador.nome }} <span class="text-muted fs-6">— {% if l.atual.funcao %}{{ l.atual.funcao.nome }}{% else %}{% translate "sem função" %}{% endif %}</span></h5></div>
+  <div class="row g-0">
+    <div class="col-lg-6 p-4">
+      <h6>{% translate "Composição atual (mensal)" %}</h6>
+      <table class="table table-sm">{% for codigo, rotulo, valor in l.atual.composicao.categorias_lista %}{% if valor %}<tr><td>{{ rotulo }}</td><td class="text-end">{{ valor|moeda }}</td></tr>{% endif %}{% endfor %}<tr class="fw-semibold"><td>{% translate "Total" %}</td><td class="text-end">{{ l.atual.composicao.total_mensal|moeda }}</td></tr></table>
+      <div class="small text-muted">{% for i in l.atual.composicao.itens %}{% if i.origem == "personalizado" %}<span class="badge bg-label-warning me-1">{{ i.nome }}: {% translate "personalizado" %}</span>{% endif %}{% endfor %}</div>
+    </div>
+    <div class="col-lg-6 p-4 border-start">
+      <h6>{% translate "Composição simulada (mensal)" %}</h6>
+      <table class="table table-sm">{% for codigo, rotulo, valor in l.simulado.categorias_lista %}{% if valor %}<tr><td>{{ rotulo }}</td><td class="text-end">{{ valor|moeda }}</td></tr>{% endif %}{% endfor %}<tr class="fw-semibold"><td>{% translate "Total" %}</td><td class="text-end">{{ l.simulado.total_mensal|moeda }}</td></tr></table>
+      <div class="small text-muted">{% for i in l.simulado.itens %}{% if i.origem == "personalizado" %}<span class="badge bg-label-warning me-1">{{ i.nome }}: {% translate "valor simulado" %}</span>{% endif %}{% endfor %}</div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('simulacao-detalhe');</script>
+{% endblock page_js %}

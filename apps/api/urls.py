@@ -6,7 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from web_project.acesso import administrador_global
 
-from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, estoque_produtos, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, precificacaoservico, pdv, pedidos, estoque_financeiro, views, views_operacao
+from . import assinatura as assinatura_api, kanban as kanban_api, cadastros, compras, consumidores, cotacoes, estoque_produtos, fiscal, imagens, integracoes, maodeobra, notificacoes, orcamentos, precificacaoservico, pdv, pedidos, estoque_financeiro, views, views_operacao, maodeobra_funcoes
 
 router = SimpleRouter()
 router.register("insumos", views.InsumoViewSet, basename="api-insumo")
@@ -48,6 +48,9 @@ router.register("compromissos", integracoes.CompromissoViewSet, basename="api-co
 router.register("fiscal/documentos", fiscal.DocumentoFiscalViewSet, basename="api-documento-fiscal")
 router.register("colaboradores", maodeobra.ColaboradorViewSet, basename="api-colaborador")
 router.register("apontamentos", maodeobra.ApontamentoViewSet, basename="api-apontamento")
+router.register("mao-de-obra/funcoes", maodeobra_funcoes.FuncaoViewSet, basename="api-mo-funcao")
+router.register("mao-de-obra/itens-de-custo", maodeobra_funcoes.ComponenteViewSet, basename="api-mo-item-custo")
+router.register("mao-de-obra/simulacoes", maodeobra_funcoes.SimulacaoViewSet, basename="api-mo-simulacao")
 router.register("cotacoes", cotacoes.CotacaoViewSet, basename="api-cotacao")
 router.register("compras/itens", compras.ItemCompraViewSet, basename="api-compra-item")
 router.register("compras/sugestoes", compras.SugestaoCompraViewSet, basename="api-compra-sugestao")
@@ -97,6 +100,7 @@ urlpatterns = [
     path("api/v1/precificacao-servico/simular/", precificacaoservico.SimularView.as_view(), name="api-ps-simular"),
     path("api/v1/mao-de-obra/regras/", maodeobra.ConfiguracaoMaoDeObraView.as_view(), name="api-mao-obra-config"),
     path("api/v1/mao-de-obra/relatorio/", maodeobra.RelatorioMaoDeObraView.as_view(), name="api-mao-obra-relatorio"),
+    path("api/v1/mao-de-obra/dashboard/", maodeobra_funcoes.DashboardMaoDeObraView.as_view(), name="api-mao-obra-dashboard"),
     path("api/v1/imagens/<str:tipo>/<int:pk>/", imagens.ImagemEntidadeView.as_view(), name="api-imagem"),
     path("api/v1/plataforma/imagens/configuracao/", imagens.ConfiguracaoImagensView.as_view(), name="api-imagens-config"),
     path("api/v1/plataforma/imagens/custos/", imagens.CustosImagensView.as_view(), name="api-imagens-custos"),

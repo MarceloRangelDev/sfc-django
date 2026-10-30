@@ -1,0 +1,59 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar item de custo" %}{% else %}{% translate "Novo item de custo" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2">{% if object %}{% translate "Editar item de custo" %}{% else %}{% translate "Novo item de custo" %}{% endif %}</h4>
+<p class="text-muted">{% translate "Função" %}: <a href="{% url 'funcao-detalhe' funcao.pk %}">{{ funcao.nome }}</a>. {% translate "Nenhum percentual é pré-definido: informe os valores conforme a legislação, a convenção coletiva e as regras da sua empresa." %}</p>
+<div class="card"><div class="card-body">
+  <form method="post" data-form-salvar novalidate id="formComponente">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-md-4"><label for="{{ form.categoria.id_for_label }}" class="form-label">{% translate "Categoria" %}</label>{{ form.categoria }}{% if form.categoria.errors %}<div class="text-danger small mt-1">{{ form.categoria.errors|striptags }}</div>{% endif %}
+        <div class="form-text">{% translate "Salário → adicionais → DSR → provisões → encargos → benefícios → indiretos: cada um só pode usar como base o que vem antes." %}</div></div>
+      <div class="col-md-8"><label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome do item" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4"><label for="{{ form.tipo_valor.id_for_label }}" class="form-label">{% translate "Tipo de valor" %}</label>{{ form.tipo_valor }}{% if form.tipo_valor.errors %}<div class="text-danger small mt-1">{{ form.tipo_valor.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4" data-so="fixo"><label for="{{ form.valor.id_for_label }}" class="form-label">{% translate "Valor (R$)" %}</label>{{ form.valor }}{% if form.valor.errors %}<div class="text-danger small mt-1">{{ form.valor.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4" data-so="fixo" data-nao-salario><label for="{{ form.periodicidade.id_for_label }}" class="form-label">{% translate "Periodicidade" %}</label>{{ form.periodicidade }}{% if form.periodicidade.errors %}<div class="text-danger small mt-1">{{ form.periodicidade.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4" data-so="percentual"><label for="{{ form.percentual.id_for_label }}" class="form-label">{% translate "Percentual (%)" %}</label>{{ form.percentual }}{% if form.percentual.errors %}<div class="text-danger small mt-1">{{ form.percentual.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-4" data-so="percentual"><label for="{{ form.base.id_for_label }}" class="form-label">{% translate "Base do percentual" %}</label>{{ form.base }}{% if form.base.errors %}<div class="text-danger small mt-1">{{ form.base.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-3"><label for="{{ form.inicio.id_for_label }}" class="form-label">{% translate "Início da vigência" %}</label>{{ form.inicio }}{% if form.inicio.errors %}<div class="text-danger small mt-1">{{ form.inicio.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-3"><label for="{{ form.fim.id_for_label }}" class="form-label">{% translate "Fim da vigência" %}</label>{{ form.fim }}{% if form.fim.errors %}<div class="text-danger small mt-1">{{ form.fim.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Vazio = em aberto." %}</div></div>
+      <div class="col-md-6"><label for="{{ form.condicao.id_for_label }}" class="form-label">{% translate "Condição / elegibilidade / fonte" %}</label>{{ form.condicao }}<div class="form-text">{% translate "Ex.: convenção coletiva, artigo da lei, quem tem direito. Fica registrado como premissa." %}</div></div>
+      <div class="col-md-6"><div class="form-check form-switch">{{ form.personalizavel }}<label class="form-check-label" for="{{ form.personalizavel.id_for_label }}">{% translate "Pode ser personalizado por colaborador" %}</label></div>
+        <div class="form-text">{% translate "No salário base, personalizar significa usar o valor por mês do cadastro do colaborador." %}</div></div>
+      <div class="col-md-6"><div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativo" %}</label></div></div>
+    </div>
+    <div class="mt-6">{% url 'funcao-detalhe' funcao.pk as url_lista %}{% include "partials/botoes_salvar.html" with cancelar=url_lista %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('componente-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{{ bases_por_categoria|json_script:"bases-por-categoria" }}
+<script>
+  // Mostra só os campos que valem para o tipo (fixo × percentual) e as bases aceitas pela categoria. O servidor valida de novo.
+  (function () {
+    var bases = JSON.parse(document.getElementById('bases-por-categoria').textContent);
+    var categoria = document.getElementById('{{ form.categoria.id_for_label }}'), tipo = document.getElementById('{{ form.tipo_valor.id_for_label }}'), base = document.getElementById('{{ form.base.id_for_label }}');
+    function atualizar() {
+      var cat = categoria.value;
+      if (cat === 'salario') tipo.value = 'fixo';  // salário é sempre valor fixo
+      var fixo = tipo.value === 'fixo';
+      document.querySelectorAll('[data-so]').forEach(function (el) { el.style.display = el.dataset.so === (fixo ? 'fixo' : 'percentual') ? '' : 'none'; });
+      document.querySelectorAll('[data-nao-salario]').forEach(function (el) { if (cat === 'salario') el.style.display = 'none'; });
+      var permitidas = bases[cat] || [];
+      Array.prototype.forEach.call(base.options, function (o) { o.hidden = o.disabled = permitidas.length > 0 && permitidas.indexOf(o.value) < 0; });
+      if (permitidas.length && permitidas.indexOf(base.value) < 0) base.value = permitidas[0];
+      Array.prototype.forEach.call(tipo.options, function (o) { o.disabled = cat === 'salario' && o.value === 'percentual'; });
+    }
+    categoria.addEventListener('change', atualizar); tipo.addEventListener('change', atualizar); atualizar();
+  })();
+</script>
+{% endblock %}

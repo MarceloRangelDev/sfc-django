@@ -273,6 +273,55 @@
       FILTROS('Pesquise pelo nome e filtre por unidade ou status.'),
       TABELA('Os valores por hora, dia, semana e quinzena são calculados a partir do que foi informado e da jornada.')
     ],
+    'funcoes': [
+      NOVO('Nova função', 'Cadastre as funções da sua equipe (cozinheiro, auxiliar, instalador...). Cada função concentra salário, adicionais, encargos, provisões e benefícios.'),
+      FILTROS('Pesquise por nome ou CBO e filtre por status ou unidade.'),
+      TABELA('Abra uma função para ver e editar os itens de custo. A coluna Colaboradores mostra quantos estão vinculados hoje.')
+    ],
+    'funcao-form': [
+      { element: '#id_nome', title: 'Nome da função', text: 'Como a função aparece nos cadastros de colaborador, nas simulações e no dashboard.', position: 'bottom' },
+      { element: '#id_cbo_codigo', title: 'CBO', text: 'Código de 6 dígitos da Classificação Brasileira de Ocupações (opcional). Digite o código e a descrição conforme a sua referência.', position: 'bottom' },
+      SALVAR
+    ],
+    'funcao-detalhe': [
+      { element: '#novoItem', title: 'Novo item de custo', text: 'Cadastre o salário base e os demais itens: adicionais, DSR, provisões, encargos, benefícios e custos indiretos. Nenhum percentual vem pronto: informe os da sua realidade.', position: 'bottom' },
+      { element: '#cartaoItens', title: 'Itens e vigência', text: 'Cada item tem início e fim de vigência. Para mudar um valor, encerre o item e crie outro: o passado continua calculável. Itens personalizáveis podem ter valor próprio por colaborador.', position: 'top' },
+      { element: '#cartaoReferencia', title: 'Custo de referência', text: 'Custo de um colaborador comum nesta função, por dia, semana, quinzena, mês, bimestre, trimestre, semestre e ano.', position: 'left' }
+    ],
+    'componente-form': [
+      { element: '#id_categoria', title: 'Categoria', text: 'Define a ordem do cálculo e as bases permitidas: um item só usa como base o que vem antes dele.', position: 'bottom' },
+      { element: '#id_tipo_valor', title: 'Valor fixo ou percentual', text: 'Fixo é um valor em reais (por mês ou por ano). Percentual incide sobre a base escolhida.', position: 'bottom' },
+      { element: '#id_inicio', title: 'Vigência', text: 'Data em que o item passa a valer. Deixe o fim vazio enquanto estiver em vigor.', position: 'bottom' },
+      { element: '#id_personalizavel', title: 'Personalizável', text: 'Marque para permitir um valor próprio por colaborador. Itens não marcados sempre usam o valor da função.', position: 'top' },
+      SALVAR
+    ],
+    'colaborador-composicao': [
+      { element: '#cartaoComposicao', title: 'Composição do custo', text: 'Cada item mostra o valor herdado da função e, quando existir, o valor personalizado do colaborador.', position: 'top' },
+      { element: '#cartaoPersonalizar', title: 'Personalizar itens', text: 'Preencha só os itens que forem diferentes da função; vazio volta a herdar. O salário se altera no cadastro do colaborador.', position: 'top' },
+      { element: '#cartaoPeriodos', title: 'Custo por período', text: 'Dia, semana, quinzena, mês, bimestre, trimestre, semestre, ano e hora. Informativo: não muda o valor da hora usado nos apontamentos.', position: 'left' },
+      { element: '#cartaoHistorico', title: 'Histórico de funções', text: 'Ao trocar de função, a anterior é encerrada e fica aqui; os custos passados continuam calculáveis.', position: 'left' }
+    ],
+    'simulacoes': [
+      NOVO('Nova simulação', 'Simule uma promoção por pessoa ou por função e compare o custo atual com o simulado.'),
+      TABELA('Cada cenário guarda só os parâmetros; o resultado é recalculado ao abrir. Nada é aplicado aos dados reais.')
+    ],
+    'simulacao-form': [
+      { element: '#id_tipo', title: 'Por pessoa ou por função', text: 'Por pessoa simula um colaborador; por função alcança todos os colaboradores ativos da função de origem.', position: 'bottom' },
+      { element: '#id_funcao_destino', title: 'Função de destino', text: 'Função para onde o colaborador seria promovido. Vazio = mesma função, ajustando só o salário.', position: 'bottom' },
+      { element: '#id_novo_salario', title: 'Salário simulado', text: 'Informe um novo salário OU um ajuste percentual na caixa ao lado. Sem nenhum dos dois, vale o salário da função de destino.', position: 'bottom' },
+      SALVAR
+    ],
+    'simulacao-detalhe': [
+      { element: '#avisoPlanejamento', title: 'Só planejamento', text: 'Nada aqui altera colaboradores, funções ou apontamentos.', position: 'bottom' },
+      { element: '#cartaoResumo', title: 'Atual × simulado', text: 'Diferença absoluta e percentual em todos os períodos. Abaixo, a composição de cada colaborador com os itens personalizados destacados.', position: 'top' }
+    ],
+    'mao-obra-dashboard': [
+      { element: '#cartaoFiltros', title: 'Filtros', text: 'Escolha a data, uma data para comparar, a função e o período exibido nos cartões.', position: 'bottom' },
+      { element: '#cartoesResumo', title: 'Indicadores', text: 'Custo total, número de colaboradores, custo médio e variação em relação à data de comparação.', position: 'bottom' },
+      { element: '#cartaoFuncoes', title: 'Distribuição por função', text: 'Quantos colaboradores e quanto custa cada função. “Sem função” indica cadastro incompleto.', position: 'top' },
+      { element: '#cartaoComposicao', title: 'Composição', text: 'Quanto do custo vem de salário, adicionais, encargos, provisões, benefícios e indiretos.', position: 'top' },
+      { element: '#cartaoCenarios', title: 'Cenários', text: 'Impacto mensal das simulações recentes. São planejamento, não valores reais.', position: 'top' }
+    ],
     'apontamentos': [
       NOVO('Novo apontamento', 'Registre as horas ou diárias trabalhadas por um colaborador em um serviço.'),
       FILTROS('Filtre por período, colaborador e unidade.'),
@@ -453,6 +502,7 @@
     ],
     'colaborador-form': [
       { element: '#id_nome', title: 'Nome', text: 'Quem presta o serviço (funcionário, autônomo, prestador).', position: 'bottom' },
+      { element: '#id_funcao_vinculada', title: 'Função cadastrada', text: 'Vincule uma função para trazer salário e itens de custo. Trocar de função guarda o histórico. Depois use “Ver composição de custo” para personalizar itens.', position: 'bottom' },
       { element: '#id_valor_hora', title: 'Valor da hora', text: 'Base do custo de mão de obra nos apontamentos e nas fichas de serviço. Se informar o valor por mês, hora e dia são derivados dele.', position: 'bottom' },
       SALVAR
     ],

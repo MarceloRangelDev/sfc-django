@@ -1,0 +1,76 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ funcao.nome }} - Funções - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ funcao.nome }} {% if not funcao.ativo %}<span class="badge bg-label-secondary">{% translate "Inativa" %}</span>{% endif %}</h4>
+    <div class="text-muted small">{% if funcao.cbo_codigo %}CBO {{ funcao.cbo_codigo }}{% if funcao.cbo_descricao %} — {{ funcao.cbo_descricao }}{% endif %}{% else %}{% translate "Sem CBO informada" %}{% endif %}{% if funcao.descricao %} · {{ funcao.descricao }}{% endif %}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'funcao-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if perms.maodeobra.change_funcaomaodeobra %}<a href="{% url 'funcao-edit' funcao.pk %}" class="btn btn-outline-primary">{% translate "Editar função" %}</a>{% endif %}
+    {% if perms.maodeobra.add_componentefuncao %}<a href="{% url 'componente-create' funcao.pk %}" class="btn btn-primary" id="novoItem"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Novo item de custo" %}</a>{% endif %}
+  </div>
+</div>
+{% include "_mo_nav.html" with ativa="funcoes" %}
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card" id="cartaoItens">
+      <div class="card-header"><h5 class="card-title mb-0">{% translate "Itens de custo" %}</h5><div class="small text-muted mt-1">{% translate "Cada item tem vigência: para mudar um valor, encerre o item e crie outro com a nova data de início. O passado continua calculável." %}</div></div>
+      <div class="table-responsive text-nowrap">
+        <table class="table">
+          <thead><tr><th>{% translate "Categoria" %}</th><th>{% translate "Item" %}</th><th>{% translate "Valor" %}</th><th>{% translate "Vigência" %}</th><th></th></tr></thead>
+          <tbody>
+            {% for c in itens %}
+            <tr {% if not c.ativo %}class="text-muted"{% endif %}>
+              <td>{{ c.get_categoria_display }}</td>
+              <td>{{ c.nome }}{% if c.personalizavel %} <span class="badge bg-label-info" title="{% translate 'Pode ser personalizado por colaborador' %}">{% translate "personalizável" %}</span>{% endif %}{% if not c.ativo %} <span class="badge bg-label-secondary">{% translate "inativo" %}</span>{% endif %}{% if c.condicao %}<div class="small text-muted">{{ c.condicao }}</div>{% endif %}</td>
+              <td>{% if c.tipo_valor == "fixo" %}{{ c.valor|moeda }} <span class="text-muted small">/ {% if c.periodicidade == "anual" %}{% translate "ano" %}{% else %}{% translate "mês" %}{% endif %}</span>{% else %}{{ c.percentual|floatformat:"-4" }}% <span class="text-muted small">{% translate "sobre" %} {{ c.get_base_display|lower }}</span>{% endif %}</td>
+              <td>{{ c.inicio|date:"d/m/Y" }} → {% if c.fim %}{{ c.fim|date:"d/m/Y" }}{% else %}<span class="text-muted">{% translate "em aberto" %}</span>{% endif %}</td>
+              <td class="text-end">
+                {% if perms.maodeobra.change_componentefuncao %}<a href="{% url 'componente-edit' c.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}
+                {% if perms.maodeobra.delete_componentefuncao and c.ativo %}<form method="post" action="{% url 'componente-excluir' c.pk %}" class="d-inline" onsubmit="return confirm('{% translate "Itens que já vigoraram são encerrados, não apagados. Continuar?" %}')">{% csrf_token %}<button class="btn btn-icon btn-text-danger rounded-pill" title="{% translate 'Encerrar / excluir' %}"><i class="icon-base ti tabler-trash"></i></button></form>{% endif %}
+              </td>
+            </tr>
+            {% empty %}<tr><td colspan="5" class="text-center py-6">{% translate "Nenhum item de custo. Comece pelo salário base." %}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-4" id="cartaoReferencia">
+      <div class="card-header"><h5 class="card-title mb-0">{% translate "Custo de referência" %}</h5><div class="small text-muted mt-1">{% translate "Um colaborador sem personalizações, na data escolhida. Informativo." %}</div></div>
+      <div class="card-body">
+        <form method="get" class="d-flex gap-2 mb-3"><input type="date" name="data" value="{{ data|date:'Y-m-d' }}" class="form-control" aria-label="{% translate 'Data de referência' %}"><button class="btn btn-outline-primary">{% translate "Ver" %}</button></form>
+        {% if referencia.incompleto %}<div class="alert alert-warning py-2 small" role="alert">{% for m in referencia.motivos %}{{ m }} {% endfor %}</div>{% endif %}
+        <table class="table table-sm mb-3">
+          {% for codigo, rotulo, valor in referencia.composicao.categorias_lista %}{% if valor %}<tr><td>{{ rotulo }}</td><td class="text-end">{{ valor|moeda }}</td></tr>{% endif %}{% endfor %}
+          <tr class="fw-semibold"><td>{% translate "Total por mês" %}</td><td class="text-end">{{ referencia.composicao.total_mensal|moeda }}</td></tr>
+        </table>
+        <table class="table table-sm mb-0">
+          <thead><tr><th>{% translate "Período" %}</th><th class="text-end">{% translate "Custo" %}</th></tr></thead>
+          {% for codigo, rotulo, valor in referencia.composicao.periodos_lista %}<tr><td>{{ rotulo }}</td><td class="text-end">{{ valor|moeda }}</td></tr>{% endfor %}
+          <tr><td>{% translate "Hora (h/mês da unidade)" %}</td><td class="text-end">{{ referencia.composicao.custo_hora|moeda }}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h5 class="card-title mb-0">{% translate "Colaboradores nesta função" %}</h5></div>
+      <ul class="list-group list-group-flush">
+        {% for c in colaboradores %}<li class="list-group-item"><a href="{% url 'colaborador-composicao' c.pk %}">{{ c.nome }}</a></li>{% empty %}<li class="list-group-item text-muted">{% translate "Nenhum colaborador vinculado." %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('funcao-detalhe');</script>
+{% endblock page_js %}

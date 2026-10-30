@@ -1,0 +1,31 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar função" %}{% else %}{% translate "Nova função" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-6">{% if object %}{% translate "Editar função" %}{% else %}{% translate "Nova função" %}{% endif %}</h4>
+<div class="card"><div class="card-body">
+  <form method="post" data-form-salvar novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      {% if form.fields.cliente %}<div class="col-md-6"><label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>{{ form.cliente }}</div>{% endif %}
+      <div class="col-md-6"><label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome da função" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-12"><label for="{{ form.descricao.id_for_label }}" class="form-label">{% translate "Descrição" %}</label>{{ form.descricao }}{% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-3"><label for="{{ form.cbo_codigo.id_for_label }}" class="form-label">{% translate "CBO (código)" %}</label>{{ form.cbo_codigo }}{% if form.cbo_codigo.errors %}<div class="text-danger small mt-1">{{ form.cbo_codigo.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Classificação Brasileira de Ocupações, 6 dígitos (opcional)." %}</div></div>
+      <div class="col-md-9"><label for="{{ form.cbo_descricao.id_for_label }}" class="form-label">{% translate "CBO (descrição)" %}</label>{{ form.cbo_descricao }}{% if form.cbo_descricao.errors %}<div class="text-danger small mt-1">{{ form.cbo_descricao.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-12"><label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observações" %}</label>{{ form.observacao }}</div>
+      <div class="col-12"><div class="form-check form-switch">{{ form.ativo }}<label class="form-check-label" for="{{ form.ativo.id_for_label }}">{% translate "Ativa" %}</label></div></div>
+    </div>
+    <div class="mt-6">{% url 'funcao-list' as url_lista %}{% translate "Salvar e adicionar outra" as texto_novo %}{% include "partials/botoes_salvar.html" with cancelar=url_lista novo=texto_novo %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('funcao-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+{% endblock %}

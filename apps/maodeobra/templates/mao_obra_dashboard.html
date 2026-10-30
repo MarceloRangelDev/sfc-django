@@ -1,0 +1,77 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Dashboard" %} - Mão de obra - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="py-4 mb-2"><h4 class="mb-0">{% translate "Mão de obra" %}</h4></div>
+{% include "_mo_nav.html" with ativa="dashboard" %}
+
+<div class="card mb-4" id="cartaoFiltros"><div class="card-body">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-auto"><label class="form-label" for="{{ filtro.data.id_for_label }}">{% translate "Data de referência" %}</label>{{ filtro.data }}</div>
+    <div class="col-md-auto"><label class="form-label" for="{{ filtro.comparar_com.id_for_label }}">{% translate "Comparar com" %}</label>{{ filtro.comparar_com }}</div>
+    <div class="col-md-auto"><label class="form-label" for="{{ filtro.funcao.id_for_label }}">{% translate "Função" %}</label>{{ filtro.funcao }}</div>
+    <div class="col-md-auto"><label class="form-label" for="{{ filtro.periodo.id_for_label }}">{% translate "Período exibido" %}</label>{{ filtro.periodo }}</div>
+    {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+    <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Atualizar" %}</button></div>
+  </form>
+  {% if filtro.errors %}<div class="text-danger small mt-2">{{ filtro.errors|striptags }}</div>{% endif %}
+</div></div>
+
+{% if ind.incompletos %}
+<div class="alert alert-warning py-2 small" role="alert" id="avisoIncompleto"><strong>{% translate "Dados incompletos:" %}</strong> {{ ind.incompletos }} {% translate "de" %} {{ ind.quantidade }} {% translate "colaborador(es) sem função vinculada ou sem salário base vigente na data. Os totais abaixo consideram só o que está cadastrado." %}</div>
+{% endif %}
+
+<div class="row g-4 mb-4" id="cartoesResumo">
+  <div class="col-md-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">{% translate "Custo total" %} ({{ rotulo_periodo|lower }})</div>
+    {% for p in ind.periodos_lista %}{% if p.codigo == periodo %}<div class="fs-3 fw-semibold">{{ p.total|moeda }}</div>{% endif %}{% endfor %}</div></div></div>
+  <div class="col-md-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">{% translate "Colaboradores ativos" %}</div><div class="fs-3 fw-semibold">{{ ind.quantidade }}</div></div></div></div>
+  <div class="col-md-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">{% translate "Custo médio por colaborador" %} ({{ rotulo_periodo|lower }})</div>
+    {% for p in ind.periodos_lista %}{% if p.codigo == periodo %}<div class="fs-3 fw-semibold">{{ p.medio|moeda }}</div>{% endif %}{% endfor %}</div></div></div>
+  <div class="col-md-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">{% translate "Variação vs. data de comparação" %}</div>
+    {% if ind.comparacao %}<div class="fs-3 fw-semibold {% if ind.comparacao.diferenca > 0 %}text-danger{% elif ind.comparacao.diferenca < 0 %}text-success{% endif %}">{% if ind.comparacao.diferenca > 0 %}+{% endif %}{{ ind.comparacao.diferenca|moeda }}</div>
+      <div class="small text-muted">{% if ind.comparacao.percentual is not None %}{% if ind.comparacao.diferenca > 0 %}+{% endif %}{{ ind.comparacao.percentual|floatformat:"-2" }}% · {% endif %}{% translate "mensal em" %} {{ ind.comparacao.data|date:"d/m/Y" }}: {{ ind.comparacao.total_mensal|moeda }}</div>
+    {% else %}<div class="fs-5 text-muted">{% translate "Escolha “Comparar com”." %}</div>{% endif %}</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7"><div class="card h-100" id="cartaoFuncoes">
+    <div class="card-header"><h5 class="card-title mb-0">{% translate "Distribuição por função" %}</h5><div class="small text-muted mt-1">{% translate "Valores mensais." %}</div></div>
+    <div class="table-responsive text-nowrap"><table class="table">
+      <thead><tr><th>{% translate "Função" %}</th><th class="text-end">{% translate "Colaboradores" %}</th><th class="text-end">{% translate "Custo mensal" %}</th><th class="text-end">{% translate "Médio por colaborador" %}</th></tr></thead>
+      <tbody>{% for f in ind.por_funcao %}<tr><td>{{ f.funcao }}</td><td class="text-end">{{ f.quantidade }}</td><td class="text-end">{{ f.total_mensal|moeda }}</td><td class="text-end">{{ f.medio_mensal|moeda }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center py-5">{% translate "Nenhum colaborador ativo." %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div></div>
+  <div class="col-lg-5"><div class="card h-100" id="cartaoComposicao">
+    <div class="card-header"><h5 class="card-title mb-0">{% translate "Composição do custo" %}</h5><div class="small text-muted mt-1">{% translate "Valores mensais." %}</div></div>
+    <div class="card-body">
+      {% for c in ind.categorias %}{% if c.valor %}
+      <div class="mb-3"><div class="d-flex justify-content-between small"><span>{{ c.rotulo }}</span><span>{{ c.valor|moeda }} · {{ c.percentual|floatformat:"-1" }}%</span></div>
+        <div class="progress" style="height: 8px;"><div class="progress-bar" role="progressbar" style="width: {{ c.percentual|stringformat:'.1f' }}%;" aria-valuenow="{{ c.percentual|stringformat:'.1f' }}" aria-valuemin="0" aria-valuemax="100"></div></div></div>
+      {% endif %}{% empty %}{% endfor %}
+      {% if not ind.total_mensal %}<div class="text-muted">{% translate "Sem custos na data escolhida." %}</div>{% endif %}
+    </div>
+  </div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6"><div class="card h-100" id="cartaoPeriodos">
+    <div class="card-header"><h5 class="card-title mb-0">{% translate "Custo total por período" %}</h5></div>
+    <table class="table table-sm mb-0"><tbody>{% for p in ind.periodos_lista %}<tr><td class="ps-4">{{ p.rotulo }}</td><td class="text-end pe-4">{{ p.total|moeda }}</td></tr>{% endfor %}</tbody></table>
+  </div></div>
+  <div class="col-lg-6"><div class="card h-100" id="cartaoCenarios">
+    <div class="card-header"><h5 class="card-title mb-0">{% translate "Cenários de planejamento recentes" %}</h5><div class="small text-muted mt-1">{% translate "Impacto mensal de cada simulação; não são valores reais." %}</div></div>
+    <ul class="list-group list-group-flush">
+      {% for c in ind.cenarios %}<li class="list-group-item d-flex justify-content-between"><a href="{% url 'simulacao-detalhe' c.simulacao.pk %}">{{ c.simulacao.nome }}</a><span class="{% if c.diferenca_mensal > 0 %}text-danger{% elif c.diferenca_mensal < 0 %}text-success{% endif %}">{% if c.diferenca_mensal > 0 %}+{% endif %}{{ c.diferenca_mensal|moeda }}{% if c.percentual is not None %} ({{ c.percentual|floatformat:"-2" }}%){% endif %}</span></li>
+      {% empty %}<li class="list-group-item text-muted">{% translate "Nenhuma simulação cadastrada." %}</li>{% endfor %}
+    </ul>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('mao-obra-dashboard');</script>
+{% endblock page_js %}

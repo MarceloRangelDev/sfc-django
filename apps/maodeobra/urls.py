@@ -2,7 +2,7 @@ from django.urls import path
 
 from web_project.decorators import module_required
 
-from . import views
+from . import views, views_funcao
 
 M = "mao-de-obra"
 v = lambda p, view: module_required(M, f"maodeobra.{p}")(view.as_view())  # noqa: E731
@@ -23,4 +23,22 @@ urlpatterns = [
     path("mao-de-obra/colaboradores/novo", v("add_colaborador", views.ColaboradorCreateView), name="colaborador-create"),
     path("mao-de-obra/colaboradores/<int:pk>/editar", v("change_colaborador", views.ColaboradorUpdateView), name="colaborador-edit"),
     path("mao-de-obra/colaboradores/<int:pk>/excluir", v("delete_colaborador", views.ColaboradorExcluirView), name="colaborador-excluir"),
+    # Colaborador: composição do custo (herdado × personalizado) por função.
+    path("mao-de-obra/colaboradores/<int:pk>/composicao", v("view_colaborador", views_funcao.ColaboradorComposicaoView), name="colaborador-composicao"),
+    # Funções de mão de obra e seus itens de custo (salário, adicionais, DSR, encargos, provisões, benefícios, indiretos).
+    path("mao-de-obra/funcoes", v("view_funcaomaodeobra", views_funcao.FuncaoListView), name="funcao-list"),
+    path("mao-de-obra/funcoes/nova", v("add_funcaomaodeobra", views_funcao.FuncaoCreateView), name="funcao-create"),
+    path("mao-de-obra/funcoes/<int:pk>", v("view_funcaomaodeobra", views_funcao.FuncaoDetalheView), name="funcao-detalhe"),
+    path("mao-de-obra/funcoes/<int:pk>/editar", v("change_funcaomaodeobra", views_funcao.FuncaoUpdateView), name="funcao-edit"),
+    path("mao-de-obra/funcoes/<int:pk>/excluir", v("delete_funcaomaodeobra", views_funcao.FuncaoExcluirView), name="funcao-excluir"),
+    path("mao-de-obra/funcoes/<int:pk>/itens/novo", v("add_componentefuncao", views_funcao.ComponenteCreateView), name="componente-create"),
+    path("mao-de-obra/itens/<int:pk>/editar", v("change_componentefuncao", views_funcao.ComponenteUpdateView), name="componente-edit"),
+    path("mao-de-obra/itens/<int:pk>/excluir", v("delete_componentefuncao", views_funcao.ComponenteExcluirView), name="componente-excluir"),
+    # Planejamento e indicadores.
+    path("mao-de-obra/simulacoes", v("view_simulacaopromocao", views_funcao.SimulacaoListView), name="simulacao-list"),
+    path("mao-de-obra/simulacoes/nova", v("add_simulacaopromocao", views_funcao.SimulacaoCreateView), name="simulacao-create"),
+    path("mao-de-obra/simulacoes/<int:pk>", v("view_simulacaopromocao", views_funcao.SimulacaoDetalheView), name="simulacao-detalhe"),
+    path("mao-de-obra/simulacoes/<int:pk>/editar", v("change_simulacaopromocao", views_funcao.SimulacaoUpdateView), name="simulacao-edit"),
+    path("mao-de-obra/simulacoes/<int:pk>/excluir", v("delete_simulacaopromocao", views_funcao.SimulacaoExcluirView), name="simulacao-excluir"),
+    path("mao-de-obra/dashboard", v("view_colaborador", views_funcao.DashboardView), name="mao-obra-dashboard"),
 ]

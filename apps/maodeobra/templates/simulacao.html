@@ -1,0 +1,56 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Simulações de promoção" %} - Mão de obra - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2">
+  <h4 class="mb-0">{% translate "Mão de obra" %}</h4>
+  {% if perms.maodeobra.add_simulacaopromocao %}<a href="{% url 'simulacao-create' %}" class="btn btn-primary"><i class="icon-base ti tabler-plus me-1"></i>{% translate "Nova simulação" %}</a>{% endif %}
+</div>
+{% include "_mo_nav.html" with ativa="simulacoes" %}
+<div class="alert alert-info py-2 small" role="note">{% translate "Simulações são PLANEJAMENTO: não alteram colaboradores, funções, apontamentos nem preços." %}</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="q">{% translate "Pesquisar" %}</label><input type="text" id="q" name="q" class="form-control" value="{{ termo_pesquisa }}"></div>
+      {% if mostrar_unidade %}<div class="col-md-auto"><label class="form-label">{% translate "Unidade" %}</label><div>{% include "partials/unidade_filtro.html" %}</div></div>{% endif %}
+      <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Filtrar" %}</button></div>
+    </form>
+  </div>
+  <div class="table-responsive text-nowrap">
+    <table class="table">
+      <thead><tr><th>{% translate "Cenário" as label %}{% include "_th_ordenavel.html" with campo="nome" label=label %}</th>{% if mostrar_unidade %}<th>{% translate "Unidade" %}</th>{% endif %}<th>{% translate "Tipo" %}</th><th>{% translate "Quem" %}</th><th>{% translate "Para" %}</th><th>{% translate "Referência" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for s in simulacoes %}
+        <tr>
+          <td><a href="{% url 'simulacao-detalhe' s.pk %}">{{ s.nome }}</a></td>
+          {% if mostrar_unidade %}<td>{% include "partials/unidade_selo.html" with item=s %}</td>{% endif %}
+          <td>{{ s.get_tipo_display }}</td>
+          <td>{% if s.tipo == "pessoa" %}{{ s.colaborador.nome }}{% else %}{{ s.funcao_origem.nome }}{% endif %}</td>
+          <td>{% if s.funcao_destino %}{{ s.funcao_destino.nome }}{% else %}<span class="text-muted">{% translate "mesma função" %}</span>{% endif %}</td>
+          <td>{{ s.data_referencia|date:"d/m/Y" }}</td>
+          <td class="text-end">
+            <a href="{% url 'simulacao-detalhe' s.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Ver resultado' %}"><i class="icon-base ti tabler-chart-bar"></i></a>
+            {% if perms.maodeobra.change_simulacaopromocao and s.cliente_id == user.profile.cliente_id or perms.maodeobra.change_simulacaopromocao and perms.cliente.change_itensfilial %}<a href="{% url 'simulacao-edit' s.pk %}" class="btn btn-icon btn-text-secondary rounded-pill" title="{% translate 'Editar' %}"><i class="icon-base ti tabler-edit"></i></a>{% endif %}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="{% if mostrar_unidade %}7{% else %}6{% endif %}" class="text-center py-6">{% translate "Nenhuma simulação." %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj and is_paginated %}
+  <div class="card-body d-flex justify-content-end"><ul class="pagination mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">{% translate "Anterior" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">{% translate "Próxima" %}</a></li>{% endif %}
+  </ul></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('simulacoes');</script>
+{% endblock page_js %}

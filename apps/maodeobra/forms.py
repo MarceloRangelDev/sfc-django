@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.produto.models import Produto
 from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMixin
@@ -9,7 +10,7 @@ from web_project.forms import DecimalBRField, MoedaCentavosField, UnidadeFormMix
 from web_project.regras import RegraNegocioError
 
 from .calculo import derivados_do_mes
-from .models import Apontamento, Colaborador, ConfiguracaoMaoDeObra
+from .models import Apontamento, Colaborador, ComponenteFuncao, ConfiguracaoMaoDeObra, FuncaoMaoDeObra
 
 CONTROLE = {"class": "form-control"}
 SELECT = {"class": "form-select"}
@@ -21,6 +22,11 @@ class ColaboradorForm(UnidadeFormMixin, forms.ModelForm):
     valor_hora = MoedaCentavosField(required=False, label="Valor da hora (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "0,00"}))
     valor_dia = MoedaCentavosField(required=False, label="Valor do dia (R$)", widget=forms.TextInput(attrs={**CONTROLE, "data-mask": "moeda", "placeholder": "Vazio = valor da hora × jornada"}))
 
+    # Função do cadastro de funções (histórico em VinculoFuncao). O campo `funcao` (texto livre) continua existindo para
+    # quem não usa o cadastro; ao escolher uma função ele é preenchido com o nome dela.
+    funcao_vinculada = forms.ModelChoiceField(queryset=FuncaoMaoDeObra.objects.none(), required=False, label="Função cadastrada", widget=forms.Select(attrs=SELECT))
+    funcao_inicio = forms.DateField(required=False, label="Vigente a partir de", widget=forms.DateInput(attrs={**CONTROLE, "type": "date"}, format="%Y-%m-%d"))
+
     class Meta:
         model = Colaborador
         fields = ["nome", "funcao", "valor_mes", "valor_hora", "valor_dia", "ativo"]
@@ -29,6 +35,20 @@ class ColaboradorForm(UnidadeFormMixin, forms.ModelForm):
     def __init__(self, *args, cliente=None, unidades=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.configurar_unidade(cliente, unidades)
+        escopo = unidades if unidades is not None else type(cliente).objects.filter(pk=getattr(cliente, "pk", None))
+        filtro = Q(cliente__in=escopo, ativo=True)
+        atual = self.vinculo_atual()
+        if atual:  # a função atual segue na lista mesmo desativada
+            filtro |= Q(pk=atual.funcao_id)
+            self.fields["funcao_vinculada"].initial = atual.funcao_id
+        self.fields["funcao_vinculada"].queryset = FuncaoMaoDeObra.objects.filter(filtro).order_by("nome")
+        self.fields["funcao_vinculada"].empty_label = "— Sem função cadastrada —" if not atual else "— Manter a função atual —"
+        self.fields["funcao_inicio"].initial = timezone.localdate()
+
+    def vinculo_atual(self):
+        if not self.instance.pk:
+            return None
+        return self.instance.vinculos_funcao.filter(fim__isnull=True).select_related("funcao").first()
 
     @property
     def config(self):
@@ -38,6 +58,19 @@ class ColaboradorForm(UnidadeFormMixin, forms.ModelForm):
     def clean(self):
         dados = super().clean()
         mes = dados.get("valor_mes")
+        funcao = dados.get("funcao_vinculada")
+        if funcao is not None:
+            if funcao.cliente_id != self.cliente_alvo().pk:
+                self.add_error("funcao_vinculada", "A função deve ser da mesma unidade do colaborador.")
+            else:
+                inicio = dados.get("funcao_inicio") or timezone.localdate()
+                dados["funcao_inicio"] = inicio
+                atual = self.vinculo_atual()
+                if atual and atual.funcao_id != funcao.pk and inicio <= atual.inicio:
+                    self.add_error("funcao_inicio", "A nova vigência deve começar depois do início da função atual.")
+                mes = self._salario_com_funcao(funcao, inicio, mes)
+                dados["valor_mes"] = mes
+                dados["funcao"] = funcao.nome[:80]
         if mes:
             # Valor mensal informado: hora e dia são calculados NO SERVIDOR (a prévia da tela é só conveniência).
             try:
@@ -50,6 +83,27 @@ class ColaboradorForm(UnidadeFormMixin, forms.ModelForm):
         elif not dados.get("valor_hora"):
             self.add_error("valor_hora", "Informe o valor da hora (maior que zero) ou o valor por mês.")
         return dados
+
+    @staticmethod
+    def _salario_com_funcao(funcao, data, mes):
+        """Salário mensal que vale com a função: o da função, a menos que o item de salário seja personalizável e o usuário tenha
+        informado um valor próprio. Mantém valor_mes (e, portanto, h/mês, hora e dia) coerente com a função. Sem salário vigente
+        na função, vale o que o usuário digitou."""
+        from .composicao import _vigente
+
+        salario = ComponenteFuncao.objects.filter(_vigente(data), funcao=funcao, categoria="salario").order_by("-inicio").first()
+        if salario is None:
+            return mes
+        return mes if (salario.personalizavel and mes) else salario.valor
+
+    def save(self, commit=True):
+        colaborador = super().save(commit=commit)
+        funcao = self.cleaned_data.get("funcao_vinculada")
+        if commit and funcao is not None:
+            from .composicao import trocar_funcao
+
+            trocar_funcao(colaborador, funcao, self.cleaned_data["funcao_inicio"], getattr(self, "usuario", None))
+        return colaborador
 
     def clean_nome(self):
         nome = " ".join((self.cleaned_data.get("nome") or "").split())

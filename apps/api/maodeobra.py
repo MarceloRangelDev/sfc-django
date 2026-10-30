@@ -5,29 +5,52 @@ minutos, horas extras e valores. Dinheiro em centavos. O apontamento guarda os p
 hora ou as regras depois não altera lançamentos antigos; PUT/PATCH em um apontamento o RECALCULA com os valores de hoje.
 Valores de hora e diária são dados sensíveis: só Administrador e Gestor acessam (o Operador não).
 """
+from datetime import date
 from decimal import Decimal
+
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 
 from apps.auditoria.utils import registrar_edicao, tirar_foto
+from apps.maodeobra import composicao
+from apps.maodeobra.forms_funcao import PersonalizacaoForm
 from apps.maodeobra.forms import ApontamentoForm, ColaboradorForm, ConfiguracaoForm, PeriodoForm
 from apps.maodeobra.models import Apontamento, Colaborador, ConfiguracaoMaoDeObra
 from apps.maodeobra.views import linhas_do_relatorio
 from web_project.acesso import cliente_do_usuario, clientes_dos_itens
 
-from .negocio import RecursoViewSet, documentar, erros_de
+from .negocio import RecursoViewSet, documentar, erros_de, reais
 from .pdv import PermissaoPorAcao
 from .views import resposta
 
 
 class ColaboradorSerializer(serializers.ModelSerializer):
+    funcao_vinculada = serializers.SerializerMethodField(help_text="Id da função cadastrada vigente (vínculo aberto) ou null.")
+    funcao_vinculada_nome = serializers.SerializerMethodField()
+
     class Meta:
         model = Colaborador
-        fields = ["id", "nome", "funcao", "valor_mes", "valor_hora", "valor_dia", "ativo", "criado_em", "atualizado_em"]
+        fields = ["id", "nome", "funcao", "funcao_vinculada", "funcao_vinculada_nome", "valor_mes", "valor_hora", "valor_dia", "ativo", "criado_em", "atualizado_em"]
         read_only_fields = fields
+
+    def _vinculo(self, c):
+        abertos = getattr(c, "vinculo_aberto_lista", None)
+        if abertos is None:
+            return c.vinculos_funcao.filter(fim__isnull=True).select_related("funcao").first()
+        return abertos[0] if abertos else None
+
+    def get_funcao_vinculada(self, c) -> int | None:
+        v = self._vinculo(c)
+        return v.funcao_id if v else None
+
+    def get_funcao_vinculada_nome(self, c) -> str | None:
+        v = self._vinculo(c)
+        return v.funcao.nome if v else None
 
 
 class ColaboradorEntrada(serializers.Serializer):
@@ -36,6 +59,8 @@ class ColaboradorEntrada(serializers.Serializer):
     valor_mes = serializers.IntegerField(min_value=1, required=False, allow_null=True, help_text="Centavos por mês (opcional): calcula hora e dia pelas regras da unidade (horas e dias por mês).")
     valor_hora = serializers.IntegerField(min_value=1, required=False, help_text="Centavos por hora (obrigatório se não houver valor por mês).")
     valor_dia = serializers.IntegerField(min_value=0, required=False, allow_null=True, help_text="Centavos por dia; vazio = valor da hora × jornada.")
+    funcao_vinculada = serializers.IntegerField(required=False, allow_null=True, help_text="Id de uma função cadastrada da sua empresa. Traz o salário da função para valor_mes (a menos que o item de salário seja personalizável e valor_mes seja informado) e registra o histórico.")
+    funcao_inicio = serializers.DateField(required=False, help_text="Vigência da nova função (padrão hoje). A função anterior é encerrada na véspera.")
     ativo = serializers.BooleanField(required=False)
 
 
@@ -48,9 +73,79 @@ class ColaboradorViewSet(RecursoViewSet):
     campos_busca = ("nome", "funcao")
     campos_moeda = ("valor_mes", "valor_hora", "valor_dia")
     rotulo = "Colaborador"
+    permissoes_por_acao = {"composicao": "view", "personalizacoes": "change"}
+
+    def consulta_base(self):
+        from django.db.models import Prefetch
+
+        from apps.maodeobra.models import VinculoFuncao
+
+        return Colaborador.objects.prefetch_related(Prefetch("vinculos_funcao", queryset=VinculoFuncao.objects.filter(fim__isnull=True).select_related("funcao"), to_attr="vinculo_aberto_lista"))
 
     def dados_atuais(self, c):
-        return {"nome": c.nome, "funcao": c.funcao, "valor_mes": c.valor_mes, "valor_hora": c.valor_hora, "valor_dia": c.valor_dia, "ativo": c.ativo}
+        dados = {"nome": c.nome, "funcao": c.funcao, "valor_mes": c.valor_mes, "valor_hora": c.valor_hora, "valor_dia": c.valor_dia, "ativo": c.ativo}
+        vinculo = c.vinculos_funcao.filter(fim__isnull=True).first()
+        if vinculo:  # mantém o salário coerente com a função mesmo num PATCH que só mexe em outros campos
+            dados["funcao_vinculada"] = vinculo.funcao_id
+        return dados
+
+    def gravar(self, request, contexto, dados, instancia, foto):
+        colaborador = super().gravar(request, contexto, dados, instancia, foto)
+        form = contexto["form"]
+        funcao = form.cleaned_data.get("funcao_vinculada")
+        if funcao is not None:
+            composicao.trocar_funcao(colaborador, funcao, form.cleaned_data["funcao_inicio"], request.user)
+        return colaborador
+
+    @extend_schema(parameters=[OpenApiParameter("data", str, description="AAAA-MM-DD (padrão hoje).")], responses={200: OpenApiTypes.OBJECT},
+                   description="Composição de custo na data: itens (herdado × personalizado), total mensal, custo por dia/semana/quinzena/mês/bimestre/trimestre/semestre/ano e por hora. Informativo.")
+    @action(detail=True, methods=["get"])
+    def composicao(self, request, *args, **kwargs):
+        from django.utils import timezone
+
+        data = timezone.localdate()
+        if request.query_params.get("data"):
+            try:
+                data = date.fromisoformat(request.query_params["data"])
+            except ValueError:
+                raise serializers.ValidationError({"data": ["Use o formato AAAA-MM-DD."]}) from None
+        return resposta(composicao.como_dict(composicao.composicao_do_colaborador(self.get_object(), data)))
+
+    @extend_schema(request=inline_serializer("PersonalizacoesEntrada", {"itens": serializers.ListField(child=serializers.DictField(), help_text="[{componente, valor (centavos) | percentual (texto)}]. Item omitido ou com valor nulo volta a herdar a função.")}),
+                   responses={200: OpenApiTypes.OBJECT}, description="Substitui TODAS as personalizações do vínculo atual. Só vale para itens marcados como personalizáveis (o salário se altera no próprio colaborador).")
+    @action(detail=True, methods=["put"])
+    def personalizacoes(self, request, *args, **kwargs):
+        from django.db import transaction
+        from django.utils import timezone
+
+        from apps.maodeobra.models import ComponenteFuncao
+
+        colaborador = self.get_object()
+        resultado = composicao.composicao_do_colaborador(colaborador, timezone.localdate())
+        if not resultado.vinculo:
+            raise serializers.ValidationError({"itens": ["Vincule uma função ao colaborador antes de personalizar itens."]})
+        itens = request.data.get("itens")
+        if not isinstance(itens, list):
+            raise serializers.ValidationError({"itens": ["Envie uma lista de itens."]})
+        componentes = list(ComponenteFuncao.objects.filter(funcao=resultado.vinculo.funcao, funcao__cliente=colaborador.cliente_id, ativo=True))
+        dados = {}
+        for item in itens:
+            if not isinstance(item, dict) or not str(item.get("componente", "")).isdigit():
+                raise serializers.ValidationError({"itens": ["Cada item precisa de 'componente' (id)."]})
+            componente = next((c for c in componentes if c.pk == int(item["componente"])), None)
+            if componente is None or not componente.personalizavel or componente.categoria == "salario":
+                raise serializers.ValidationError({"itens": [f"O item {item['componente']} não pode ser personalizado."]})
+            valor = item.get("valor") if componente.tipo_valor == "fixo" else item.get("percentual")
+            dados[f"item_{componente.pk}"] = "" if valor is None else (reais(valor) if componente.tipo_valor == "fixo" else str(valor))
+        form = PersonalizacaoForm(dados, vinculo=resultado.vinculo, componentes=componentes)
+        if not form.is_valid():
+            raise serializers.ValidationError(erros_de(form))
+        try:
+            with transaction.atomic():
+                form.salvar()
+        except DjangoValidationError as erro:
+            raise serializers.ValidationError({"itens": erro.messages}) from None
+        return resposta(composicao.como_dict(composicao.composicao_do_colaborador(colaborador, timezone.localdate())), "Personalizações salvas.")
 
 
 class ApontamentoSerializer(serializers.ModelSerializer):

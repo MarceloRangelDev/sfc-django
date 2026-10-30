@@ -1,0 +1,90 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% translate "Composição de custo" %} - {{ colaborador.nome }} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center py-4 mb-2 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ colaborador.nome }}</h4>
+    <div class="text-muted small">{% if resultado.funcao %}{% translate "Função" %}: <a href="{% url 'funcao-detalhe' resultado.funcao.pk %}">{{ resultado.funcao.nome }}</a>{% else %}{% translate "Sem função vinculada" %}{% endif %}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'colaborador-list' %}" class="btn btn-outline-secondary">{% translate "Voltar" %}</a>
+    {% if perms.maodeobra.change_colaborador %}<a href="{% url 'colaborador-edit' colaborador.pk %}" class="btn btn-outline-primary">{% translate "Editar colaborador" %}</a>{% endif %}
+  </div>
+</div>
+{% include "_mo_nav.html" with ativa="colaboradores" %}
+
+<div class="alert alert-info py-2 small" role="note">{% translate "Valores informativos para gestão de custo: não alteram o valor da hora nem os apontamentos. O valor por mês, a hora e as horas por mês continuam no cadastro do colaborador." %}</div>
+{% if resultado.incompleto %}<div class="alert alert-warning py-2 small" role="alert"><strong>{% translate "Dados incompletos:" %}</strong> {% for m in resultado.motivos %}{{ m }} {% endfor %}</div>{% endif %}
+
+<div class="card mb-4" id="cartaoData"><div class="card-body">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-auto"><label class="form-label" for="data">{% translate "Data de referência" %}</label><input type="date" id="data" name="data" value="{{ data|date:'Y-m-d' }}" class="form-control"></div>
+    <div class="col-md-auto"><button class="btn btn-outline-primary">{% translate "Calcular" %}</button></div>
+  </form>
+</div></div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="card" id="cartaoComposicao">
+        <div class="card-header"><h5 class="card-title mb-0">{% translate "Composição mensal" %}</h5><div class="small text-muted mt-1">{% translate "Herdado = valor da função. Personalizado = valor próprio deste colaborador (só nos itens marcados como personalizáveis)." %}</div></div>
+        <div class="table-responsive text-nowrap">
+          <table class="table">
+            <thead><tr><th>{% translate "Categoria" %}</th><th>{% translate "Item" %}</th><th>{% translate "Da função" %}</th><th>{% translate "Deste colaborador" %}</th><th class="text-end">{% translate "Por mês" %}</th></tr></thead>
+            <tbody>
+              {% for i in composicao.itens %}
+              <tr>
+                <td>{{ i.rotulo_categoria }}</td>
+                <td>{{ i.nome }}{% if i.origem == "personalizado" %} <span class="badge bg-label-warning">{% translate "personalizado" %}</span>{% elif i.origem == "colaborador" %} <span class="badge bg-label-secondary">{% translate "do cadastro" %}</span>{% else %} <span class="badge bg-label-primary">{% translate "herdado" %}</span>{% endif %}</td>
+                <td>{% if i.origem == "personalizado" %}{% if i.tipo == "fixo" %}{{ i.herdado_valor|moeda }}{% else %}{{ i.herdado_percentual|floatformat:"-4" }}%{% endif %}{% elif i.origem == "funcao" %}{% if i.tipo == "fixo" %}{{ i.valor|moeda }}{% else %}{{ i.percentual|floatformat:"-4" }}%{% endif %}{% else %}—{% endif %}</td>
+                <td>{% if i.origem == "personalizado" %}{% if i.tipo == "fixo" %}{{ i.valor|moeda }}{% else %}{{ i.percentual|floatformat:"-4" }}%{% endif %}{% elif i.origem == "colaborador" %}{{ i.valor|moeda }}{% else %}<span class="text-muted">{% translate "herda" %}</span>{% endif %}</td>
+                <td class="text-end">{{ i.mensal|moeda }}</td>
+              </tr>
+              {% empty %}<tr><td colspan="5" class="text-center py-5">{% translate "Sem itens: vincule uma função com itens de custo." %}</td></tr>{% endfor %}
+              <tr class="fw-semibold"><td colspan="4">{% translate "Total por mês" %}</td><td class="text-end">{{ composicao.total_mensal|moeda }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {% if form and form.fields %}
+      <div class="card mt-4" id="cartaoPersonalizar">
+        <div class="card-header"><h5 class="card-title mb-0">{% translate "Personalizar itens" %}</h5><div class="small text-muted mt-1">{% translate "Preencha só o que for diferente da função; vazio volta a herdar. Vale para a função atual do colaborador." %}</div></div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for campo in form %}<div class="col-md-4"><label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>{{ campo }}{% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}</div>{% endfor %}
+          </div>
+          {% if pode_personalizar %}<div class="mt-4"><button type="submit" class="btn btn-primary" data-botao-salvar>{% translate "Salvar personalizações" %}</button></div>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-4" id="cartaoPeriodos">
+      <div class="card-header"><h5 class="card-title mb-0">{% translate "Custo por período" %}</h5></div>
+      <table class="table table-sm mb-0">
+        {% for codigo, rotulo, valor in composicao.periodos_lista %}<tr><td class="ps-4">{{ rotulo }}</td><td class="text-end pe-4">{{ valor|moeda }}</td></tr>{% endfor %}
+        <tr class="fw-semibold"><td class="ps-4">{% translate "Hora" %}</td><td class="text-end pe-4">{{ composicao.custo_hora|moeda }}</td></tr>
+      </table>
+      <div class="card-body small text-muted">{% translate "Dia, semana e quinzena seguem os dias do mês das regras de cálculo; hora, as horas por mês (h/mês)." %}</div>
+    </div>
+    <div class="card" id="cartaoHistorico">
+      <div class="card-header"><h5 class="card-title mb-0">{% translate "Histórico de funções" %}</h5></div>
+      <ul class="list-group list-group-flush">
+        {% for v in historico %}<li class="list-group-item"><strong>{{ v.funcao.nome }}</strong><div class="small text-muted">{{ v.inicio|date:"d/m/Y" }} → {% if v.fim %}{{ v.fim|date:"d/m/Y" }}{% else %}{% translate "atual" %}{% endif %}</div></li>{% empty %}<li class="list-group-item text-muted">{% translate "Nenhuma função vinculada ainda." %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('colaborador-composicao');</script>
+{% endblock page_js %}

@@ -1,0 +1,48 @@
+{% extends layout_path %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% if object %}{% translate "Editar simulação" %}{% else %}{% translate "Nova simulação" %}{% endif %} - Sistema Faturando Certo{% endblock title %}
+
+{% block content %}
+<h4 class="py-4 mb-2">{% if object %}{% translate "Editar simulação" %}{% else %}{% translate "Nova simulação de promoção" %}{% endif %}</h4>
+<p class="text-muted">{% translate "Planejamento: os dados reais do colaborador e da função não são alterados. Para uma pessoa, a função de destino traz os itens dela (sem personalizações); sem destino, só o salário é ajustado." %}</p>
+<div class="card"><div class="card-body">
+  <form method="post" data-form-salvar novalidate id="formSimulacao">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-4">
+      {% if form.fields.cliente %}<div class="col-md-6"><label for="{{ form.cliente.id_for_label }}" class="form-label">{% translate "Unidade" %}</label>{{ form.cliente }}</div>{% endif %}
+      <div class="col-md-6"><label for="{{ form.nome.id_for_label }}" class="form-label">{% translate "Nome do cenário" %}</label>{{ form.nome }}{% if form.nome.errors %}<div class="text-danger small mt-1">{{ form.nome.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-6"><label class="form-label d-block">{% translate "Simular promoção" %}</label>
+        <div class="d-flex gap-4" id="id_tipo">{% for radio in form.tipo %}<div class="form-check">{{ radio.tag }}<label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}</div>
+        {% if form.tipo.errors %}<div class="text-danger small mt-1">{{ form.tipo.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-6" data-so="pessoa"><label for="{{ form.colaborador.id_for_label }}" class="form-label">{% translate "Colaborador" %}</label>{{ form.colaborador }}{% if form.colaborador.errors %}<div class="text-danger small mt-1">{{ form.colaborador.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-6" data-so="funcao"><label for="{{ form.funcao_origem.id_for_label }}" class="form-label">{% translate "Função de origem" %}</label>{{ form.funcao_origem }}{% if form.funcao_origem.errors %}<div class="text-danger small mt-1">{{ form.funcao_origem.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Todos os colaboradores ativos desta função entram na simulação." %}</div></div>
+      <div class="col-md-6"><label for="{{ form.funcao_destino.id_for_label }}" class="form-label">{% translate "Função de destino" %}</label>{{ form.funcao_destino }}{% if form.funcao_destino.errors %}<div class="text-danger small mt-1">{{ form.funcao_destino.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-3"><label for="{{ form.novo_salario.id_for_label }}" class="form-label">{% translate "Novo salário mensal (R$)" %}</label>{{ form.novo_salario }}{% if form.novo_salario.errors %}<div class="text-danger small mt-1">{{ form.novo_salario.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Opcional. Sem novo salário nem ajuste, vale o salário da função de destino." %}</div></div>
+      <div class="col-md-3"><label for="{{ form.ajuste_salario_percentual.id_for_label }}" class="form-label">{% translate "ou ajuste do salário (%)" %}</label>{{ form.ajuste_salario_percentual }}{% if form.ajuste_salario_percentual.errors %}<div class="text-danger small mt-1">{{ form.ajuste_salario_percentual.errors|striptags }}</div>{% endif %}<div class="form-text">{% translate "Sobre o salário atual. Use um OU outro." %}</div></div>
+      <div class="col-md-3"><label for="{{ form.data_referencia.id_for_label }}" class="form-label">{% translate "Data de referência" %}</label>{{ form.data_referencia }}{% if form.data_referencia.errors %}<div class="text-danger small mt-1">{{ form.data_referencia.errors|striptags }}</div>{% endif %}</div>
+      <div class="col-md-9"><label for="{{ form.observacao.id_for_label }}" class="form-label">{% translate "Observações" %}</label>{{ form.observacao }}</div>
+    </div>
+    <div class="mt-6">{% url 'simulacao-list' as url_lista %}{% include "partials/botoes_salvar.html" with cancelar=url_lista %}</div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>initTourModulo('simulacao-form');</script>
+<script src="{% static_v 'js/form-salvar.js' %}"></script>
+<script>
+  // Mostra o campo de colaborador (por pessoa) ou de função de origem (por função); o servidor valida de novo.
+  (function () {
+    var radios = document.querySelectorAll('#formSimulacao input[name="tipo"]');
+    function atualizar() {
+      var tipo = (document.querySelector('#formSimulacao input[name="tipo"]:checked') || {}).value || 'pessoa';
+      document.querySelectorAll('#formSimulacao [data-so]').forEach(function (el) { el.style.display = el.dataset.so === tipo ? '' : 'none'; });
+    }
+    radios.forEach(function (r) { r.addEventListener('change', atualizar); }); atualizar();
+  })();
+</script>
+{% endblock %}
